@@ -1,3 +1,9 @@
+"""
+Usage:
+    python3 train_mnist.py
+"""
+
+import numpy as np
 from absl import flags, app
 
 import tensorflow as tf
@@ -6,13 +12,13 @@ from tensorflow.keras.datasets import mnist
 from dro.training.models import BaselineModel
 from dro.training.optimizer import optimizer_from_flags
 
-
 flags.DEFINE_string("optimizer", default="sgd", help="Name of optimizer to use.")
 
 FLAGS = flags.FLAGS
 
 
 def main(argv):
+
     baseline_model = BaselineModel()
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_train, x_test = x_train / 255.0, x_test / 255.0
@@ -20,8 +26,16 @@ def main(argv):
     x_train = x_train[..., tf.newaxis]
     x_test = x_test[..., tf.newaxis]
 
+    # Initialize epsilon
+    epsilon_init = 0.1  # value to initialize epsilon; see Section 4 of paper
+    n_train = x_train.shape[0]
+    epsilon_train = tf.fill([n_train, ], epsilon_init)
+
+    # train_indices are used to index into epsilon during training.
+    train_indices = tf.convert_to_tensor(np.arange(n_train))
+
     train_ds = tf.data.Dataset.from_tensor_slices(
-        (x_train, y_train)).shuffle(10000).batch(32)
+        (x_train, y_train, train_indices)).shuffle(10000).batch(32)
 
     test_ds = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(32)
 
@@ -58,7 +72,6 @@ def main(argv):
         test_accuracy(labels, predictions)
 
     EPOCHS = 5
-
     for epoch in range(EPOCHS):
         # Reset the metrics at the start of the next epoch
         train_loss.reset_states()
@@ -66,7 +79,9 @@ def main(argv):
         test_loss.reset_states()
         test_accuracy.reset_states()
 
-        for images, labels in train_ds:
+        for images, labels, s in train_ds:
+            import ipdb;ipdb.set_trace()
+            epsilon_s = tf.gather_nd(epsilon_train, s)
             train_step(images, labels)
 
         for test_images, test_labels in test_ds:

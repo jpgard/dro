@@ -1,9 +1,9 @@
 import tensorflow as tf
 
 def optimizer_from_flags(flags):
-    if flags.loss_name == "sgd":
+    if flags.optimizer == "sgd":
         return tf.keras.optimizers.SGD()
-    elif flags.loss_name == "adam":
+    elif flags.optimizer == "adam":
         return tf.keras.optimizers.Adam()
     else:
         raise NotImplementedError

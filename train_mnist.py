@@ -22,12 +22,11 @@ def main(argv):
     baseline_model = BaselineModel()
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_train, x_test = x_train / 255.0, x_test / 255.0
-    # Add a channels dimension
-    x_train = x_train[..., tf.newaxis]
-    x_test = x_test[..., tf.newaxis]
 
     # Initialize epsilon
     epsilon_init = 0.1  # value to initialize epsilon; see Section 4 of paper
+    p = 2
+    q = np.inf
     n_train = x_train.shape[0]
     epsilon_train = tf.fill([n_train, ], epsilon_init)
 
@@ -80,8 +79,14 @@ def main(argv):
         test_accuracy.reset_states()
 
         for images, labels, s in train_ds:
+            # Below is an example of using s to index into a tensor, here epsilon
+            # tf.gather(epsilon_train, tf.reshape(s, [-1]))
             import ipdb;ipdb.set_trace()
-            epsilon_s = tf.gather_nd(epsilon_train, s)
+            X_norm_pq = np.linalg.norm(images.numpy(), ord=(p), axis=0)
+            X_norm_p = tf.norm(images, ord=p, axis=0)
+            X_norm_pq = tf.norm(images, ord=(p,q))
+            epsilon_s = X_norm_pq
+            X_tilde_s = None  #TODO: continue with Algorithm 1 by solving OPT problem here
             train_step(images, labels)
 
         for test_images, test_labels in test_ds:

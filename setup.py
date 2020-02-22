@@ -6,5 +6,5 @@ setup(name='dro',
       author='Josh Gardner',
       author_email='jpgard@cs.washington.edu',
       url='https://github.com/jpgard/dro',
-      packages=['dro', ],
+      packages=['dro', 'dro.sinha', 'dro.training'],
       )

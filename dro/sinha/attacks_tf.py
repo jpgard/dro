@@ -17,7 +17,7 @@ import numpy as np
 from six.moves import xrange
 import tensorflow as tf
 
-import utils_tf
+from dro.sinha import utils_tf
 
 from tensorflow.python.platform import flags
 FLAGS = flags.FLAGS

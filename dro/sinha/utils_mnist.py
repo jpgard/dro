@@ -10,7 +10,7 @@ from keras.datasets import mnist
 from keras.utils import np_utils
 import warnings
 
-import utils
+import dro.sinha.utils
 
 def data_mnist():
     # These values are specific to MNIST

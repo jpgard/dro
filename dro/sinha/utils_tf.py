@@ -14,7 +14,7 @@ import tensorflow as tf
 import time
 import warnings
 
-from utils import batch_indices, _ArgsWrapper
+from dro.sinha.utils import batch_indices, _ArgsWrapper
 
 from tensorflow.python.platform import flags
 

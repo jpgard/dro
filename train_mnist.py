@@ -18,6 +18,7 @@ FLAGS = flags.FLAGS
 
 
 def main(argv):
+    batch_size = 32
 
     baseline_model = BaselineModel()
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -36,7 +37,7 @@ def main(argv):
     train_ds = tf.data.Dataset.from_tensor_slices(
         (x_train, y_train, train_indices)).shuffle(10000).batch(32)
 
-    test_ds = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(32)
+    test_ds = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(batch_size)
 
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy()
     optimizer = optimizer_from_flags(FLAGS)
@@ -79,14 +80,38 @@ def main(argv):
         test_accuracy.reset_states()
 
         for images, labels, s in train_ds:
+            X_s_T = tf.reshape(images, [batch_size, -1])
+            X_s = tf.transpose(X_s_T)  # [n_features, batch_size]
             # Below is an example of using s to index into a tensor, here epsilon
             # tf.gather(epsilon_train, tf.reshape(s, [-1]))
-            import ipdb;ipdb.set_trace()
-            X_norm_pq = np.linalg.norm(images.numpy(), ord=(p), axis=0)
-            X_norm_p = tf.norm(images, ord=p, axis=0)
-            X_norm_pq = tf.norm(images, ord=(p,q))
-            epsilon_s = X_norm_pq
-            X_tilde_s = None  #TODO: continue with Algorithm 1 by solving OPT problem here
+
+            # TODO(jpgard): double-check the norm logic here is correct; tensorflow
+            #  apparently cannot compute the p,q norm directly itself.
+
+            # compute p-norm along rows; resulting tensor has shape [batch_size,]
+            X_s_norm_p = tf.norm(X_s, ord=p, axis=0)
+            # compute q-norm along cols, resulting tensor is a constant
+            X_s_norm_pq = tf.norm(X_s_norm_p, ord=q)
+            epsilon_s = X_s_norm_pq
+            # TODO: continue with Algorithm 1 by solving OPT problem here using
+            #  procedure from Appendix B.
+
+            # Currently we are doing this for one obs, x_i.
+            gamma = epsilon_s  # this is the constraint on the infty-norm of the result.
+            i = 0
+            X_i = X_s[:,i]  # X_i is the ith column (observation) of X_s.
+            c_i = X_i
+            x_i_star = gamma * tf.sign(c_i)
+            v_i = x_i_star
+            a_i = tf.tensordot(c_i, v_i)  # this is a scalar
+            import ipdb;
+            ipdb.set_trace()
+
+
+
+
+
+            # TODO(jpgard): probably need to modify train_step.
             train_step(images, labels)
 
         for test_images, test_labels in test_ds:

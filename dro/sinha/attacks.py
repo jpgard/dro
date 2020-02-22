@@ -11,7 +11,7 @@ from abc import ABCMeta
 import numpy as np
 import warnings
 
-from attacks_tf import wrm
+from dro.sinha.attacks_tf import wrm
 
 class Attack:
     """

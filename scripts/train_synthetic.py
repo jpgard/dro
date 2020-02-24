@@ -13,9 +13,7 @@ from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
 from dro.sinha.attacks import WassersteinRobustMethod
-from dro.sinha.utils_mnist import data_mnist
 from dro.sinha.utils_tf import model_train, model_eval
-from dro.sinha.utils import cnn_model
 from dro.datasets import generate_simulated_dataset
 
 FLAGS = flags.FLAGS

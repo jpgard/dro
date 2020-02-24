@@ -20,6 +20,8 @@ def generate_simulated_dataset(n: int = 10 ** 6, p: float = 0.5, shuffle=True):
     y_neg = np.zeros(n_neg)
     X = np.concatenate([X_pos, X_neg], axis=0)
     y = np.concatenate([y_pos, y_neg], axis=0)
+    y = y.reshape((len(y), 1))
+    y = np.concatenate([np.ones_like(y) - y, y], axis=1)
     if shuffle:
         p = np.random.permutation(n)
         X, y = X[p], y[p]

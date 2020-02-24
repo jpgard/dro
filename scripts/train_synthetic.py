@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer('nb_epochs', 25, 'Number of epochs to train model')
 flags.DEFINE_integer('batch_size', 256, 'Size of training batches')
-flags.DEFINE_float('learning_rate', 0.001, 'Learning rate for training')
+flags.DEFINE_float('learning_rate', 0.01, 'Learning rate for training')
 flags.DEFINE_string('train_dir', './training-logs', 'Training directory')
 flags.DEFINE_string('filename_erm', 'erm.h5', 'Training directory')
 flags.DEFINE_string('filename_wrm', 'wrm.h5', 'Training directory')
@@ -53,11 +53,11 @@ def main(argv):
 
     # Define input TF placeholder
     x = tf.placeholder(tf.float32, shape=(None, 2))
-    y = tf.placeholder(tf.float32, shape=(None, 1))
+    y = tf.placeholder(tf.float32, shape=(None, 2))
 
     # TODO(jpgard): build the model and run some experiments.
     from dro.training.models import logistic_regression_model
-    model = logistic_regression_model(n_features=2)
+    model = logistic_regression_model(n_features=2, n_outputs=2)
     predictions = model(x)
     wrm = WassersteinRobustMethod(model, sess=sess)
     # TODO: tune these parameters and conduct a sensitivity analysis.

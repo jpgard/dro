@@ -29,8 +29,8 @@ flags.DEFINE_float('learning_rate', 0.01, 'Learning rate for training')
 
 # the wrm parameters
 flags.DEFINE_float('wrm_eps', 1.3, 'epsilon value to use for Wasserstein robust method')
-flags.DEFINE_int('wrm_ord', 2, 'order of norm to use in Wasserstein robust method')
-flags.DEFINE_int('wrm_steps', 15, 'number of steps to use in Wasserstein robus method')
+flags.DEFINE_integer('wrm_ord', 2, 'order of norm to use in Wasserstein robust method')
+flags.DEFINE_integer('wrm_steps', 15, 'number of steps to use in Wasserstein robus method')
 
 # simulation parameters
 flags.DEFINE_integer('num_samples', 10 ** 6, 'Number of samples to use in simulation')

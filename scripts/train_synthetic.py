@@ -32,14 +32,18 @@ flags.DEFINE_integer('batch_size', 256, 'Size of training batches')
 flags.DEFINE_float('learning_rate', 0.01, 'Learning rate for training')
 
 # the wrm parameters
-flags.DEFINE_multi_float('wrm_eps', [1.3, ],
-                         'epsilon value to use for Wasserstein robust method')
+flags.DEFINE_multi_float('wrm_eps', [1.1, 1.3, 1.5, 1.7, 2.0],
+                         'epsilon value to use for Wasserstein robust method; note that '
+                         'original default value is 1.3.')
 flags.DEFINE_integer('wrm_ord', 2, 'order of norm to use in Wasserstein robust method')
 flags.DEFINE_integer('wrm_steps', 15,
                      'number of steps to use in Wasserstein robus method')
 
 # simulation parameters
 flags.DEFINE_integer('num_samples', 10 ** 6, 'Number of samples to use in simulation')
+flags.DEFINE_integer('n_adversarial_iters', 10,
+                     'Number of iterations of adversarial training to execute for each '
+                     'set of parameters.')
 flags.DEFINE_multi_float('pos_prob', [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
                          'Probability of positive class in simulated data')
 flags.DEFINE_string('train_dir', './training-logs', 'Training directory')
@@ -119,12 +123,12 @@ def main(argv):
     # Dictionary to store experimental results; {(n,p, is_adversarial) : accuracy}
     results = list()
     n = FLAGS.num_samples
-    for p, eps, is_adversarial in product(FLAGS.pos_prob, FLAGS.wrm_eps, (True, False)):
+    for p, eps, is_adversarial in product(
+            FLAGS.pos_prob, FLAGS.wrm_eps, [True,] + [False] * FLAGS.n_adversarial_iters):
         metrics = run_simulation_experiment(n, p, sess, eps,
                                             adversarial_training=is_adversarial)
         results.append(
-            (n, p, is_adversarial, eps, metrics[keys.ACC], metrics[keys.ACC_ADV_W])
-        )
+            (n, p, is_adversarial, eps, metrics[keys.ACC], metrics[keys.ACC_ADV_W]))
     metrics_df = pd.DataFrame(
         results,
         columns=["n", "p", "is_adversarial", "epsilon", keys.ACC, keys.ACC_ADV_W]

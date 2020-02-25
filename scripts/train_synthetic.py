@@ -27,6 +27,11 @@ flags.DEFINE_integer('nb_epochs', 5, 'Number of epochs to train model')
 flags.DEFINE_integer('batch_size', 256, 'Size of training batches')
 flags.DEFINE_float('learning_rate', 0.01, 'Learning rate for training')
 
+# the wrm parameters
+flags.DEFINE_float('wrm_eps', 1.3, 'epsilon value to use for Wasserstein robust method')
+flags.DEFINE_int('wrm_ord', 2, 'order of norm to use in Wasserstein robust method')
+flags.DEFINE_int('wrm_steps', 15, 'number of steps to use in Wasserstein robus method')
+
 # simulation parameters
 flags.DEFINE_integer('num_samples', 10 ** 6, 'Number of samples to use in simulation')
 flags.DEFINE_multi_float('pos_prob', [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
@@ -72,7 +77,8 @@ def run_simulation_experiment(n, p, sess, adversarial_training=False, save_model
     x = tf.placeholder(tf.float32, shape=(None, 2))
     y = tf.placeholder(tf.float32, shape=(None, 2))
     # TODO: tune these parameters and conduct a sensitivity analysis.
-    wrm_params = {'eps': 1.3, 'ord': 2, 'y': y, 'steps': 15}
+    wrm_params = {'eps': FLAGS.wrm_eps, 'ord': FLAGS.wrm_ord, 'y': y,
+                  'steps': FLAGS.wrm_steps}
     # Define the TensorFlow graph.
     model = logistic_regression_model(n_features=2, n_outputs=2)
     predictions = model(x)

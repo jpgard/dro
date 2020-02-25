@@ -64,7 +64,7 @@ def model_loss(y, model, mean=True):
 
 
 def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
-                predictions_adv=None, evaluate=None, verbose=True, args=None):
+                predictions_adv=None, evaluate=None, verbose=True, args=None) -> dict:
     """
     Train a TF graph
     :param sess: TF session to use when training the graph
@@ -80,8 +80,8 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
                  Should contain `nb_epochs`, `learning_rate`,
                  `batch_size`
                  If save is True, should also contain 'train_dir'
-                 and 'filename'
-    :return: True if model trained
+                 and 'filename'.
+    :return: metrics_dict, a dictionary of metrics.
     """
     args = _FlagsWrapper(args or {})
 
@@ -132,7 +132,7 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
                 print("\tEpoch took " + str(cur - prev) + " seconds")
             prev = cur
             if evaluate is not None:
-                evaluate()
+                metrics_dict = evaluate()
 
         if save:
             save_path = os.path.join(args.train_dir, args.filename)
@@ -142,7 +142,7 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
         else:
             print("Completed model training.")
 
-    return True
+    return metrics_dict
 
 
 def model_eval(sess, x, y, model, X_test, Y_test, args=None):

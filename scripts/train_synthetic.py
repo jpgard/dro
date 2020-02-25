@@ -15,6 +15,7 @@ from tensorflow.python.platform import flags
 from dro.sinha.attacks import WassersteinRobustMethod
 from dro.sinha.utils_tf import model_train, model_eval
 from dro.datasets import generate_simulated_dataset
+from dro import keys
 
 FLAGS = flags.FLAGS
 
@@ -49,8 +50,8 @@ def model_eval_fn(sess, x, y, predictions, predictions_adv, X_test, Y_test, eval
     accuracy_adv_wass = model_eval(sess, x, y, predictions_adv, X_test,
                                    Y_test, args=eval_params)
     print('Test accuracy on Wasserstein examples: %0.4f\n' % accuracy_adv_wass)
-    # TODO(jpgard): return the accuracies and capture this when called in
-    #  model_train().
+    metrics_dict = {keys.ACC: accuracy, keys.ACC_ADV_W: accuracy_adv_wass}
+    return metrics_dict
 
 
 def main(argv):
@@ -74,7 +75,6 @@ def main(argv):
         x = tf.placeholder(tf.float32, shape=(None, 2))
         y = tf.placeholder(tf.float32, shape=(None, 2))
 
-        # TODO(jpgard): build the model and run some experiments.
         from dro.training.models import logistic_regression_model
         model = logistic_regression_model(n_features=2, n_outputs=2)
         predictions = model(x)
@@ -88,8 +88,9 @@ def main(argv):
                            X_test, Y_test, eval_params)
 
         # Train the model
-        model_train(sess, x, y, predictions, X_train, Y_train, evaluate=evaluate,
-                    args=train_params, save=False)
+        metrics = model_train(sess, x, y, predictions, X_train, Y_train,
+                              evaluate=evaluate, args=train_params, save=False)
+        import ipdb;ipdb.set_trace()
         # model.save(FLAGS.train_dir + '/' + FLAGS.filename_erm)
 
         print("Repeating the process, using Wasserstein adversarial training")
@@ -102,7 +103,7 @@ def main(argv):
                                predictions_adv_adv_wrm,
                                X_test, Y_test, eval_params)
 
-        model_train(sess, x, y, predictions_adv_adv_wrm, X_train, Y_train,
+        metrics = model_train(sess, x, y, predictions_adv_adv_wrm, X_train, Y_train,
                     predictions_adv=predictions_adv_adv_wrm, evaluate=evaluate_adv,
                     args=train_params, save=False)
         # model_adv.save(FLAGS.train_dir + '/' + FLAGS.filename_wrm)

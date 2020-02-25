@@ -1,10 +1,14 @@
 """
 Train a simple classifier on simulated data.
+
+Usage:
+python scripts/train_synthetic.py --wrm_eps 1.3 1.5 1.7 2.0
 """
 
 import numpy as np
 import os
 from functools import partial
+from itertools import product
 
 import pandas as pd
 import keras
@@ -28,9 +32,11 @@ flags.DEFINE_integer('batch_size', 256, 'Size of training batches')
 flags.DEFINE_float('learning_rate', 0.01, 'Learning rate for training')
 
 # the wrm parameters
-flags.DEFINE_float('wrm_eps', 1.3, 'epsilon value to use for Wasserstein robust method')
+flags.DEFINE_multi_float('wrm_eps', [1.3, ],
+                         'epsilon value to use for Wasserstein robust method')
 flags.DEFINE_integer('wrm_ord', 2, 'order of norm to use in Wasserstein robust method')
-flags.DEFINE_integer('wrm_steps', 15, 'number of steps to use in Wasserstein robus method')
+flags.DEFINE_integer('wrm_steps', 15,
+                     'number of steps to use in Wasserstein robus method')
 
 # simulation parameters
 flags.DEFINE_integer('num_samples', 10 ** 6, 'Number of samples to use in simulation')
@@ -66,7 +72,8 @@ def model_eval_fn(sess, x, y, predictions, predictions_adv, X_test, Y_test, eval
     return metrics_dict
 
 
-def run_simulation_experiment(n, p, sess, adversarial_training=False, save_model=False):
+def run_simulation_experiment(n, p, sess, eps: float,
+                              adversarial_training=False, save_model=False):
     """Run a simulation experiment with the specified parameters."""
     # Generate training and test data; note that the expected accuracy of the optimal
     # linear classifier on this data is approximately 0.6915.
@@ -76,9 +83,10 @@ def run_simulation_experiment(n, p, sess, adversarial_training=False, save_model
     # Define input TF placeholder
     x = tf.placeholder(tf.float32, shape=(None, 2))
     y = tf.placeholder(tf.float32, shape=(None, 2))
-    # TODO: tune these parameters and conduct a sensitivity analysis.
-    wrm_params = {'eps': FLAGS.wrm_eps, 'ord': FLAGS.wrm_ord, 'y': y,
+
+    wrm_params = {'eps': eps, 'ord': FLAGS.wrm_ord, 'y': y,
                   'steps': FLAGS.wrm_steps}
+
     # Define the TensorFlow graph.
     model = logistic_regression_model(n_features=2, n_outputs=2)
     predictions = model(x)
@@ -111,16 +119,15 @@ def main(argv):
     # Dictionary to store experimental results; {(n,p, is_adversarial) : accuracy}
     results = list()
     n = FLAGS.num_samples
-    for p in FLAGS.pos_prob:
-        for is_adversarial in (True, False):
-            metrics = run_simulation_experiment(
-                n, p, sess, adversarial_training=is_adversarial)
-            results.append(
-                (n, p, is_adversarial, metrics[keys.ACC], metrics[keys.ACC_ADV_W])
-            )
+    for p, eps, is_adversarial in product(FLAGS.pos_prob, FLAGS.wrm_eps, (True, False)):
+        metrics = run_simulation_experiment(n, p, sess, eps,
+                                            adversarial_training=is_adversarial)
+        results.append(
+            (n, p, is_adversarial, eps, metrics[keys.ACC], metrics[keys.ACC_ADV_W])
+        )
     metrics_df = pd.DataFrame(
         results,
-        columns=["n", "p", "is_adversarial", keys.ACC, keys.ACC_ADV_W]
+        columns=["n", "p", "is_adversarial", "epsilon", keys.ACC, keys.ACC_ADV_W]
     )
     metrics_df.to_csv(os.path.join(FLAGS.metrics_dir, "metrics.csv"), index=False)
 

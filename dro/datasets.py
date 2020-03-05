@@ -3,8 +3,10 @@ Utilities for generating and working with datasets
 """
 
 import numpy as np
+import os
 from keras.preprocessing.image import load_img
 from keras.preprocessing.image import img_to_array
+import tensorflow as tf
 
 
 def generate_simulated_dataset(n: int = 10 ** 6, p: float = 0.5, shuffle=True):
@@ -30,7 +32,7 @@ def generate_simulated_dataset(n: int = 10 ** 6, p: float = 0.5, shuffle=True):
     return X, y
 
 
-def load_image_data(img_file_list):
+def load_image_data(img_file_list, img_dir, img_shape):
     img_data = []
     for i, filename in enumerate(img_file_list):
         image = load_img(os.path.join(img_dir, filename),
@@ -41,9 +43,10 @@ def load_image_data(img_file_list):
     return img_data
 
 
-def make_dataset(img_file_list, batch_size, attributes_df, target_colname):
+def make_dataset(img_file_list, batch_size, attributes_df, target_colname, img_dir,
+                 img_shape):
     # load the images and the attributes
-    img = load_image_data(img_file_list)
+    img = load_image_data(img_file_list, img_dir, img_shape)
     attr_train = attributes_df.loc[img_file_list, :].values
     labels = attributes_df.loc[img_file_list, target_colname].values
     print("loaded image array with shape = {}".format(img.shape))

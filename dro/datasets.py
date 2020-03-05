@@ -3,6 +3,8 @@ Utilities for generating and working with datasets
 """
 
 import numpy as np
+from keras.preprocessing.image import load_img
+from keras.preprocessing.image import img_to_array
 
 
 def generate_simulated_dataset(n: int = 10 ** 6, p: float = 0.5, shuffle=True):
@@ -26,3 +28,29 @@ def generate_simulated_dataset(n: int = 10 ** 6, p: float = 0.5, shuffle=True):
         p = np.random.permutation(n)
         X, y = X[p], y[p]
     return X, y
+
+
+def load_image_data(img_file_list):
+    img_data = []
+    for i, filename in enumerate(img_file_list):
+        image = load_img(os.path.join(img_dir, filename),
+                         target_size=img_shape[:2])
+        image = img_to_array(image) / 255.0
+        img_data.append(image)
+    img_data = np.array(img_data)
+    return img_data
+
+
+def make_dataset(img_file_list, batch_size, attributes_df, target_colname):
+    # load the images and the attributes
+    img = load_image_data(img_file_list)
+    attr_train = attributes_df.loc[img_file_list, :].values
+    labels = attributes_df.loc[img_file_list, target_colname].values
+    print("loaded image array with shape = {}".format(img.shape))
+    # Build the dataset of images and labels; attributes are not currently used.
+    dataset = tf.data.Dataset.from_tensor_slices(
+        (img, labels)) \
+        .shuffle(1000) \
+        .batch(batch_size) \
+        .repeat()
+    return dataset

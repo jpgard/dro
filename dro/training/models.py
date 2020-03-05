@@ -10,7 +10,7 @@ def logistic_regression_model(n_features, n_outputs, activation='elu'):
     return model
 
 
-def facenet_model_functional():
+def facenet_model():
     """A partial implementation of the FaceNet model using the functional API."""
     # TODO(jpgard): implement this as subclass of model class; see
     # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/keras/Model

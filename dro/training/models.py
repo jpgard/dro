@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Flatten, Dense, MaxPool2D, MaxPool3D, Input
+from tensorflow.keras.layers import Conv2D, Flatten, Dense, MaxPool2D, Dropout
 from tensorflow.keras import Sequential
 
 
@@ -15,18 +15,28 @@ def facenet_model():
     # TODO(jpgard): implement this as subclass of model class; see
     # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/keras/Model
 
+    conv_params = {'padding': 'SAME', 'activation': tf.nn.elu}
+    pool_params = {'padding': 'SAME', 'strides': 2}
     inputs = tf.keras.Input(shape=(218, 178, 3))
-    x = Conv2D(64, (7, 7), strides=2, padding='SAME', name='conv1')(inputs)
-    x = MaxPool2D((3, 3), strides=2, padding='SAME', name='pool1')(x)
+    x = Conv2D(64, (7, 7), strides=2, name='conv1', **conv_params)(inputs)
+    x = MaxPool2D((3, 3), name='pool1', **pool_params)(x)
     x = tf.nn.local_response_normalization(x, name='rnorm1')
-    x = Conv2D(64, (1, 1), strides=1, padding='SAME', name='conv2a')(x)
-    x = Conv2D(192, (3, 3), strides=1, padding='SAME', name='conv2')(x)
+    x = Conv2D(64, (1, 1), strides=1, name='conv2a', **conv_params)(x)
+    x = Conv2D(192, (3, 3), strides=1, name='conv2', **conv_params)(x)
     x = tf.nn.local_response_normalization(x, name='rnorm2')
-    x = MaxPool2D((3, 3), strides=2, padding='SAME', name='pool2')(x)
-    x = Conv2D(192, (1, 1), strides=1, padding='SAME', name='conv3a')(x)
-    x = Conv2D(384, (3, 3), strides=1, padding='SAME', name='conv3')(x)
-    x = MaxPool2D((3, 3), strides=2, padding='SAME', name='pool3')(x)
+    x = MaxPool2D((3, 3), name='pool2', **pool_params)(x)
+    x = Conv2D(192, (1, 1), strides=1, name='conv3a', **conv_params)(x)
+    x = Conv2D(384, (3, 3), strides=1, name='conv3', **conv_params)(x)
+    x = MaxPool2D((3, 3), name='pool3', **pool_params)(x)
+    x = Conv2D(384, (1, 1), strides=1, name='conv4a', **conv_params)(x)
+    x = Conv2D(256, (3, 3), strides=1, name='conv4', **conv_params)(x)
+    x = Conv2D(256, (1, 1), strides=1, name='conv5a', **conv_params)(x)
+    x = Conv2D(256, (3, 3), strides=1, name='conv5', **conv_params)(x)
+    x = Conv2D(256, (1, 1), strides=1, name='conv6a', **conv_params)(x)
+    x = Conv2D(256, (3, 3), strides=1, name='conv6', **conv_params)(x)
+    x = MaxPool2D((3, 3), name='pool4', **pool_params)(x)
     x = Flatten()(x)
+    x = Dropout(rate=0.5)(x)
     x = tf.keras.layers.Dense(4, activation=tf.nn.relu)(x)
     outputs = tf.keras.layers.Dense(1, activation=tf.nn.sigmoid)(x)
     model = tf.keras.Model(inputs=inputs, outputs=outputs)

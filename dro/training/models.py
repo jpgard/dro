@@ -10,25 +10,6 @@ def logistic_regression_model(n_features, n_outputs, activation='elu'):
     return model
 
 
-def facenet_model():
-    """A partial implementation of the FaceNet model."""
-    model = Sequential()
-    model.add(Conv2D(64, (7, 7), strides=2))
-    model.add(MaxPool2D((3, 3), strides=2))
-    # TODO(jpgard): add response normalization layers here using
-    #  tf.nn.local_response_normalization,
-    #  see https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/nn
-    #  /local_response_normalization .
-    model.add(Conv2D(64, (5, 5), strides=2))
-    model.add(MaxPool2D((3, 3), strides=2))
-    model.add(Conv2D(64, (3, 3), strides=2))
-    model.add(MaxPool2D((3, 3), strides=2))
-    model.add(Flatten())
-    model.add(Dense(64))
-    model.add(Dense(1, activation="sigmoid"))
-    return model
-
-
 def facenet_model_functional():
     """A partial implementation of the FaceNet model using the functional API."""
     # TODO(jpgard): implement this as subclass of model class; see

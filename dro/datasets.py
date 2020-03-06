@@ -43,8 +43,8 @@ def load_image_data(img_file_list, img_dir, img_shape):
     return img_data
 
 
-def make_dataset(img_file_list, batch_size, attributes_df, target_colname, img_dir,
-                 img_shape):
+def make_celeba_dataset(img_file_list, batch_size, attributes_df, target_colname, img_dir,
+                        img_shape):
     # load the images and the attributes
     img = load_image_data(img_file_list, img_dir, img_shape)
     attr_train = attributes_df.loc[img_file_list, :].values

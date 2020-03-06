@@ -14,7 +14,7 @@ from absl import flags
 from absl import app
 
 from dro.utils.viz import plot_faces
-from dro.datasets import make_dataset
+from dro.datasets import make_celeba_dataset
 from dro.training.models import facenet_model
 
 tf.compat.v1.enable_eager_execution()
@@ -51,15 +51,15 @@ def main(argv):
 
     # Assemble the datasets. Note that this loads images into memory, which may not be
     # advisable for large datasets.
-    train_dataset = make_dataset(img_files_train, FLAGS.batch_size, attributes_df,
-                                 FLAGS.target_colname, img_dir=FLAGS.img_dir,
-                                 img_shape=img_shape)
-    val_dataset = make_dataset(img_files_val, FLAGS.batch_size, attributes_df,
-                               FLAGS.target_colname, img_dir=FLAGS.img_dir,
-                               img_shape=img_shape)
-    test_dataset = make_dataset(img_files_test, FLAGS.batch_size, attributes_df,
-                                FLAGS.target_colname, img_dir=FLAGS.img_dir,
-                                img_shape=img_shape)
+    train_dataset = make_celeba_dataset(img_files_train, FLAGS.batch_size, attributes_df,
+                                        FLAGS.target_colname, img_dir=FLAGS.img_dir,
+                                        img_shape=img_shape)
+    val_dataset = make_celeba_dataset(img_files_val, FLAGS.batch_size, attributes_df,
+                                      FLAGS.target_colname, img_dir=FLAGS.img_dir,
+                                      img_shape=img_shape)
+    test_dataset = make_celeba_dataset(img_files_test, FLAGS.batch_size, attributes_df,
+                                       FLAGS.target_colname, img_dir=FLAGS.img_dir,
+                                       img_shape=img_shape)
 
     # show a visualization of the first few faces
     # plot_faces(img_train)

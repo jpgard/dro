@@ -24,8 +24,14 @@ import re
 import tensorflow as tf
 import os
 import math
+from tensorflow.keras import Model
+from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
+from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
+    FalsePositives, FalseNegatives
+from tensorflow.keras.callbacks import TensorBoard, CSVLogger
+from keras_vggface.vggface import VGGFace
 
-tf.compat.v1.enable_eager_execution()
+# tf.compat.v1.enable_eager_execution()
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
@@ -35,12 +41,47 @@ flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba im
 flags.DEFINE_float("learning_rate", 0.001, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 
-
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 CLASS_NAMES = np.array(["0", "1"])
+
+
+class VGGModel:
+    def __init__(self, data_X, data_y):
+        # self.n_class = 1
+        self._create_architecture(data_X, data_y)
+
+    def _create_architecture(self, data_X, data_y):
+        logits = self._create_model(data_X)
+        # predictions = tf.argmax(logits, 1, output_type=tf.int32)
+        self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits_v2(
+            labels=data_y, logits=logits))
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(self.loss)
+        # self.accuracy = tf.reduce_sum(tf.cast(tf.equal(predictions, data_y), tf.float32))
+
+    def _create_model(self, X):
+        # Convolution Features
+        vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
+        # set the vgg_model layers to non-trainable
+        for layer in vgg_model.layers:
+            layer.trainable = False
+        last_layer = vgg_model.get_layer('pool5').output
+        # Classification block
+        x = Flatten(name='flatten')(last_layer)
+        x = Dense(4096, name='fc6')(x)
+        x = Activation('relu', name='fc6/relu')(x)
+        x = Dropout(rate=FLAGS.dropout_rate)(x)
+        x = Dense(256, name='fc7')(x)
+        x = Activation('relu', name='fc7/relu')(x)
+        x = Dropout(rate=FLAGS.dropout_rate)(x)
+        x = Dense(1, name='fc8')(x)
+        out = Activation('sigmoid', name='fc8/sigmoid')(x)
+
+        custom_vgg_model = Model(vgg_model.input, out)
+
+        return custom_vgg_model(X)
 
 
 def main(argv):
@@ -134,61 +175,59 @@ def main(argv):
     # Disable eager
     # tf.compat.v1.disable_eager_execution()
 
-    from tensorflow.keras import Model
-    from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
-    from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
-        FalsePositives, FalseNegatives
-    from tensorflow.keras.callbacks import TensorBoard, CSVLogger
-    from keras_vggface.vggface import VGGFace
-    # Convolution Features
-    vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
-    # set the vgg_model layers to non-trainable
-    for layer in vgg_model.layers:
-        layer.trainable = False
-    last_layer = vgg_model.get_layer('pool5').output
-    # Classification block
-    x = Flatten(name='flatten')(last_layer)
-    x = Dense(4096, name='fc6')(x)
-    x = Activation('relu', name='fc6/relu')(x)
-    x = Dropout(rate=FLAGS.dropout_rate)(x)
-    x = Dense(256, name='fc7')(x)
-    x = Activation('relu', name='fc7/relu')(x)
-    x = Dropout(rate=FLAGS.dropout_rate)(x)
-    x = Dense(1, name='fc8')(x)
-    out = Activation('sigmoid', name='fc8/sigmoid')(x)
+    # tensorboard_callback = TensorBoard(
+    #     log_dir='./training-logs/{}'.format(uid),
+    #     batch_size=FLAGS.batch_size,
+    #     write_graph=True,
+    #     # write_grads=False,
+    #     # write_images=False,
+    #     # embeddings_freq=0,
+    #     # embeddings_layer_names=None,
+    #     # embeddings_metadata=None,
+    #     # embeddings_data=None,
+    #     update_freq='epoch')
+    # csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
+    #
+    # custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
+    #                          loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+    #                          metrics=['accuracy',
+    #                                   AUC(name='auc'),
+    #                                   TruePositives(name='tp'),
+    #                                   FalsePositives(name='fp'),
+    #                                   TrueNegatives(name='tn'),
+    #                                   FalseNegatives(name='fn')
+    #                                   ],
+    #                          callbacks=[tensorboard_callback, csv_callback]
+    #                          )
+    # custom_vgg_model.summary()
 
-    custom_vgg_model = Model(vgg_model.input, out)
+    # custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
+    #                                epochs=FLAGS.epochs)
 
-    tensorboard_callback = TensorBoard(
-        log_dir='./training-logs/{}'.format(uid),
-        batch_size=FLAGS.batch_size,
-        write_graph=True,
-        # write_grads=False,
-        # write_images=False,
-        # embeddings_freq=0,
-        # embeddings_layer_names=None,
-        # embeddings_metadata=None,
-        # embeddings_data=None,
-        update_freq='epoch')
-    csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
-
-    custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
-                             loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
-                             metrics=['accuracy',
-                                      AUC(name='auc'),
-                                      TruePositives(name='tp'),
-                                      FalsePositives(name='fp'),
-                                      TrueNegatives(name='tn'),
-                                      FalseNegatives(name='fn')
-                                      ],
-                             callbacks=[tensorboard_callback, csv_callback]
-                             )
-    custom_vgg_model.summary()
     steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
-    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
-                                   epochs=FLAGS.epochs)
+    ds_iterator = train_ds.make_one_shot_iterator()
+    batch_x, batch_y = ds_iterator.get_next()
+    custom_vgg_model = VGGModel(batch_x, batch_y)
 
-    # print_metrics_every_n_steps = 10
+    with tf.Session() as sess:
+        print("training")
+        sess.run(tf.global_variables_initializer())
+
+        tot_accuracy = 0
+        iternum = 0
+        try:
+            while True:
+                print("iter %s" % iternum)
+                metrics = sess.run([custom_vgg_model.optimizer])
+                # tot_accuracy += accuracy
+                # pbar.update(batch_size)
+                print(metrics)
+                iternum += 1
+        except tf.errors.OutOfRangeError:
+            pass
+
+    # print('\nAverage training accuracy: {:.4f}'.format(tot_accuracy / iterations))
+
     # for epoch in range(FLAGS.epochs):
     #     print("epoch %s" % epoch)
     #     for step in range(steps_per_epoch):
@@ -197,7 +236,6 @@ def main(argv):
     #         if step % print_metrics_every_n_steps == 0:
     #             print("step %s metrics:" % step)
     #             print(metrics)
-
 
 
 if __name__ == "__main__":

@@ -40,16 +40,18 @@ def main(argv):
     missing_file_count = 0
     found_file_count = 0
     for f in img_files:
-        basefile = re.match(".*/(.*/.*.jpg)", f).group(1)
+        img_key = re.match(".*/(.*/.*.jpg)", f).group(1)
+        id_num = re.match(".*/(.*)/.*.jpg", f).group(1)
         try:
-            label = attributes_df.loc[basefile][0]
-            dest_fp = os.path.join(FLAGS.out_dir, str(label), basefile)
-            os.makedirs(dest_fp, exist_ok=True)
+            label = attributes_df.loc[img_key][0]
+            dest_dir = os.path.join(FLAGS.out_dir, str(label), id_num)
+            os.makedirs(dest_dir, exist_ok=True)
+            dest_fp = os.path.join(dest_dir, os.path.basename(f))
             print("copying from {} to {}".format(f, dest_fp))
             shutil.copy(f, dest_fp)
             found_file_count += 1
         except KeyError:
-            # print("key {} not found in annotations; skipping".format(basefile))
+            # print("key {} not found in annotations; skipping".format(img_key))
             missing_file_count += 1
             continue
     print("found {} files; missing {} files".format(found_file_count, missing_file_count))

@@ -93,8 +93,8 @@ def main(argv):
         ds = ds.prefetch(buffer_size=AUTOTUNE)
         return ds
 
-    # TODO(jpgard): if the data doesn't fit in memory see the example usage at the
-    #  bottom of the page here:
+    # if the data doesn't fit in memory see the example usage at the
+    # bottom of the page here:
     # https: // www.tensorflow.org / tutorials / load_data / images
 
     train_ds = prepare_for_training(labeled_ds)

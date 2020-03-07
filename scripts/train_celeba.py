@@ -14,7 +14,7 @@ from absl import flags
 from absl import app
 
 from dro.utils.viz import plot_faces
-from dro.datasets import make_celeba_dataset
+from dro.datasets import make_celeba_dataset, train_test_val_split
 from dro.training.models import facenet_model
 
 tf.compat.v1.enable_eager_execution()
@@ -39,9 +39,8 @@ def main(argv):
 
     # Fetch jpg files for training and testing
     img_files = np.sort(os.listdir(FLAGS.img_dir))
-    img_files_train = img_files[:n_train]
-    img_files_val = img_files[n_train:n_train + n_val]
-    img_files_test = img_files[n_train + n_val: n_train + n_val + n_test]
+    img_files_train, img_files_val, img_files_test = train_test_val_split(
+        img_files, n_train, n_val, n_test)
 
     attributes_df = pd.read_csv(FLAGS.attributes_fp, delim_whitespace=True, skiprows=0,
                                 header=1).sort_index().replace(-1, 0)

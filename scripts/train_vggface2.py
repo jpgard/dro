@@ -26,6 +26,10 @@ flags.DEFINE_integer("batch_size", 16, "batch size")
 flags.DEFINE_integer("epochs", 5, "the number of training epochs")
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
 
+# Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
+# impossible to parse.
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
 
 def show_batch(image_batch, label_batch):
     plt.figure(figsize=(6, 14))
@@ -40,8 +44,8 @@ def show_batch(image_batch, label_batch):
 def main(argv):
     list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
                                          seed=2974)
-    for f in list_ds.take(3):
-        print(f.numpy())
+    # for f in list_ds.take(3):
+    #     print(f.numpy())
 
     def get_label(file_path):
         # convert the path to a list of path components
@@ -71,9 +75,9 @@ def main(argv):
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
     labeled_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
 
-    for image, label in labeled_ds.take(10):
-        print("Image shape: ", image.numpy().shape)
-        print("Label: ", label.numpy())
+    # for image, label in labeled_ds.take(10):
+    #     print("Image shape: ", image.numpy().shape)
+    #     print("Label: ", label.numpy())
 
     def prepare_for_training(ds, cache=True, shuffle_buffer_size=1000):
         # This is a small dataset, only load it once, and keep it in memory.
@@ -98,12 +102,30 @@ def main(argv):
     # https: // www.tensorflow.org / tutorials / load_data / images
 
     train_ds = prepare_for_training(labeled_ds)
-    image_batch, label_batch = next(iter(train_ds))
-    show_batch(image_batch.numpy(), label_batch.numpy())
+    # image_batch, label_batch = next(iter(train_ds))
+    # show_batch(image_batch.numpy(), label_batch.numpy())
 
-    import ipdb;
-    ipdb.set_trace()
+    # Disable eager
+    # tf.compat.v1.disable_eager_execution()
 
+    from tensorflow.keras import Model
+    from tensorflow.keras.layers import Flatten, Dense, Input
+    from keras_vggface.vggface import VGGFace
+    # Convolution Features
+    vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
+    last_layer = vgg_model.get_layer('pool5').output
+    x = Flatten(name='flatten')(last_layer)
+    x = Dense(32, activation='relu', name='fc6')(x)
+    x = Dense(16, activation='relu', name='fc7')(x)
+    out = Dense(1, activation='softmax', name='fc8')(x)
+    custom_vgg_model = Model(vgg_model.input, out)
+    custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
+                             loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+                             metrics=['accuracy']
+                             )
+    custom_vgg_model.summary()
+    import ipdb;ipdb.set_trace()
+    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=5)
 
 
 if __name__ == "__main__":

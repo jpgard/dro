@@ -126,9 +126,8 @@ def main(argv):
     for layer in vgg_model.layers:
         layer.trainable = False
     last_layer = vgg_model.get_layer('pool5').output
-    x = Flatten(name='flatten')(last_layer)
     # Classification block
-    x = Flatten(name='flatten')(x)
+    x = Flatten(name='flatten')(last_layer)
     x = Dense(4096, name='fc6')(x)
     x = Activation('relu', name='fc6/relu')(x)
     x = Dense(4096, name='fc7')(x)

@@ -119,6 +119,8 @@ def main(argv):
 
     from tensorflow.keras import Model
     from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
+    from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
+        FalsePositives, FalseNegatives
     from keras_vggface.vggface import VGGFace
     # Convolution Features
     vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
@@ -140,7 +142,13 @@ def main(argv):
     custom_vgg_model = Model(vgg_model.input, out)
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                              loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
-                             metrics=['accuracy']
+                             metrics=['accuracy',
+                                      AUC(name='auc'),
+                                      TruePositives(name='tp'),
+                                      FalsePositives(name='fp'),
+                                      TrueNegatives(name='tn'),
+                                      FalseNegatives(name='fn')
+                                      ]
                              )
     custom_vgg_model.summary()
     custom_vgg_model.fit_generator(train_ds, steps_per_epoch=1000/FLAGS.batch_size,

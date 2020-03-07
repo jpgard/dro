@@ -54,6 +54,7 @@ class VGGModel:
 
     def _create_architecture(self, data_X, data_y):
         logits = self._create_model(data_X)
+        logits = tf.squeeze(logits)
         predictions = tf.round(tf.nn.sigmoid(logits))
         self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
             labels=data_y, logits=logits))

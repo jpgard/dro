@@ -118,7 +118,7 @@ def main(argv):
     # tf.compat.v1.disable_eager_execution()
 
     from tensorflow.keras import Model
-    from tensorflow.keras.layers import Flatten, Dense, Input, Activation
+    from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
     from keras_vggface.vggface import VGGFace
     # Convolution Features
     vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
@@ -130,8 +130,10 @@ def main(argv):
     x = Flatten(name='flatten')(last_layer)
     x = Dense(4096, name='fc6')(x)
     x = Activation('relu', name='fc6/relu')(x)
-    x = Dense(4096, name='fc7')(x)
+    x = Dropout(rate=0.8)(x)
+    x = Dense(256, name='fc7')(x)
     x = Activation('relu', name='fc7/relu')(x)
+    x = Dropout(rate=0.8)(x)
     x = Dense(1, name='fc8')(x)
     out = Activation('sigmoid', name='fc8/sigmoid')(x)
 
@@ -141,7 +143,8 @@ def main(argv):
                              metrics=['accuracy']
                              )
     custom_vgg_model.summary()
-    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=1000/FLAGS.batch_size)
+    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=1000/FLAGS.batch_size,
+                                   epochs=FLAGS.epochs)
 
 
 if __name__ == "__main__":

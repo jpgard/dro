@@ -31,7 +31,7 @@ def data_mnist():
     X_test = X_test.astype('float32')
     X_train /= 255
     X_test /= 255
-    print('X_train shape:', X_train.shape)
+    print('img_ary shape:', X_train.shape)
     print(X_train.shape[0], 'train samples')
     print(X_test.shape[0], 'test samples')
 

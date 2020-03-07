@@ -11,7 +11,7 @@ cryptography==2.8
 cycler==0.10.0
 decorator==4.4.1
 dill==0.3.1.1
--e git+https://github.com/jpgard/dro.git@8ca26d6a7fa1ae067b4dfe2c76163c22a4824d33#egg=dro
+-e git+https://github.com/jpgard/dro.git@5ba1521c9e4a399d53170399cefa58405b9c8ce3#egg=dro
 future==0.18.2
 gast==0.2.2
 google-pasta==0.1.8
@@ -27,6 +27,7 @@ joblib==0.14.1
 Keras==2.2.4
 Keras-Applications==1.0.8
 Keras-Preprocessing==1.1.0
+keras-vggface==0.6
 kiwisolver==1.1.0
 Markdown==3.2.1
 matplotlib==3.1.3

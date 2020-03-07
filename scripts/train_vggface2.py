@@ -23,7 +23,7 @@ from dro.datasets import train_test_val_split
 import re
 import tensorflow as tf
 import os
-import time
+import math
 
 tf.compat.v1.enable_eager_execution()
 
@@ -184,7 +184,8 @@ def main(argv):
                              callbacks=[tensorboard_callback, csv_callback]
                              )
     custom_vgg_model.summary()
-    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=1000 / FLAGS.batch_size,
+    steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
+    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
                                    epochs=FLAGS.epochs)
 
 

@@ -116,6 +116,9 @@ def main(argv):
     from keras_vggface.vggface import VGGFace
     # Convolution Features
     vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
+    # set the vgg_model layers to non-trainable
+    for layer in vgg_model.layers:
+        layer.trainable = False
     last_layer = vgg_model.get_layer('pool5').output
     x = Flatten(name='flatten')(last_layer)
     x = Dense(32, activation='relu', name='fc6')(x)
@@ -127,8 +130,7 @@ def main(argv):
                              metrics=['accuracy']
                              )
     custom_vgg_model.summary()
-    # import ipdb;ipdb.set_trace()
-    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=5)
+    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=1000/FLAGS.batch_size)
 
 
 if __name__ == "__main__":

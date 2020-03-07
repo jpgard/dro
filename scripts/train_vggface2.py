@@ -23,7 +23,6 @@ from dro.datasets import train_test_val_split
 import re
 import tensorflow as tf
 import os
-import matplotlib.pyplot as plt
 
 tf.compat.v1.enable_eager_execution()
 
@@ -38,16 +37,6 @@ flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba im
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 CLASS_NAMES = np.array(["0", "1"])
-
-def show_batch(image_batch, label_batch):
-    plt.figure(figsize=(6, 14))
-    for n in range(16):
-        ax = plt.subplot(8, 2, n + 1)
-        plt.imshow(image_batch[n])
-        plt.title(str(label_batch[n]))
-        plt.axis('off')
-    plt.show()
-
 
 def main(argv):
     list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
@@ -123,13 +112,14 @@ def main(argv):
     train_ds = prepare_for_training(labeled_ds)
     # TODO(jpgard): save batch to pdf instead
     # image_batch, label_batch = next(iter(train_ds))
+    # from dro.utils.vis import show_batch
     # show_batch(image_batch.numpy(), label_batch.numpy())
 
     # Disable eager
     # tf.compat.v1.disable_eager_execution()
 
     from tensorflow.keras import Model
-    from tensorflow.keras.layers import Flatten, Dense, Input
+    from tensorflow.keras.layers import Flatten, Dense, Input, Activation
     from keras_vggface.vggface import VGGFace
     # Convolution Features
     vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
@@ -138,9 +128,15 @@ def main(argv):
         layer.trainable = False
     last_layer = vgg_model.get_layer('pool5').output
     x = Flatten(name='flatten')(last_layer)
-    x = Dense(32, activation='relu', name='fc6')(x)
-    x = Dense(16, activation='relu', name='fc7')(x)
-    out = Dense(1, activation='sigmoid', name='fc8')(x)
+    # Classification block
+    x = Flatten(name='flatten')(x)
+    x = Dense(4096, name='fc6')(x)
+    x = Activation('relu', name='fc6/relu')(x)
+    x = Dense(4096, name='fc7')(x)
+    x = Activation('relu', name='fc7/relu')(x)
+    x = Dense(1, name='fc8')(x)
+    x = Activation('softmax', name='fc8/softmax')(x)
+
     custom_vgg_model = Model(vgg_model.input, out)
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                              loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),

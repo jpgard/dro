@@ -59,7 +59,8 @@ class VGGModel:
         self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits_v2(
             labels=data_y, logits=logits))
         self.optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(self.loss)
-        # self.accuracy = tf.reduce_sum(tf.cast(tf.equal(predictions, data_y), tf.float32))
+        # self.accuracy = tf.reduce_sum(tf.cast(tf.equal(predictions, data_y),
+        # tf.float32))
 
     def _create_model(self, X):
         # Convolution Features
@@ -209,7 +210,13 @@ def main(argv):
     batch_x, batch_y = ds_iterator.get_next()
     custom_vgg_model = VGGModel(batch_x, batch_y)
 
-    with tf.Session() as sess:
+    config = tf.compat.v1.ConfigProto(
+        allow_soft_placement=True,
+        log_device_placement=True,
+        gpu_options=tf.GPUOptions(allow_growth=True)
+    )
+
+    with tf.Session(config=config) as sess:
         print("training")
         sess.run(tf.global_variables_initializer())
 

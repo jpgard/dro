@@ -30,13 +30,14 @@ flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba im
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
+CLASS_NAMES = np.array(["0", "1"])
 
 def show_batch(image_batch, label_batch):
     plt.figure(figsize=(6, 14))
     for n in range(16):
         ax = plt.subplot(8, 2, n + 1)
         plt.imshow(image_batch[n])
-        plt.title(str(label_batch[n].decode('utf-8')))
+        plt.title(str(label_batch[n]))
         plt.axis('off')
     plt.show()
 
@@ -51,7 +52,7 @@ def main(argv):
         # convert the path to a list of path components
         label = tf.strings.substr(file_path, -21, 1)
         # The second to last is the class-directory
-        return label
+        return tf.strings.to_number(label)
 
     def decode_img(img):
         # convert the compressed string to a 3D uint8 tensor
@@ -104,6 +105,8 @@ def main(argv):
     train_ds = prepare_for_training(labeled_ds)
     # image_batch, label_batch = next(iter(train_ds))
     # show_batch(image_batch.numpy(), label_batch.numpy())
+    # import ipdb;ipdb.set_trace()
+
 
     # Disable eager
     # tf.compat.v1.disable_eager_execution()
@@ -117,14 +120,14 @@ def main(argv):
     x = Flatten(name='flatten')(last_layer)
     x = Dense(32, activation='relu', name='fc6')(x)
     x = Dense(16, activation='relu', name='fc7')(x)
-    out = Dense(1, activation='softmax', name='fc8')(x)
+    out = Dense(1, activation='sigmoid', name='fc8')(x)
     custom_vgg_model = Model(vgg_model.input, out)
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                              loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
                              metrics=['accuracy']
                              )
     custom_vgg_model.summary()
-    import ipdb;ipdb.set_trace()
+    # import ipdb;ipdb.set_trace()
     custom_vgg_model.fit_generator(train_ds, steps_per_epoch=5)
 
 

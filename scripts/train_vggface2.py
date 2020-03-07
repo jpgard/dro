@@ -50,17 +50,16 @@ CLASS_NAMES = np.array(["0", "1"])
 
 class VGGModel:
     def __init__(self, data_X, data_y):
-        # self.n_class = 1
         self._create_architecture(data_X, data_y)
 
     def _create_architecture(self, data_X, data_y):
         logits = self._create_model(data_X)
-        # predictions = tf.argmax(logits, 1, output_type=tf.int32)
+        predictions = tf.round(tf.nn.sigmoid(logits))
         self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits_v2(
             labels=data_y, logits=logits))
         self.optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(self.loss)
-        # self.accuracy = tf.reduce_sum(tf.cast(tf.equal(predictions, data_y),
-        # tf.float32))
+        self.accuracy = tf.reduce_sum(tf.cast(tf.equal(predictions, data_y),
+                                              tf.float32))
 
     def _create_model(self, X):
         # Convolution Features
@@ -225,24 +224,13 @@ def main(argv):
         try:
             while True:
                 print("iter %s" % iternum)
-                metrics = sess.run([custom_vgg_model.optimizer])
-                # tot_accuracy += accuracy
-                # pbar.update(batch_size)
-                print(metrics)
+                accuracy, loss, _ = sess.run([custom_vgg_model.accuracy,
+                                              custom_vgg_model.loss,
+                                              custom_vgg_model.optimizer])
+                print("iteration %s loss %4f accuracy %4f" % (iternum, loss, accuracy))
                 iternum += 1
         except tf.errors.OutOfRangeError:
             pass
-
-    # print('\nAverage training accuracy: {:.4f}'.format(tot_accuracy / iterations))
-
-    # for epoch in range(FLAGS.epochs):
-    #     print("epoch %s" % epoch)
-    #     for step in range(steps_per_epoch):
-    #         batch_x, batch_y = next(iter(train_ds))
-    #         metrics = custom_vgg_model.train_on_batch(batch_x, batch_y)
-    #         if step % print_metrics_every_n_steps == 0:
-    #             print("step %s metrics:" % step)
-    #             print(metrics)
 
 
 if __name__ == "__main__":

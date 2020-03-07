@@ -9,6 +9,19 @@ from keras.preprocessing.image import img_to_array
 import tensorflow as tf
 
 
+def train_test_val_split(img_files, n_train:int, n_val:int, n_test:int, random_seed=2974):
+    """Randomly partition img_files into sets of train/val/test images."""
+    assert len(img_files) > n_train + n_val + n_test, "insufficient size for given " \
+                                                      "splits."
+    np.random.seed(random_seed)
+    np.random.shuffle(img_files)
+    train_files = img_files[:n_train]
+    val_files = img_files[n_train:n_train + n_val]
+    test_files = img_files[n_train + n_val: n_train + n_val + n_test]
+    return train_files, val_files, test_files
+
+
+
 def generate_simulated_dataset(n: int = 10 ** 6, p: float = 0.5, shuffle=True):
     """
     Generate a simulated dataset of n examples with proportion p coming from the

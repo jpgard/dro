@@ -7,8 +7,8 @@ Usage
 
 python scripts/partition_vggface2_by_label.py \
     --img_dir /Users/jpgard/Documents/research/vggface2/train \
-    --anno_fp /Users/jpgard/Documents/research/vggface2/anno/10-sunglasses.txt \
-    --out_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/sunglasses
+    --anno_fp /Users/jpgard/Documents/research/vggface2/anno/11-Mouth_Open.txt \
+    --out_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open
 """
 
 import shutil

@@ -3,8 +3,8 @@ Script to fine-tune pretrained VGGFace2 model.
 
 usage:
 python scripts/train_vggface2.py \
-    --img_dir /Users/jpgard/Documents/research/vggface2/test \
-    --anno_fp /Users/jpgard/Documents/research/vggface2/anno/10-sunglasses.txt
+    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
+    /mouth_open
 """
 
 import pandas as pd
@@ -14,46 +14,95 @@ from absl import flags
 import numpy as np
 from dro.datasets import train_test_val_split
 import re
+import tensorflow as tf
+import os
+import matplotlib.pyplot as plt
 
+tf.compat.v1.enable_eager_execution()
 
-
+AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
-flags.DEFINE_integer("batch_size", 256, "batch size")
+flags.DEFINE_integer("batch_size", 16, "batch size")
 flags.DEFINE_integer("epochs", 5, "the number of training epochs")
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
-flags.DEFINE_string("anno_fp", None, "path to the target annotation file.")
 
 
-def load_and_preprocess_images(img_file_list, img_dir, img_shape):
-    img_data = []
-    for i, filename in enumerate(img_file_list):
+def show_batch(image_batch, label_batch):
+    plt.figure(figsize=(6, 14))
+    for n in range(16):
+        ax = plt.subplot(8, 2, n + 1)
+        plt.imshow(image_batch[n])
+        plt.title(str(label_batch[n].decode('utf-8')))
+        plt.axis('off')
+    plt.show()
 
-        image = load_img(os.path.join(img_dir, filename),
-                         target_size=img_shape[:2])
-        image = img_to_array(image) / 255.0
-        img_data.append(image)
-    img_data = np.array(img_data)
-    return img_data
-
-def make_vggface2_dataset(img_file_list, batch_size, attributes_df,
-                          img_dir, img_shape):
-
-    pass
 
 def main(argv):
-    img_files = glob.glob(FLAGS.img_dir + "/*/*.jpg")
-    # glob will fetch full path; we just extract the subpath from FLAGS.img_dir
-    img_files = [re.match(".*/(.*/.*.jpg)", f).group(1) for f in img_files]
-    n_train = FLAGS.batch_size * 1
-    n_val = FLAGS.batch_size * 1
-    n_test = FLAGS.batch_size * 1
-    img_files_train, img_files_val, img_files_test = train_test_val_split(
-        img_files, n_train, n_val, n_test)
-    import ipdb;ipdb.set_trace()
-    attributes_df = pd.read_csv(FLAGS.anno_fp, delimiter="\t", index_col=0)
-    make_vggface2_dataset(img_files_train, FLAGS.batch_size, attributes_df,
-                          )
+    list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
+                                         seed=2974)
+    for f in list_ds.take(3):
+        print(f.numpy())
 
+    def get_label(file_path):
+        # convert the path to a list of path components
+        label = tf.strings.substr(file_path, -21, 1)
+        # The second to last is the class-directory
+        return label
+
+    def decode_img(img):
+        # convert the compressed string to a 3D uint8 tensor
+        img = tf.image.decode_jpeg(img, channels=3)
+        # Use `convert_image_dtype` to convert to floats in the [0,1] range.
+        img = tf.image.convert_image_dtype(img, tf.float32)
+        # resize to a square image of 256 x 256, then crop to random 224 x 224
+        img = tf.expand_dims(img, axis=0)
+        img = tf.image.resize_with_crop_or_pad(img, target_height=256, target_width=256)
+        img = tf.squeeze(img, axis=0)
+        img = tf.image.random_crop(img, (224, 224, 3))
+        return img
+
+    def process_path(file_path):
+        label = get_label(file_path)
+        # load the raw data from the file as a string
+        img = tf.io.read_file(file_path)
+        img = decode_img(img)
+        return img, label
+
+    # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
+    labeled_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
+
+    for image, label in labeled_ds.take(10):
+        print("Image shape: ", image.numpy().shape)
+        print("Label: ", label.numpy())
+
+    def prepare_for_training(ds, cache=True, shuffle_buffer_size=1000):
+        # This is a small dataset, only load it once, and keep it in memory.
+        # use `.cache(filename)` to cache preprocessing work for datasets that don't
+        # fit in memory.
+        if cache:
+            if isinstance(cache, str):
+                ds = ds.cache(cache)
+            else:
+                ds = ds.cache()
+        ds = ds.shuffle(buffer_size=shuffle_buffer_size)
+        # Repeat forever
+        ds = ds.repeat()
+        ds = ds.batch(FLAGS.batch_size)
+        # `prefetch` lets the dataset fetch batches in the background while the model
+        # is training.
+        ds = ds.prefetch(buffer_size=AUTOTUNE)
+        return ds
+
+    # TODO(jpgard): if the data doesn't fit in memory see the example usage at the
+    #  bottom of the page here:
+    # https: // www.tensorflow.org / tutorials / load_data / images
+
+    train_ds = prepare_for_training(labeled_ds)
+    image_batch, label_batch = next(iter(train_ds))
+    show_batch(image_batch.numpy(), label_batch.numpy())
+
+    import ipdb;
+    ipdb.set_trace()
 
 
 

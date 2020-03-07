@@ -2,6 +2,13 @@
 Script to fine-tune pretrained VGGFace2 model.
 
 usage:
+
+# set the gpu
+export GPU_ID="3"
+export CUDA_DEVICE_ORDER="PCI_BUS_ID"
+export CUDA_VISIBLE_DEVICES=$GPU_ID
+
+# run the script
 python scripts/train_vggface2.py \
     --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
     /mouth_open
@@ -54,16 +61,27 @@ def main(argv):
         # The second to last is the class-directory
         return tf.strings.to_number(label)
 
-    def decode_img(img):
+    def decode_img(img, normalize_by_channel=False):
         # convert the compressed string to a 3D uint8 tensor
         img = tf.image.decode_jpeg(img, channels=3)
         # Use `convert_image_dtype` to convert to floats in the [0,1] range.
         img = tf.image.convert_image_dtype(img, tf.float32)
         # resize to a square image of 256 x 256, then crop to random 224 x 224
         img = tf.expand_dims(img, axis=0)
+        img = tf.image.resize_images(img, size=(256,256), preserve_aspect_ratio=True)
         img = tf.image.resize_with_crop_or_pad(img, target_height=256, target_width=256)
         img = tf.squeeze(img, axis=0)
         img = tf.image.random_crop(img, (224, 224, 3))
+
+        # Apply normalization: subtract the channel-wise mean from each image as in
+        # https://github.com/rcmalli/keras-vggface/blob/master/keras_vggface/utils.py ;
+        # divide means by 255.0 since the conversion above restricts to range [0,1].
+        if normalize_by_channel:
+            ch1mean = tf.constant(91.4953/255.0, shape=(224, 224, 1))
+            ch2mean = tf.constant(103.8827/255.0, shape=(224, 224, 1))
+            ch3mean = tf.constant(131.0912/255.0, shape=(224, 224, 1))
+            channel_norm_tensor = tf.concat([ch1mean, ch2mean, ch3mean], axis=2)
+            img -= channel_norm_tensor
         return img
 
     def process_path(file_path):
@@ -103,10 +121,9 @@ def main(argv):
     # https: // www.tensorflow.org / tutorials / load_data / images
 
     train_ds = prepare_for_training(labeled_ds)
+    # TODO(jpgard): save batch to pdf instead
     # image_batch, label_batch = next(iter(train_ds))
     # show_batch(image_batch.numpy(), label_batch.numpy())
-    # import ipdb;ipdb.set_trace()
-
 
     # Disable eager
     # tf.compat.v1.disable_eager_execution()

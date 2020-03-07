@@ -134,7 +134,7 @@ def main(argv):
     x = Dense(4096, name='fc7')(x)
     x = Activation('relu', name='fc7/relu')(x)
     x = Dense(1, name='fc8')(x)
-    x = Activation('softmax', name='fc8/softmax')(x)
+    out = Activation('sigmoid', name='fc8/sigmoid')(x)
 
     custom_vgg_model = Model(vgg_model.input, out)
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),

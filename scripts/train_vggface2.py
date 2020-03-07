@@ -10,8 +10,7 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 python scripts/train_vggface2.py \
-    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
-    /mouth_open
+    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open
 """
 
 import pandas as pd

@@ -4,7 +4,7 @@ Script to fine-tune pretrained VGGFace2 model.
 usage:
 
 # set the gpu
-export GPU_ID="3"
+export GPU_ID="1"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
@@ -55,11 +55,12 @@ class VGGModel:
     def _create_architecture(self, data_X, data_y):
         logits = self._create_model(data_X)
         predictions = tf.round(tf.nn.sigmoid(logits))
-        self.loss = tf.reduce_sum(tf.nn.softmax_cross_entropy_with_logits_v2(
+        self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
             labels=data_y, logits=logits))
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=0.001).minimize(self.loss)
-        self.accuracy = tf.reduce_sum(tf.cast(tf.equal(predictions, data_y),
-                                              tf.float32))
+        self.optimizer = tf.train.AdamOptimizer(
+            learning_rate=FLAGS.learning_rate).minimize(self.loss)
+        self.accuracy = tf.reduce_mean(tf.cast(tf.equal(predictions, data_y),
+                                               tf.float32))
 
     def _create_model(self, X):
         # Convolution Features

@@ -142,11 +142,9 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
                 # Perform one training step
                 train_step.run(feed_dict={x: batch_x,
                                           y: batch_y})
-            assert end >= len(X_train)  # Check that all examples were used
             cur = time.time()
             if verbose:
                 print("\tEpoch took " + str(cur - prev) + " seconds")
-            prev = cur
             if evaluate is not None:
                 metrics_dict = evaluate()
 

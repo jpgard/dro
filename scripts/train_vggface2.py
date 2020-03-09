@@ -27,8 +27,6 @@ import math
 from dro.sinha.attacks import WassersteinRobustMethod
 import keras
 
-tf.compat.v1.enable_eager_execution()
-
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
 

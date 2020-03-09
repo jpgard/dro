@@ -163,7 +163,7 @@ def main(argv):
         log_dir='./training-logs/{}'.format(uid),
         batch_size=FLAGS.batch_size,
         write_graph=True,
-        # write_grads=False,
+        write_grads=True,
         # write_images=False,
         # embeddings_freq=0,
         # embeddings_layer_names=None,

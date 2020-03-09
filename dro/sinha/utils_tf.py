@@ -71,7 +71,7 @@ def model_loss(y, model, mean=True):
     return out
 
 
-def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
+def model_train(sess, x, y, y_hat, X_train, Y_train, save=False,
                 predictions_adv=None, evaluate=None, verbose=True, args=None,
                 dataset_iterator=None,
                 nb_batches=None) -> dict:
@@ -80,7 +80,7 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
     :param sess: TF session to use when training the graph
     :param x: input placeholder
     :param y: output placeholder (for labels)
-    :param predictions: model output predictions
+    :param y_hat: model output predictions
     :param X_train: numpy array with training inputs
     :param Y_train: numpy array with training outputs
     :param save: boolean controling the save operation
@@ -110,7 +110,7 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
         assert args.filename, "Filename for save was not given in args dict"
 
     # Define loss
-    loss = model_loss(y, predictions)
+    loss = model_loss(y, y_hat)
     if predictions_adv is not None:
         p = 1.0
         loss = ((1-p)*loss + p*model_loss(y, predictions_adv))

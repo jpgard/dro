@@ -149,7 +149,8 @@ def main(argv):
     # TODO(jpgard): set this to the correct value given the sample size and number of
     #  epochs
 
-    steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
+    # steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
+    steps_per_epoch=5 # TODO(jpgard): change this back after fixing it.
     # TODO(jpgard): instead, make an initializable iterator and re-initizlize at every
     #  epoch, as shown in answer below.
     #  https://stackoverflow.com/questions/47067401/how-to-iterate-a-dataset-several
@@ -220,13 +221,14 @@ def main(argv):
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
                 # Track progress
-                epoch_loss_avg(loss_value)  # Add current batch loss
+                # epoch_loss_avg(loss_value)  # Add current batch loss
                 # Compare predicted label to actual label
                 # training=True is needed only if there are layers with different
                 # behavior during training versus inference (e.g. Dropout).
-                epoch_accuracy(y_true=y, y_pred=model(x, training=True))
-            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
-                epoch, epoch_loss_avg.result(), epoch_accuracy.result()))
+                # epoch_accuracy(y_true=y, y_pred=model(x, training=True))
+                print("loss_value:", loss_value)
+            # print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
+            #     epoch, epoch_loss_avg.result(), epoch_accuracy.result()))
             epoch_train_time = int(time.time() - epoch_start)
             print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
 

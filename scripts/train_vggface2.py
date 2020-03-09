@@ -226,7 +226,7 @@ def main(argv):
                 # behavior during training versus inference (e.g. Dropout).
                 epoch_accuracy.update_state(y_true=y, y_pred=model(x, training=True))
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
-                epoch, epoch_loss_avg.result().numpy(), epoch_accuracy.result().numpy()))
+                epoch, epoch_loss_avg.result().eval(), epoch_accuracy.result().eval()))
             epoch_train_time = int(time.time() - epoch_start)
             print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
 

@@ -42,6 +42,7 @@ flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba im
 flags.DEFINE_float("learning_rate", 0.001, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.DEFINE_bool("adversarial", False, "whether to use adversarial perturbation.")
+flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
 
 # the wrm parameters
 flags.DEFINE_multi_float('wrm_eps', 1.3,
@@ -155,7 +156,11 @@ def main(argv):
     from tensorflow.keras.callbacks import TensorBoard, CSVLogger
     from dro.training.models import vggface2_model
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
-    steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
+    N = 1000
+    n_val = int(N * FLAGS.val_frac)
+    n_train = N - n_val
+    steps_per_train_epoch = math.floor(n_train / FLAGS.batch_size)
+    steps_per_val_epoch = math.floor(n_val / FLAGS.batch_size)
 
     config = tf.compat.v1.ConfigProto(
         allow_soft_placement=True,
@@ -164,9 +169,11 @@ def main(argv):
 
     if FLAGS.adversarial:
         train_ds = prepare_for_training(labeled_ds, repeat_forever=True, batch_size=None)
+        test_ds = train_ds.take(n_val).repeat()
         # train_iter is an iterator which returns X,Y pairs of numpy arrays where
         # X has shape (224, 224, 3) and Y has shape (2,).
         train_iter = tfds.as_numpy(train_ds)
+        test_iter = tfds.as_numpy(test_ds)
 
         # The adversarial perturbation block
         x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3))
@@ -181,11 +188,10 @@ def main(argv):
         predictions_adv_wrm = custom_vgg_model(wrm.generate(x, **wrm_params))
         # TODO(jpgard): create a separate test dataset.
         eval_params = {'batch_size': FLAGS.batch_size}
-        num_eval_batches=5
         eval_fn = partial(model_eval_fn, sess, x, y, predictions, predictions_adv_wrm,
                           X_test=None, Y_test=None, eval_params=eval_params,
-                          dataset_iterator=train_iter,
-                          nb_batches=num_eval_batches)
+                          dataset_iterator=test_iter,
+                          nb_batches=steps_per_val_epoch)
         model_train_fn = partial(model_train,
                                  sess, x, y, predictions_adv_wrm, X_train=None,
                                  Y_train=None,
@@ -195,7 +201,7 @@ def main(argv):
                                        "batch_size": FLAGS.batch_size},
                                  save=False,
                                  dataset_iterator=train_iter,
-                                 nb_batches=steps_per_epoch)
+                                 nb_batches=steps_per_train_epoch)
         metrics = model_train_fn()
         print(metrics)
         pd.DataFrame(metrics).to_csv("./metrics/{uid}.csv".format(uid=uid), index=False)
@@ -223,7 +229,7 @@ def main(argv):
                                           ]
                                  )
         custom_vgg_model.summary()
-        custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
+        custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
                                        epochs=FLAGS.epochs, callbacks=[tensorboard_callback, csv_callback])
 
 

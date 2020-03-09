@@ -38,6 +38,7 @@ flags.DEFINE_integer("epochs", 5, "the number of training epochs")
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
 flags.DEFINE_float("learning_rate", 0.001, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
+flags.DEFINE_bool("adversarial", False, "whether to use adversarial perturbation.")
 
 # the wrm parameters
 flags.DEFINE_multi_float('wrm_eps', 1.3,
@@ -116,7 +117,8 @@ def main(argv):
     #     print("Image shape: ", image.numpy().shape)
     #     print("Label: ", label.numpy())
 
-    def prepare_for_training(ds, cache=True, shuffle_buffer_size=1000):
+    def prepare_for_training(ds, cache=True, shuffle_buffer_size=1000,
+                             repeat_forever=False, batch_size=None):
         # This is a small dataset, only load it once, and keep it in memory.
         # use `.cache(filename)` to cache preprocessing work for datasets that don't
         # fit in memory.
@@ -127,8 +129,10 @@ def main(argv):
                 ds = ds.cache()
         ds = ds.shuffle(buffer_size=shuffle_buffer_size)
         # Repeat forever
-        ds = ds.repeat()
-        ds = ds.batch(FLAGS.batch_size)
+        if repeat_forever:
+            ds = ds.repeat()
+        if batch_size:
+            ds = ds.batch(FLAGS.batch_size)
         # `prefetch` lets the dataset fetch batches in the background while the model
         # is training.
         ds = ds.prefetch(buffer_size=AUTOTUNE)
@@ -138,7 +142,6 @@ def main(argv):
     # bottom of the page here:
     # https: // www.tensorflow.org / tutorials / load_data / images
 
-    train_ds = prepare_for_training(labeled_ds)
     # TODO(jpgard): save batch to pdf instead
     # image_batch, label_batch = next(iter(train_ds))
     # from dro.utils.vis import show_batch
@@ -152,40 +155,72 @@ def main(argv):
     from dro.training.models import vggface2_model
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
 
-    # The adversarial perturbation block
-    x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3))
-    y = tf.placeholder(tf.float32, shape=(None, 2))
-    wrm_params = {'eps': FLAGS.wrm_eps, 'ord': FLAGS.wrm_ord, 'y': y,
-                  'steps': FLAGS.wrm_steps}
-    # Create TF session and set as Keras backend session
-    sess = tf.Session()
-    keras.backend.set_session(sess)
-    wrm = WassersteinRobustMethod(custom_vgg_model, sess=sess)
-    predictions_adv_wrm = custom_vgg_model(wrm.generate(x, **wrm_params))
 
-    tensorboard_callback = TensorBoard(
-        log_dir='./training-logs/{}'.format(uid),
-        batch_size=FLAGS.batch_size,
-        write_graph=True,
-        write_grads=True,
-        update_freq='epoch')
-    csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
+    if FLAGS.adversarial:
+        import tensorflow_datasets as tfds
+        train_ds = prepare_for_training(labeled_ds, repeat_forever=False, batch_size=None)
+        # train_iter is an iterator which returns X,Y pairs of numpy arrays where
+        # X has shape (224, 224, 3) and Y has shape (2,).
+        train_iter = tfds.as_numpy(train_ds)
+        from dro.sinha.utils_tf import model_train
+        from dro.utils.experiment_utils import model_eval_fn
+        from functools import partial
+        # The adversarial perturbation block
+        x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3))
+        y = tf.placeholder(tf.float32, shape=(None, 2))
+        wrm_params = {'eps': FLAGS.wrm_eps, 'ord': FLAGS.wrm_ord, 'y': y,
+                      'steps': FLAGS.wrm_steps}
+        # Create TF session and set as Keras backend session
+        sess = tf.Session()
+        keras.backend.set_session(sess)
+        wrm = WassersteinRobustMethod(custom_vgg_model, sess=sess)
+        predictions = custom_vgg_model(x)
+        predictions_adv_wrm = custom_vgg_model(wrm.generate(x, **wrm_params))
+        # TODO(jpgard): create a separate test dataset.
+        eval_params = {'batch_size': FLAGS.batch_size}
+        eval_fn = partial(model_eval_fn, sess, x, y, predictions, predictions_adv_wrm,
+                          X_test=None, Y_test=None, eval_params=eval_params,
+                          dataset_iterator=train_iter)
+        model_train_fn = partial(model_train,
+                                 sess, x, y, predictions_adv_wrm, X_train=None,
+                                 Y_train=None,
+                                 evaluate=eval_fn,
+                                 args={"nb_epochs": FLAGS.epochs,
+                                       "learning_rate": FLAGS.learning_rate,
+                                       "batch_size": FLAGS.batch_size},
+                                 save=False,
+                                 dataset_iterator=train_iter)
+        metrics = model_train_fn()
+        print(metrics)
+        import ipdb;ipdb.set_trace()
 
-    custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
-                             loss=tf.keras.losses.CategoricalCrossentropy(
-                                 from_logits=True),
-                             metrics=['accuracy',
-                                      AUC(name='auc'),
-                                      TruePositives(name='tp'),
-                                      FalsePositives(name='fp'),
-                                      TrueNegatives(name='tn'),
-                                      FalseNegatives(name='fn')
-                                      ]
-                             )
-    custom_vgg_model.summary()
-    steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
-    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
-                                   epochs=FLAGS.epochs, callbacks=[tensorboard_callback, csv_callback])
+
+
+    else:
+        train_ds = prepare_for_training(labeled_ds, repeat_forever=True,
+                                        batch_size=FLAGS.batch_size)
+        tensorboard_callback = TensorBoard(
+            log_dir='./training-logs/{}'.format(uid),
+            batch_size=FLAGS.batch_size,
+            write_graph=True,
+            write_grads=True,
+            update_freq='epoch')
+        csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
+        custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
+                                 loss=tf.keras.losses.CategoricalCrossentropy(
+                                     from_logits=True),
+                                 metrics=['accuracy',
+                                          AUC(name='auc'),
+                                          TruePositives(name='tp'),
+                                          FalsePositives(name='fp'),
+                                          TrueNegatives(name='tn'),
+                                          FalseNegatives(name='fn')
+                                          ]
+                                 )
+        custom_vgg_model.summary()
+        steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
+        custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
+                                       epochs=FLAGS.epochs, callbacks=[tensorboard_callback, csv_callback])
 
 
 

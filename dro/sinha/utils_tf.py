@@ -14,7 +14,8 @@ import tensorflow as tf
 import time
 import warnings
 
-from dro.sinha.utils import batch_indices, _ArgsWrapper
+from dro.sinha.utils import _ArgsWrapper, batch_indices
+from dro.utils.experiment_utils import get_batch
 
 from tensorflow.python.platform import flags
 
@@ -64,7 +65,8 @@ def model_loss(y, model, mean=True):
 
 
 def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
-                predictions_adv=None, evaluate=None, verbose=True, args=None) -> dict:
+                predictions_adv=None, evaluate=None, verbose=True, args=None,
+                dataset_iterator=None) -> dict:
     """
     Train a TF graph
     :param sess: TF session to use when training the graph
@@ -117,15 +119,24 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
             assert nb_batches * args.batch_size >= len(X_train)
 
             prev = time.time()
-            for batch in range(nb_batches):
+            for batch_num in range(nb_batches):
+                if dataset_iterator is not None:
+                    batch_x, batch_y = get_batch(dataset_iterator,
+                                                 args.batch_size)
+                else:
+                    start, end = batch_indices(
+                        batch_num, len(X_train), args.batch_size)
+                    batch_x = X_train[start:end]
+                    batch_y = Y_train[start:end]
 
-                # Compute batch start and end indices
-                start, end = batch_indices(
-                    batch, len(X_train), args.batch_size)
+
+                # TODO(jpgard): perform a check if X_train and Y_train are iterators;
+                #  otherwise use the existing code as default.
+                # We allow an iterator to be passed; in this case, we slice it first.
 
                 # Perform one training step
-                train_step.run(feed_dict={x: X_train[start:end],
-                                          y: Y_train[start:end]})
+                train_step.run(feed_dict={x: batch_x,
+                                          y: batch_y})
             assert end >= len(X_train)  # Check that all examples were used
             cur = time.time()
             if verbose:
@@ -145,7 +156,7 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
     return metrics_dict
 
 
-def model_eval(sess, x, y, model, X_test, Y_test, args=None):
+def model_eval(sess, x, y, model, X_test, Y_test, args=None, dataset_iterator=None):
     """
     Compute the accuracy of a TF model on some data
     :param sess: TF session to use when training the graph
@@ -171,6 +182,9 @@ def model_eval(sess, x, y, model, X_test, Y_test, args=None):
     # Init result var
     accuracy = 0.0
 
+    # Variable to track size
+    n_test = 0
+
     with sess.as_default():
         # Compute number of batches
         nb_batches = int(math.ceil(float(len(X_test)) / args.batch_size))
@@ -187,17 +201,25 @@ def model_eval(sess, x, y, model, X_test, Y_test, args=None):
             end = min(len(X_test), start + args.batch_size)
             cur_batch_size = end - start
 
+            if dataset_iterator is not None:
+                batch_x, batch_y = get_batch(dataset_iterator,
+                                             args.batch_size)
+            else:
+                batch_x = X_test[start:end]
+                batch_y = X_test[start:end]
+            n_test += len(batch_x)
+
             # The last batch may be smaller than all others, so we need to
             # account for variable batch size here
             cur_acc = acc_value.eval(
-                feed_dict={x: X_test[start:end],
-                           y: Y_test[start:end]})
+                feed_dict={x: batch_x,
+                           y: batch_y})
 
             accuracy += (cur_batch_size * cur_acc)
 
-        assert end >= len(X_test)
+        assert end >= n_test
 
         # Divide by number of examples to get final value
-        accuracy /= len(X_test)
+        accuracy /= n_test
 
     return accuracy

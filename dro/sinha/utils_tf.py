@@ -158,7 +158,8 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
     return metrics_dict
 
 
-def model_eval(sess, x, y, model, X_test, Y_test, args=None, dataset_iterator=None):
+def model_eval(sess, x, y, model, X_test, Y_test, args=None, dataset_iterator=None,
+               nb_batches=None):
     """
     Compute the accuracy of a TF model on some data
     :param sess: TF session to use when training the graph
@@ -189,8 +190,9 @@ def model_eval(sess, x, y, model, X_test, Y_test, args=None, dataset_iterator=No
 
     with sess.as_default():
         # Compute number of batches
-        nb_batches = int(math.ceil(float(len(X_test)) / args.batch_size))
-        assert nb_batches * args.batch_size >= len(X_test)
+        if not nb_batches:
+            nb_batches = int(math.ceil(float(len(X_test)) / args.batch_size))
+            assert nb_batches * args.batch_size >= len(X_test)
 
         for batch in range(nb_batches):
             #if batch % 100 == 0 and batch > 0:
@@ -218,8 +220,6 @@ def model_eval(sess, x, y, model, X_test, Y_test, args=None, dataset_iterator=No
                            y: batch_y})
 
             accuracy += (cur_batch_size * cur_acc)
-
-        assert end >= n_test
 
         # Divide by number of examples to get final value
         accuracy /= n_test

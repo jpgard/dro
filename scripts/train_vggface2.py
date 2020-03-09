@@ -182,9 +182,11 @@ def main(argv):
         predictions_adv_wrm = custom_vgg_model(wrm.generate(x, **wrm_params))
         # TODO(jpgard): create a separate test dataset.
         eval_params = {'batch_size': FLAGS.batch_size}
+        num_eval_batches=5
         eval_fn = partial(model_eval_fn, sess, x, y, predictions, predictions_adv_wrm,
                           X_test=None, Y_test=None, eval_params=eval_params,
-                          dataset_iterator=train_iter)
+                          dataset_iterator=train_iter,
+                          nb_batches=num_eval_batches)
         model_train_fn = partial(model_train,
                                  sess, x, y, predictions_adv_wrm, X_train=None,
                                  Y_train=None,

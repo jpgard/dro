@@ -207,18 +207,21 @@ def main(argv):
     k = tf.placeholder(tf.float32)  # placeholder for step count
 
     # create the scalar variable
-    x_scalar = tf.get_variable('x_scalar', shape=[],
-                               initializer=tf.truncated_normal_initializer(mean=0,
-                                                                           stddev=1))
+    x_scalar = tf.get_variable(
+        'x_scalar', shape=[],
+        initializer=tf.truncated_normal_initializer(mean=0,stddev=1)
+    )
     # ____step 1:____ create the scalar summary
     first_summary = tf.summary.scalar(name='My_first_scalar_summary', tensor=x_scalar)
 
+    merged = tf.summary.merge_all()
+
     with tf.Session(config=config) as sess:
         print("[INFO] starting training")
-        sess.run(tf.global_variables_initializer())
         writer = tf.summary.FileWriter(train_dir, sess.graph)
         n_train_steps = FLAGS.epochs * steps_per_epoch
         for step in range(n_train_steps):
+            sess.run(tf.global_variables_initializer())
             print("epoch step %s" % step)
             # Training loop - using batches of 32
             x, y = sess.run(next_element)

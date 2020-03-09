@@ -142,10 +142,6 @@ def main(argv):
     # from dro.utils.vis import show_batch
     # show_batch(image_batch.numpy(), label_batch.numpy())
 
-    # Disable eager
-    # tf.compat.v1.disable_eager_execution()
-
-
     # TODO(jpgard): set this to the correct value given the sample size and number of
     #  epochs
 
@@ -192,10 +188,8 @@ def main(argv):
         return loss_value, tape.gradient(loss_value, model.trainable_variables)
 
     optimizer = tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate)
-    # loss_value, grads = grad(model, batch_x, batch_y)
-    # optimizer.apply_gradients(zip(grads, model.trainable_variables))
-    ########################################################################
 
+    ########################################################################
 
     config = tf.compat.v1.ConfigProto(
         allow_soft_placement=True,
@@ -230,30 +224,6 @@ def main(argv):
             #     epoch, epoch_loss_avg.result(), epoch_accuracy.result()))
             epoch_train_time = int(time.time() - epoch_start)
             print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
-
-            # End epoch
-            # train_loss_results.append(epoch_loss_avg.result())
-            # train_accuracy_results.append(epoch_accuracy.result())
-        #     epoch_total_accuracy = 0.
-        #     epoch_total_loss = 0.
-        #     for step in range(steps_per_epoch):
-        #         try:
-        #             # while True:
-        #             # TODO(jpgard): figure out why the loss is not going down.
-        #             batch_acc, batch_loss, _ = sess.run([custom_vgg_model.accuracy,
-        #                                           custom_vgg_model.loss,
-        #                                           custom_vgg_model.optimizer])
-        #             epoch_total_accuracy += batch_acc
-        #             epoch_total_loss += batch_loss
-        #         except tf.errors.OutOfRangeError:
-        #             print("[WARNING] reached end of dataset.")
-        #             break
-
-        #     print("epoch %s loss %4f accuracy %4f" %
-        #           (epoch, epoch_total_loss/float(steps_per_epoch),
-        #            epoch_total_accuracy/float(steps_per_epoch)))
-        #     print("=" * 80)
-
 
 if __name__ == "__main__":
     app.run(main)

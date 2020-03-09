@@ -170,14 +170,14 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
     return metrics
 
 
-def model_eval(sess, x, y, model, X_test, Y_test, args=None, dataset_iterator=None,
+def model_eval(sess, x, y, y_hat, X_test, Y_test, args=None, dataset_iterator=None,
                nb_batches=None):
     """
     Compute the accuracy of a TF model on some data
     :param sess: TF session to use when training the graph
     :param x: input placeholder
     :param y: output placeholder (for labels)
-    :param model: model output predictions
+    :param y_hat: model output predictions
     :param X_test: numpy array with training inputs
     :param Y_test: numpy array with training outputs
     :param args: dict or argparse `Namespace` object.
@@ -192,7 +192,7 @@ def model_eval(sess, x, y, model, X_test, Y_test, args=None, dataset_iterator=No
     # Keras 2.0 categorical_accuracy no longer calculates the mean internally
     # tf.reduce_mean is called in here and is backward compatible with previous
     # versions of Keras
-    acc_value = tf.reduce_mean(keras.metrics.categorical_accuracy(y, model))
+    acc_value = tf.reduce_mean(keras.metrics.categorical_accuracy(y, y_hat))
 
     # Init result var
     accuracy = 0.0

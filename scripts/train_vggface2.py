@@ -162,7 +162,7 @@ def main(argv):
 
     if FLAGS.adversarial:
         import tensorflow_datasets as tfds
-        train_ds = prepare_for_training(labeled_ds, repeat_forever=False, batch_size=None)
+        train_ds = prepare_for_training(labeled_ds, repeat_forever=True, batch_size=None)
         # train_iter is an iterator which returns X,Y pairs of numpy arrays where
         # X has shape (224, 224, 3) and Y has shape (2,).
         train_iter = tfds.as_numpy(train_ds)

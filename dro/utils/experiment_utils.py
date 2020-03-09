@@ -1,7 +1,6 @@
 from dro import keys
 from dro.sinha.utils_tf import model_eval
-from itertools import islice
-import numpy as np
+
 
 def model_eval_fn(sess, x, y, predictions, predictions_adv, X_test, Y_test, eval_params,
                   dataset_iterator=None):
@@ -17,10 +16,4 @@ def model_eval_fn(sess, x, y, predictions, predictions_adv, X_test, Y_test, eval
     metrics_dict = {keys.ACC: accuracy, keys.ACC_ADV_W: accuracy_adv_wass}
     return metrics_dict
 
-
-def get_batch(dataset_iterator, batch_size):
-    slice = tuple(islice(dataset_iterator, batch_size))
-    batch_x = np.stack([i[0] for i in slice], axis=0)
-    batch_y = np.stack([i[1] for i in slice], axis=0)
-    return batch_x, batch_y
 

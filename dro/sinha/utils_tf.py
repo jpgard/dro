@@ -15,7 +15,7 @@ import time
 import warnings
 
 from dro.sinha.utils import _ArgsWrapper, batch_indices
-from dro.utils.experiment_utils import get_batch
+from dro.utils.training_utils import get_batch
 
 from tensorflow.python.platform import flags
 

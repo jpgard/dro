@@ -63,6 +63,7 @@ def main(argv):
             lr=FLAGS.learning_rate,
             dropout_rate=FLAGS.dropout_rate
         )
+        return model_uid
 
     uid = make_model_uid()
 
@@ -144,8 +145,8 @@ def main(argv):
 
     # TODO(jpgard): set this to the correct value given the sample size and number of
     #  epochs
-
-    steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
+    # steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
+    steps_per_epoch = 5
     # TODO(jpgard): instead, make an initializable iterator and re-initizlize at every
     #  epoch, as shown in answer below.
     #  https://stackoverflow.com/questions/47067401/how-to-iterate-a-dataset-several
@@ -190,14 +191,12 @@ def main(argv):
     optimizer = tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate)
 
     ########################################################################
-
+    train_dir = "./training-logs/{}".format(uid)
     g = tf.compat.v1.Graph()
     with g.as_default():
-        step = tf.Variable(0, dtype=tf.int64)
-        step_update = step.assign_add(1)
-        writer = tf.summary.create_file_writer("./training-logs/{}".format(uid))
-        with writer.as_default():
-            tf.summary.scalar("my_metric", 0.5, step=step)
+        writer = tf.compat.v1.summary.FileWriter(train_dir)
+        tf.summary.scalar("my_metric", 0.5)
+        writer.add_graph(tf.get_default_graph())
         all_summary_ops = tf.compat.v1.summary.all_v2_summary_ops()
         writer_flush = writer.flush()
 
@@ -208,9 +207,8 @@ def main(argv):
     )
 
     with tf.Session(config=config) as sess:
-        print("training")
+        print("[INFO] starting training")
         sess.run(tf.global_variables_initializer())
-        sess.run([writer.init(), step.initializer])
 
         for epoch in range(FLAGS.epochs):
             epoch_start = time.time()
@@ -222,9 +220,8 @@ def main(argv):
                 loss_value, grads = grad(model, x, y)
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))
                 sess.run(all_summary_ops)
-                sess.run(step_update)
+                # Make sure that all pending events have been written to disk.
                 sess.run(writer_flush)
-
             epoch_train_time = int(time.time() - epoch_start)
             print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
 

@@ -27,6 +27,10 @@ import math
 from dro.sinha.attacks import WassersteinRobustMethod
 import keras
 import pandas as pd
+from dro.sinha.utils_tf import model_train
+from dro.utils.experiment_utils import model_eval_fn
+from functools import partial
+import tensorflow_datasets as tfds
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
@@ -146,8 +150,6 @@ def main(argv):
     # from dro.utils.vis import show_batch
     # show_batch(image_batch.numpy(), label_batch.numpy())
 
-    # Disable eager
-    # tf.compat.v1.disable_eager_execution()
     from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
         FalsePositives, FalseNegatives
     from tensorflow.keras.callbacks import TensorBoard, CSVLogger
@@ -157,19 +159,15 @@ def main(argv):
 
     config = tf.compat.v1.ConfigProto(
         allow_soft_placement=True,
-        # log_device_placement=True,
         gpu_options=tf.GPUOptions(allow_growth=True)
     )
 
     if FLAGS.adversarial:
-        import tensorflow_datasets as tfds
         train_ds = prepare_for_training(labeled_ds, repeat_forever=True, batch_size=None)
         # train_iter is an iterator which returns X,Y pairs of numpy arrays where
         # X has shape (224, 224, 3) and Y has shape (2,).
         train_iter = tfds.as_numpy(train_ds)
-        from dro.sinha.utils_tf import model_train
-        from dro.utils.experiment_utils import model_eval_fn
-        from functools import partial
+
         # The adversarial perturbation block
         x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3))
         y = tf.placeholder(tf.float32, shape=(None, 2))

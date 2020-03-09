@@ -240,22 +240,20 @@ def main(argv):
             for step in range(steps_per_epoch):
                 try:
                     # while True:
-                    # TODO(jpgard): figure out why the loss is not going down, and get it
-                    #  to print correctly here if it is indeed being reduced.
-                    # TODO(jpgard): print the metrics every epoch, not after every batch!!
+                    # TODO(jpgard): figure out why the loss is not going down.
                     batch_acc, batch_loss, _ = sess.run([custom_vgg_model.accuracy,
                                                   custom_vgg_model.loss,
                                                   custom_vgg_model.optimizer])
                     epoch_total_accuracy += batch_acc
                     epoch_total_loss += batch_loss
-                    print("epoch %s step %s current epoch loss %4f accuracy %4f" %
-                          (epoch, step, epoch_total_loss/(step+1),
-                           epoch_total_accuracy/(step+1)))
                 except tf.errors.OutOfRangeError:
                     print("[WARNING] reached end of dataset.")
                     break
             epoch_train_time = int(time.time() - epoch_start)
             print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
+            print("epoch %s loss %4f accuracy %4f" %
+                  (epoch, epoch_total_loss/float(steps_per_epoch),
+                   epoch_total_accuracy/float(steps_per_epoch)))
             print("=" * 80)
 
 

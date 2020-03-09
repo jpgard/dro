@@ -12,17 +12,17 @@ from itertools import product
 
 import pandas as pd
 import keras
-from keras import backend
 from keras.backend import manual_variable_initialization
 import tensorflow as tf
 from tensorflow.python.platform import app
 from tensorflow.python.platform import flags
 
 from dro.sinha.attacks import WassersteinRobustMethod
-from dro.sinha.utils_tf import model_train, model_eval
+from dro.sinha.utils_tf import model_train
 from dro.datasets import generate_simulated_dataset
 from dro import keys
 from dro.training.models import logistic_regression_model
+from dro.utils.experiment_utils import model_eval_fn
 
 FLAGS = flags.FLAGS
 
@@ -61,19 +61,6 @@ eval_params = {'batch_size': FLAGS.batch_size}
 seed = 12345
 np.random.seed(seed)
 tf.set_random_seed(seed)
-
-
-def model_eval_fn(sess, x, y, predictions, predictions_adv, X_test, Y_test, eval_params):
-    # Evaluate the accuracy of the MNIST model on legitimate test examples
-    accuracy = model_eval(sess, x, y, predictions, X_test, Y_test, args=eval_params)
-    print('Test accuracy on legitimate test examples: %0.4f' % accuracy)
-
-    # Accuracy of the model on Wasserstein adversarial examples
-    accuracy_adv_wass = model_eval(sess, x, y, predictions_adv, X_test,
-                                   Y_test, args=eval_params)
-    print('Test accuracy on Wasserstein examples: %0.4f\n' % accuracy_adv_wass)
-    metrics_dict = {keys.ACC: accuracy, keys.ACC_ADV_W: accuracy_adv_wass}
-    return metrics_dict
 
 
 def run_simulation_experiment(n, p, sess, eps: float,

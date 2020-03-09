@@ -149,8 +149,7 @@ def main(argv):
     # TODO(jpgard): set this to the correct value given the sample size and number of
     #  epochs
 
-    # steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
-    steps_per_epoch=5 # TODO(jpgard): change this back after fixing it.
+    steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
     # TODO(jpgard): instead, make an initializable iterator and re-initizlize at every
     #  epoch, as shown in answer below.
     #  https://stackoverflow.com/questions/47067401/how-to-iterate-a-dataset-several
@@ -210,6 +209,7 @@ def main(argv):
 
         for epoch in range(FLAGS.epochs):
             epoch_start = time.time()
+            epoch_loss = tf.zeros((1,))
             epoch_loss_avg = tf.keras.metrics.Mean()
             epoch_accuracy = tf.keras.metrics.BinaryAccuracy()
             for step in range(steps_per_epoch):
@@ -219,6 +219,7 @@ def main(argv):
                 # Optimize the model
                 loss_value, grads = grad(model, x, y)
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))
+                epoch_loss += loss_value
 
                 # Track progress
                 # epoch_loss_avg(loss_value)  # Add current batch loss
@@ -226,7 +227,8 @@ def main(argv):
                 # training=True is needed only if there are layers with different
                 # behavior during training versus inference (e.g. Dropout).
                 # epoch_accuracy(y_true=y, y_pred=model(x, training=True))
-                print("loss_value:", loss_value.eval())
+            epoch_loss = tf.divide(epoch_loss, float(steps_per_epoch))
+            print("epoch loss_value:", epoch_loss.eval())
             # print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
             #     epoch, epoch_loss_avg.result(), epoch_accuracy.result()))
             epoch_train_time = int(time.time() - epoch_start)

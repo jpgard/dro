@@ -203,8 +203,8 @@ def main(argv):
         print(metrics)
         pd.DataFrame(metrics).to_csv("./metrics/{uid}.csv".format(uid=uid), index=False)
 
-
     else:
+
         train_ds = prepare_for_training(labeled_ds, repeat_forever=True,
                                         batch_size=FLAGS.batch_size)
         tensorboard_callback = TensorBoard(

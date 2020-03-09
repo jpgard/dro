@@ -221,8 +221,6 @@ def main(argv):
                 # Optimize the model
                 loss_value, grads = grad(model, x, y)
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))
-
-                print("loss_value:", loss_value.eval())
                 sess.run(all_summary_ops)
                 sess.run(step_update)
                 sess.run(writer_flush)

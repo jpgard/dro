@@ -186,7 +186,6 @@ def main(argv):
         wrm = WassersteinRobustMethod(custom_vgg_model, sess=sess)
         predictions = custom_vgg_model(x)
         predictions_adv_wrm = custom_vgg_model(wrm.generate(x, **wrm_params))
-        # TODO(jpgard): create a separate test dataset.
         eval_params = {'batch_size': FLAGS.batch_size}
         eval_fn = partial(model_eval_fn, sess, x, y, predictions, predictions_adv_wrm,
                           X_test=None, Y_test=None, eval_params=eval_params,

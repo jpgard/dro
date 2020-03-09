@@ -10,7 +10,8 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 python scripts/train_vggface2.py \
-    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open
+    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
+    /mouth_open
 """
 
 import pandas as pd
@@ -38,7 +39,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 16, "batch size")
 flags.DEFINE_integer("epochs", 5, "the number of training epochs")
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
-flags.DEFINE_float("learning_rate", 0.001, "learning rate to use")
+flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
@@ -46,21 +47,23 @@ flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 CLASS_NAMES = np.array(["0", "1"])
-
+LABELS_DTYPE = tf.int32
 
 class VGGModel:
-    def __init__(self, data_X, data_y):
-        self._create_architecture(data_X, data_y)
+    def __init__(self, batch_x, batch_y):
+        self._create_architecture(batch_x, batch_y)
 
-    def _create_architecture(self, data_X, data_y):
-        logits = self._create_model(data_X)
+    def _create_architecture(self, batch_x, batch_y):
+        y_hot = tf.one_hot(batch_y, 2)
+        logits = self._create_model(batch_x)
         logits = tf.squeeze(logits)
-        predictions = tf.round(tf.nn.sigmoid(logits))
-        self.loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-            labels=data_y, logits=logits))
+        predictions = tf.argmax(logits, 1, output_type=LABELS_DTYPE)
+        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
+            labels=y_hot,
+            logits=logits))
         self.optimizer = tf.train.AdamOptimizer(
             learning_rate=FLAGS.learning_rate).minimize(self.loss)
-        self.accuracy = tf.reduce_mean(tf.cast(tf.equal(predictions, data_y),
+        self.accuracy = tf.reduce_mean(tf.cast(tf.equal(predictions, batch_y),
                                                tf.float32))
 
     def _create_model(self, X):
@@ -78,7 +81,7 @@ class VGGModel:
         x = Dense(256, name='fc7')(x)
         x = Activation('relu', name='fc7/relu')(x)
         x = Dropout(rate=FLAGS.dropout_rate)(x)
-        x = Dense(1, name='fc8')(x)
+        x = Dense(2, name='fc8')(x)
         out = Activation('sigmoid', name='fc8/sigmoid')(x)
 
         custom_vgg_model = Model(vgg_model.input, out)
@@ -109,7 +112,7 @@ def main(argv):
         # convert the path to a list of path components
         label = tf.strings.substr(file_path, -21, 1)
         # The second to last is the class-directory
-        return tf.strings.to_number(label)
+        return tf.strings.to_number(label, out_type=LABELS_DTYPE)
 
     def decode_img(img, normalize_by_channel=False):
         # convert the compressed string to a 3D uint8 tensor
@@ -214,7 +217,8 @@ def main(argv):
     steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
     # TODO(jpgard): instead, make an initializable iterator and re-initizlize at every
     #  epoch, as shown in answer below.
-    #  https://stackoverflow.com/questions/47067401/how-to-iterate-a-dataset-several-times-using-tensorflows-dataset-api
+    #  https://stackoverflow.com/questions/47067401/how-to-iterate-a-dataset-several
+    #  -times-using-tensorflows-dataset-api
     ds_iterator = train_ds.make_one_shot_iterator()
     batch_x, batch_y = ds_iterator.get_next()
     custom_vgg_model = VGGModel(batch_x, batch_y)
@@ -245,7 +249,7 @@ def main(argv):
                 except tf.errors.OutOfRangeError:
                     print("[WARNING] reached end of dataset.")
                     break
-            epoch_train_time = int(epoch_start - time.time())
+            epoch_train_time = int(time.time() - epoch_start)
             print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
             print("=" * 80)
 

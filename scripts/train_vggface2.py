@@ -208,6 +208,7 @@ def main(argv):
         # sess.run(tf.global_variables_initializer())
 
         for epoch in range(FLAGS.epochs):
+            epoch_start = time.time()
             epoch_loss_avg = tf.keras.metrics.Mean()
             epoch_accuracy = tf.keras.metrics.BinaryAccuracy()
             for step in range(steps_per_epoch):
@@ -224,14 +225,14 @@ def main(argv):
                 # training=True is needed only if there are layers with different
                 # behavior during training versus inference (e.g. Dropout).
                 epoch_accuracy(y, model(x, training=True))
-            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(epoch,
-                                                                        epoch_loss_avg.result(),
-                                                                        epoch_accuracy.result()))
+            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
+                epoch, epoch_loss_avg.result().numpy(), epoch_accuracy.result().numpy()))
+            epoch_train_time = int(time.time() - epoch_start)
+            print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
 
             # End epoch
             # train_loss_results.append(epoch_loss_avg.result())
             # train_accuracy_results.append(epoch_accuracy.result())
-        #     epoch_start = time.time()
         #     epoch_total_accuracy = 0.
         #     epoch_total_loss = 0.
         #     for step in range(steps_per_epoch):
@@ -246,8 +247,7 @@ def main(argv):
         #         except tf.errors.OutOfRangeError:
         #             print("[WARNING] reached end of dataset.")
         #             break
-        #     epoch_train_time = int(time.time() - epoch_start)
-        #     print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
+
         #     print("epoch %s loss %4f accuracy %4f" %
         #           (epoch, epoch_total_loss/float(steps_per_epoch),
         #            epoch_total_accuracy/float(steps_per_epoch)))

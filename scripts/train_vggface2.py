@@ -191,6 +191,16 @@ def main(argv):
 
     ########################################################################
 
+    g = tf.compat.v1.Graph()
+    with g.as_default():
+        step = tf.Variable(0, dtype=tf.int64)
+        step_update = step.assign_add(1)
+        writer = tf.summary.create_file_writer("./training-logs/{}".format(uid))
+        with writer.as_default():
+            tf.summary.scalar("my_metric", 0.5, step=step)
+        all_summary_ops = tf.compat.v1.summary.all_v2_summary_ops()
+        writer_flush = writer.flush()
+
     config = tf.compat.v1.ConfigProto(
         allow_soft_placement=True,
         # log_device_placement=True,
@@ -200,11 +210,10 @@ def main(argv):
     with tf.Session(config=config) as sess:
         print("training")
         sess.run(tf.global_variables_initializer())
+        sess.run([writer.init(), step.initializer])
 
         for epoch in range(FLAGS.epochs):
             epoch_start = time.time()
-            epoch_loss_avg = tf.keras.metrics.Mean()
-            epoch_accuracy = tf.keras.metrics.BinaryAccuracy()
             for step in range(steps_per_epoch):
                 print("epoch %s step %s" % (epoch, step))
                 # Training loop - using batches of 32
@@ -213,15 +222,11 @@ def main(argv):
                 loss_value, grads = grad(model, x, y)
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
-                # Track progress
-                # epoch_loss_avg(loss_value)  # Add current batch loss
-                # Compare predicted label to actual label
-                # training=True is needed only if there are layers with different
-                # behavior during training versus inference (e.g. Dropout).
-                # epoch_accuracy(y_true=y, y_pred=model(x, training=True))
                 print("loss_value:", loss_value.eval())
-            # print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
-            #     epoch, epoch_loss_avg.result(), epoch_accuracy.result()))
+                sess.run(all_summary_ops)
+                sess.run(step_update)
+                sess.run(writer_flush)
+
             epoch_train_time = int(time.time() - epoch_start)
             print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
 

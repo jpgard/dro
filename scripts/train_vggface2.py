@@ -220,13 +220,13 @@ def main(argv):
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
                 # Track progress
-                epoch_loss_avg.update_state(loss_value)  # Add current batch loss
+                epoch_loss_avg(loss_value)  # Add current batch loss
                 # Compare predicted label to actual label
                 # training=True is needed only if there are layers with different
                 # behavior during training versus inference (e.g. Dropout).
-                epoch_accuracy.update_state(y_true=y, y_pred=model(x, training=True))
+                epoch_accuracy(y_true=y, y_pred=model(x, training=True))
             print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
-                epoch, epoch_loss_avg.result().eval(), epoch_accuracy.result().eval()))
+                epoch, epoch_loss_avg.result(), epoch_accuracy.result()))
             epoch_train_time = int(time.time() - epoch_start)
             print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
 

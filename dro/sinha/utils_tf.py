@@ -66,7 +66,8 @@ def model_loss(y, model, mean=True):
 
 def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
                 predictions_adv=None, evaluate=None, verbose=True, args=None,
-                dataset_iterator=None) -> dict:
+                dataset_iterator=None,
+                nb_batches=None) -> dict:
     """
     Train a TF graph
     :param sess: TF session to use when training the graph
@@ -83,6 +84,8 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
                  `batch_size`
                  If save is True, should also contain 'train_dir'
                  and 'filename'.
+    :param nb_batches: optional parameter to give number of iterations per epoch;
+    otherwise this is inferred from data.
     :return: metrics_dict, a dictionary of metrics.
     """
     args = _FlagsWrapper(args or {})
@@ -115,8 +118,9 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
                 print("Epoch " + str(epoch))
 
             # Compute number of batches
-            nb_batches = int(math.ceil(float(len(X_train)) / args.batch_size))
-            assert nb_batches * args.batch_size >= len(X_train)
+            if not nb_batches:
+                nb_batches = int(math.ceil(float(len(X_train)) / args.batch_size))
+                assert nb_batches * args.batch_size >= len(X_train)
 
             prev = time.time()
             for batch_num in range(nb_batches):

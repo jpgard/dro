@@ -152,7 +152,7 @@ def main(argv):
     from tensorflow.keras.callbacks import TensorBoard, CSVLogger
     from dro.training.models import vggface2_model
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
-
+    steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
 
     if FLAGS.adversarial:
         import tensorflow_datasets as tfds
@@ -187,7 +187,8 @@ def main(argv):
                                        "learning_rate": FLAGS.learning_rate,
                                        "batch_size": FLAGS.batch_size},
                                  save=False,
-                                 dataset_iterator=train_iter)
+                                 dataset_iterator=train_iter,
+                                 nb_batches=steps_per_epoch)
         metrics = model_train_fn()
         print(metrics)
         import ipdb;ipdb.set_trace()
@@ -216,7 +217,6 @@ def main(argv):
                                           ]
                                  )
         custom_vgg_model.summary()
-        steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
         custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
                                        epochs=FLAGS.epochs, callbacks=[tensorboard_callback, csv_callback])
 

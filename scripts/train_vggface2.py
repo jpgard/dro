@@ -145,8 +145,7 @@ def main(argv):
 
     # TODO(jpgard): set this to the correct value given the sample size and number of
     #  epochs
-    # steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
-    steps_per_epoch = 5
+    steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
     # TODO(jpgard): instead, make an initializable iterator and re-initizlize at every
     #  epoch, as shown in answer below.
     #  https://stackoverflow.com/questions/47067401/how-to-iterate-a-dataset-several

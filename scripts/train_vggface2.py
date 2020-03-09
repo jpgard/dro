@@ -52,11 +52,9 @@ flags.DEFINE_integer('wrm_ord', 2, 'order of norm to use in Wasserstein robust m
 flags.DEFINE_integer('wrm_steps', 15,
                      'number of steps to use in Wasserstein robus method')
 
-
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
 
 
 def main(argv):
@@ -229,8 +227,8 @@ def main(argv):
                                  )
         custom_vgg_model.summary()
         custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
-                                       epochs=FLAGS.epochs, callbacks=[tensorboard_callback, csv_callback])
-
+                                       epochs=FLAGS.epochs,
+                                       callbacks=[tensorboard_callback, csv_callback])
 
 
 if __name__ == "__main__":

@@ -65,6 +65,7 @@ def main(argv):
             lr=FLAGS.learning_rate,
             dropout_rate=FLAGS.dropout_rate
         )
+        return model_uid
 
     uid = make_model_uid()
 

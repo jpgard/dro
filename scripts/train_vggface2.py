@@ -49,6 +49,25 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 CLASS_NAMES = np.array(["0", "1"])
 LABELS_DTYPE = tf.float32
 
+def get_vggface2_model():
+    # Convolution Features
+    vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
+    # set the vgg_model layers to non-trainable
+    for layer in vgg_model.layers:
+        layer.trainable = False
+    last_layer = vgg_model.get_layer('pool5').output
+    # Classification block
+    x = Flatten(name='flatten')(last_layer)
+    x = Dense(4096, name='fc6')(x)
+    x = Activation('relu', name='fc6/relu')(x)
+    x = Dropout(rate=FLAGS.dropout_rate)(x)
+    x = Dense(256, name='fc7')(x)
+    x = Activation('relu', name='fc7/relu')(x)
+    x = Dropout(rate=FLAGS.dropout_rate)(x)
+    x = Dense(1, name='fc8')(x)
+    out = Activation('sigmoid', name='fc8/sigmoid')(x)
+    model = Model(vgg_model.input, out)
+    return model
 
 
 def main(argv):
@@ -160,24 +179,6 @@ def main(argv):
 
     ########################################################################
 
-    # Convolution Features
-    vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
-    # set the vgg_model layers to non-trainable
-    for layer in vgg_model.layers:
-        layer.trainable = False
-    last_layer = vgg_model.get_layer('pool5').output
-    # Classification block
-    x = Flatten(name='flatten')(last_layer)
-    x = Dense(4096, name='fc6')(x)
-    x = Activation('relu', name='fc6/relu')(x)
-    x = Dropout(rate=FLAGS.dropout_rate)(x)
-    x = Dense(256, name='fc7')(x)
-    x = Activation('relu', name='fc7/relu')(x)
-    x = Dropout(rate=FLAGS.dropout_rate)(x)
-    x = Dense(1, name='fc8')(x)
-    out = Activation('sigmoid', name='fc8/sigmoid')(x)
-    model = Model(vgg_model.input, out)
-
     loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
     def loss(model, x, y, training):
@@ -187,13 +188,15 @@ def main(argv):
         y_ = tf.squeeze(y_)  # Convert shape from (batch_size, 1) to (batch_size,)
         return loss_object(y_true=y, y_pred=y_)
 
+
     def grad(model, inputs, targets):
         with tf.GradientTape() as tape:
             loss_value = loss(model, inputs, targets, training=True)
-        tf.summary.scalar("loss", loss_value)
         return loss_value, tape.gradient(loss_value, model.trainable_variables)
 
     optimizer = tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate)
+
+    model = get_vggface2_model()
 
     ########################################################################
     train_dir = "./training-logs/{}".format(uid)
@@ -213,7 +216,6 @@ def main(argv):
     )
     # ____step 1:____ create the scalar summary
     first_summary = tf.summary.scalar(name='My_first_scalar_summary', tensor=x_scalar)
-
     merged = tf.summary.merge_all()
 
     with tf.Session(config=config) as sess:
@@ -224,19 +226,17 @@ def main(argv):
             sess.run(tf.global_variables_initializer())
             print("epoch step %s" % step)
             # Training loop - using batches of 32
-            x, y = sess.run(next_element)
+            x,y = sess.run(next_element)
             # Optimize the model
             loss_value, grads = grad(model, x, y)
-
+            tf.summary.scalar("loss", loss_value)
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
-            # k_val = step / float(n_train_steps)
+            k_val = step / float(n_train_steps)
             # summaries = tf.summary.merge_all()
             # summ = sess.run(summaries, feed_dict={k: k_val})
             summ = sess.run(merged)
             writer.add_summary(summ, global_step=step)
         writer.flush()
-        # epoch_train_time = int(time.time() - epoch_start)
-        # print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
 
 if __name__ == "__main__":
     app.run(main)

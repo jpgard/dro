@@ -229,10 +229,10 @@ def main(argv):
             loss_value, grads = grad(model, x, y)
 
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
-            k_val = step / float(n_train_steps)
+            # k_val = step / float(n_train_steps)
             # summaries = tf.summary.merge_all()
             # summ = sess.run(summaries, feed_dict={k: k_val})
-            summ = sess.run(first_summary)
+            summ = sess.run(merged)
             writer.add_summary(summ, global_step=step)
         writer.flush()
         # epoch_train_time = int(time.time() - epoch_start)

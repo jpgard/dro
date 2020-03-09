@@ -26,6 +26,7 @@ import os
 import math
 from dro.sinha.attacks import WassersteinRobustMethod
 import keras
+import pandas as pd
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
@@ -199,8 +200,7 @@ def main(argv):
                                  nb_batches=steps_per_epoch)
         metrics = model_train_fn()
         print(metrics)
-        import ipdb;ipdb.set_trace()
-
+        pd.DataFrame(metrics).to_csv("./metrics/{uid}.csv".format(uid=uid))
 
 
     else:

@@ -17,9 +17,16 @@ import warnings
 from dro.sinha.utils import _ArgsWrapper, batch_indices
 from dro.utils.training_utils import get_batch
 
+
 from tensorflow.python.platform import flags
 
 FLAGS = flags.FLAGS
+
+
+def maybe_print_iter_num(epoch, batch_num, print_updates_every=10):
+    """Utility function to print the iteration number."""
+    if batch_num % print_updates_every == 0:
+        print("epoch %s step %s" % (epoch, batch_num))
 
 
 class _FlagsWrapper(_ArgsWrapper):
@@ -86,7 +93,8 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
                  and 'filename'.
     :param nb_batches: optional parameter to give number of iterations per epoch;
     otherwise this is inferred from data.
-    :return: metrics_dict, a dictionary of metrics.
+    :return: metrics, a list, where the ith element is a dictionary of metrics for the
+    ith iteration of model training.
     """
     args = _FlagsWrapper(args or {})
 
@@ -94,6 +102,8 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
     assert args.nb_epochs, "Number of epochs was not given in args dict"
     assert args.learning_rate, "Learning rate was not given in args dict"
     assert args.batch_size, "Batch size was not given in args dict"
+
+    metrics = list()  # container for epoch-wise
 
     if save:
         assert args.train_dir, "Directory for save was not given in args dict"
@@ -124,7 +134,7 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
 
             prev = time.time()
             for batch_num in range(nb_batches):
-                print("epoch %s step %s" % (epoch, batch_num))
+                maybe_print_iter_num(epoch, batch_num)
                 if dataset_iterator is not None:
                     batch_x, batch_y = get_batch(dataset_iterator,
                                                  args.batch_size)
@@ -144,8 +154,10 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
             cur = time.time()
             if verbose:
                 print("\tEpoch took " + str(cur - prev) + " seconds")
-            if evaluate is not None:
-                metrics_dict = evaluate()
+            if evaluate is not None:  # fetch evaluation results for this epoch
+                epoch_metrics = evaluate()
+                epoch_metrics["epoch"] = epoch  # add the epoch number as a key
+                metrics.append(epoch_metrics)
 
         if save:
             save_path = os.path.join(args.train_dir, args.filename)
@@ -155,7 +167,7 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
         else:
             print("Completed model training.")
 
-    return metrics_dict
+    return metrics
 
 
 def model_eval(sess, x, y, model, X_test, Y_test, args=None, dataset_iterator=None,

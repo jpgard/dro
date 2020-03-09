@@ -19,4 +19,3 @@ def model_eval_fn(sess, x, y, predictions, predictions_adv, X_test, Y_test, eval
     metrics_dict = {keys.ACC: accuracy, keys.ACC_ADV_W: accuracy_adv_wass}
     return metrics_dict
 
-

@@ -195,23 +195,17 @@ def model_eval(sess, x, y, model, X_test, Y_test, args=None, dataset_iterator=No
             assert nb_batches * args.batch_size >= len(X_test)
 
         for batch in range(nb_batches):
-            #if batch % 100 == 0 and batch > 0:
-                #print("Batch " + str(batch))
-
-            # Must not use the `batch_indices` function here, because it
-            # repeats some examples.
-            # It's acceptable to repeat during training, but not eval.
-            start = batch * args.batch_size
-            end = min(len(X_test), start + args.batch_size)
-            cur_batch_size = end - start
 
             if dataset_iterator is not None:
                 batch_x, batch_y = get_batch(dataset_iterator,
                                              args.batch_size)
             else:
+                start = batch * args.batch_size
+                end = min(len(X_test), start + args.batch_size)
                 batch_x = X_test[start:end]
                 batch_y = X_test[start:end]
-            n_test += len(batch_x)
+            cur_batch_size = len(batch_x)
+            n_test += cur_batch_size
 
             # The last batch may be smaller than all others, so we need to
             # account for variable batch size here

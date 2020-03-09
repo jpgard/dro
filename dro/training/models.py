@@ -9,35 +9,29 @@ def logistic_regression_model(n_features, n_outputs, activation='elu'):
     model.add(Dense(n_outputs, input_shape=(n_features,), activation=activation))
     return model
 
+from tensorflow.keras import Model
+from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
+from keras_vggface.vggface import VGGFace
 
-def facenet_model():
-    """A partial implementation of the FaceNet model using the functional API."""
-    # TODO(jpgard): implement this as subclass of model class; see
-    # https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/keras/Model
 
-    conv_params = {'padding': 'SAME', 'activation': tf.nn.elu}
-    pool_params = {'padding': 'SAME', 'strides': 2}
-    inputs = tf.keras.Input(shape=(218, 178, 3))
-    x = Conv2D(64, (7, 7), strides=2, name='conv1', **conv_params)(inputs)
-    x = MaxPool2D((3, 3), name='pool1', **pool_params)(x)
-    x = tf.nn.local_response_normalization(x, name='rnorm1')
-    x = Conv2D(64, (1, 1), strides=1, name='conv2a', **conv_params)(x)
-    x = Conv2D(192, (3, 3), strides=1, name='conv2', **conv_params)(x)
-    x = tf.nn.local_response_normalization(x, name='rnorm2')
-    x = MaxPool2D((3, 3), name='pool2', **pool_params)(x)
-    x = Conv2D(192, (1, 1), strides=1, name='conv3a', **conv_params)(x)
-    x = Conv2D(384, (3, 3), strides=1, name='conv3', **conv_params)(x)
-    x = MaxPool2D((3, 3), name='pool3', **pool_params)(x)
-    x = Conv2D(384, (1, 1), strides=1, name='conv4a', **conv_params)(x)
-    x = Conv2D(256, (3, 3), strides=1, name='conv4', **conv_params)(x)
-    x = Conv2D(256, (1, 1), strides=1, name='conv5a', **conv_params)(x)
-    x = Conv2D(256, (3, 3), strides=1, name='conv5', **conv_params)(x)
-    x = Conv2D(256, (1, 1), strides=1, name='conv6a', **conv_params)(x)
-    x = Conv2D(256, (3, 3), strides=1, name='conv6', **conv_params)(x)
-    x = MaxPool2D((3, 3), name='pool4', **pool_params)(x)
-    x = Flatten()(x)
-    x = Dropout(rate=0.5)(x)
-    x = tf.keras.layers.Dense(4, activation=tf.nn.relu)(x)
-    outputs = tf.keras.layers.Dense(1, activation=tf.nn.sigmoid)(x)
-    model = tf.keras.Model(inputs=inputs, outputs=outputs)
-    return model
+def vggface2_model(dropout_rate, input_shape=(224, 224, 3)):
+    """Build a vggface2 model."""
+    # Convolution Features
+    vgg_model = VGGFace(include_top=False, input_shape=input_shape)
+    # set the vgg_model layers to non-trainable
+    for layer in vgg_model.layers:
+        layer.trainable = False
+    last_layer = vgg_model.get_layer('pool5').output
+    # Classification block
+    net = Flatten(name='flatten')(last_layer)
+    net = Dense(4096, name='fc6')(net)
+    net = Activation('relu', name='fc6/relu')(net)
+    net = Dropout(rate=dropout_rate)(net)
+    net = Dense(256, name='fc7')(net)
+    net = Activation('relu', name='fc7/relu')(net)
+    net = Dropout(rate=dropout_rate)(net)
+    net = Dense(2, name='fc8')(net)
+    out = Activation('sigmoid', name='fc8/sigmoid')(net)
+    custom_vgg_model = Model(vgg_model.input, out)
+    return custom_vgg_model
+

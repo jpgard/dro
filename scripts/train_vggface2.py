@@ -24,6 +24,8 @@ import re
 import tensorflow as tf
 import os
 import math
+from dro.sinha.attacks import WassersteinRobustMethod
+import keras
 
 tf.compat.v1.enable_eager_execution()
 
@@ -55,8 +57,6 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 def main(argv):
     list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
                                          seed=2974)
-    wrm_params = {'eps': FLAGS.wrm_eps, 'ord': FLAGS.wrm_ord, 'y': None,  #TODO: define y
-                  'steps': FLAGS.wrm_steps}
 
     def make_model_uid():
         model_uid = """bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""".format(
@@ -146,43 +146,28 @@ def main(argv):
 
     # Disable eager
     # tf.compat.v1.disable_eager_execution()
-
-    from tensorflow.keras import Model
-    from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
     from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
         FalsePositives, FalseNegatives
     from tensorflow.keras.callbacks import TensorBoard, CSVLogger
-    from keras_vggface.vggface import VGGFace
+    from dro.training.models import vggface2_model
+    custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
 
-    # Convolution Features
-    vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
-    # set the vgg_model layers to non-trainable
-    for layer in vgg_model.layers:
-        layer.trainable = False
-    last_layer = vgg_model.get_layer('pool5').output
-    # Classification block
-    net = Flatten(name='flatten')(last_layer)
-    net = Dense(4096, name='fc6')(net)
-    net = Activation('relu', name='fc6/relu')(net)
-    net = Dropout(rate=FLAGS.dropout_rate)(net)
-    net = Dense(256, name='fc7')(net)
-    net = Activation('relu', name='fc7/relu')(net)
-    net = Dropout(rate=FLAGS.dropout_rate)(net)
-    net = Dense(2, name='fc8')(net)
-    out = Activation('sigmoid', name='fc8/sigmoid')(net)
-
-    custom_vgg_model = Model(vgg_model.input, out)
+    # The adversarial perturbation block
+    x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3))
+    y = tf.placeholder(tf.float32, shape=(None, 2))
+    wrm_params = {'eps': FLAGS.wrm_eps, 'ord': FLAGS.wrm_ord, 'y': y,
+                  'steps': FLAGS.wrm_steps}
+    # Create TF session and set as Keras backend session
+    sess = tf.Session()
+    keras.backend.set_session(sess)
+    wrm = WassersteinRobustMethod(custom_vgg_model, sess=sess)
+    predictions_adv_wrm = custom_vgg_model(wrm.generate(x, **wrm_params))
 
     tensorboard_callback = TensorBoard(
         log_dir='./training-logs/{}'.format(uid),
         batch_size=FLAGS.batch_size,
         write_graph=True,
         write_grads=True,
-        # write_images=False,
-        # embeddings_freq=0,
-        # embeddings_layer_names=None,
-        # embeddings_metadata=None,
-        # embeddings_data=None,
         update_freq='epoch')
     csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
 

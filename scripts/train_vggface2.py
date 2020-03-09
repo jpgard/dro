@@ -40,8 +40,6 @@ flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected 
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
-CLASS_NAMES = np.array(["0", "1"])
-
 
 def main(argv):
     list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,

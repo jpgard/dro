@@ -198,7 +198,7 @@ def main(argv):
                                  nb_batches=steps_per_epoch)
         metrics = model_train_fn()
         print(metrics)
-        pd.DataFrame(metrics).to_csv("./metrics/{uid}.csv".format(uid=uid))
+        pd.DataFrame(metrics).to_csv("./metrics/{uid}.csv".format(uid=uid), index=False)
 
 
     else:

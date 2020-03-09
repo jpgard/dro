@@ -124,6 +124,7 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
 
             prev = time.time()
             for batch_num in range(nb_batches):
+                print("epoch %s step %s" % (epoch, batch_num))
                 if dataset_iterator is not None:
                     batch_x, batch_y = get_batch(dataset_iterator,
                                                  args.batch_size)

@@ -75,7 +75,7 @@ def main(argv):
         # convert the path to a list of path components
         label = tf.strings.substr(file_path, -21, 1)
         # The second to last is the class-directory
-        return tf.strings.to_number(label)
+        return tf.strings.to_number(label, out_type=tf.int32)
 
     def decode_img(img, normalize_by_channel=False):
         # convert the compressed string to a 3D uint8 tensor
@@ -102,6 +102,7 @@ def main(argv):
 
     def process_path(file_path):
         label = get_label(file_path)
+        label = tf.one_hot(label, 2)
         # load the raw data from the file as a string
         img = tf.io.read_file(file_path)
         img = decode_img(img)
@@ -165,7 +166,7 @@ def main(argv):
     x = Dense(256, name='fc7')(x)
     x = Activation('relu', name='fc7/relu')(x)
     x = Dropout(rate=FLAGS.dropout_rate)(x)
-    x = Dense(1, name='fc8')(x)
+    x = Dense(2, name='fc8')(x)
     out = Activation('sigmoid', name='fc8/sigmoid')(x)
 
     custom_vgg_model = Model(vgg_model.input, out)
@@ -184,7 +185,8 @@ def main(argv):
     csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
 
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
-                             loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+                             loss=tf.keras.losses.CategoricalCrossentropy(
+                                 from_logits=True),
                              metrics=['accuracy',
                                       AUC(name='auc'),
                                       TruePositives(name='tp'),

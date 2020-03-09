@@ -154,6 +154,12 @@ def main(argv):
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
 
+    config = tf.compat.v1.ConfigProto(
+        allow_soft_placement=True,
+        # log_device_placement=True,
+        gpu_options=tf.GPUOptions(allow_growth=True)
+    )
+
     if FLAGS.adversarial:
         import tensorflow_datasets as tfds
         train_ds = prepare_for_training(labeled_ds, repeat_forever=False, batch_size=None)
@@ -169,7 +175,7 @@ def main(argv):
         wrm_params = {'eps': FLAGS.wrm_eps, 'ord': FLAGS.wrm_ord, 'y': y,
                       'steps': FLAGS.wrm_steps}
         # Create TF session and set as Keras backend session
-        sess = tf.Session()
+        sess = tf.Session(config=config)
         keras.backend.set_session(sess)
         wrm = WassersteinRobustMethod(custom_vgg_model, sess=sess)
         predictions = custom_vgg_model(x)

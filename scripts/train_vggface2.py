@@ -153,6 +153,7 @@ def main(argv):
         FalsePositives, FalseNegatives
     from tensorflow.keras.callbacks import TensorBoard, CSVLogger
     from keras_vggface.vggface import VGGFace
+
     # Convolution Features
     vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
     # set the vgg_model layers to non-trainable
@@ -160,15 +161,15 @@ def main(argv):
         layer.trainable = False
     last_layer = vgg_model.get_layer('pool5').output
     # Classification block
-    x = Flatten(name='flatten')(last_layer)
-    x = Dense(4096, name='fc6')(x)
-    x = Activation('relu', name='fc6/relu')(x)
-    x = Dropout(rate=FLAGS.dropout_rate)(x)
-    x = Dense(256, name='fc7')(x)
-    x = Activation('relu', name='fc7/relu')(x)
-    x = Dropout(rate=FLAGS.dropout_rate)(x)
-    x = Dense(2, name='fc8')(x)
-    out = Activation('sigmoid', name='fc8/sigmoid')(x)
+    net = Flatten(name='flatten')(last_layer)
+    net = Dense(4096, name='fc6')(net)
+    net = Activation('relu', name='fc6/relu')(net)
+    net = Dropout(rate=FLAGS.dropout_rate)(net)
+    net = Dense(256, name='fc7')(net)
+    net = Activation('relu', name='fc7/relu')(net)
+    net = Dropout(rate=FLAGS.dropout_rate)(net)
+    net = Dense(2, name='fc8')(net)
+    out = Activation('sigmoid', name='fc8/sigmoid')(net)
 
     custom_vgg_model = Model(vgg_model.input, out)
 

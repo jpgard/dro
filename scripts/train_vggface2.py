@@ -193,12 +193,12 @@ def main(argv):
     ########################################################################
     train_dir = "./training-logs/{}".format(uid)
     g = tf.compat.v1.Graph()
-    with g.as_default():
-        writer = tf.compat.v1.summary.FileWriter(train_dir)
-        tf.summary.scalar("my_metric", 0.5)
-        writer.add_graph(tf.get_default_graph())
-        all_summary_ops = tf.compat.v1.summary.all_v2_summary_ops()
-        writer_flush = writer.flush()
+    # with g.as_default():
+    #     writer = tf.compat.v1.summary.FileWriter(train_dir)
+    #     tf.summary.scalar("my_metric", 0.5)
+    #     writer.add_graph(tf.get_default_graph())
+    #     all_summary_ops = tf.compat.v1.summary.all_v2_summary_ops()
+    #     writer_flush = writer.flush()
 
     config = tf.compat.v1.ConfigProto(
         allow_soft_placement=True,
@@ -206,24 +206,28 @@ def main(argv):
         gpu_options=tf.GPUOptions(allow_growth=True)
     )
 
+    k = tf.placeholder(tf.float32)  # placeholder for step count
+
     with tf.Session(config=config) as sess:
         print("[INFO] starting training")
         sess.run(tf.global_variables_initializer())
-
-        for epoch in range(FLAGS.epochs):
-            epoch_start = time.time()
-            for step in range(steps_per_epoch):
-                print("epoch %s step %s" % (epoch, step))
-                # Training loop - using batches of 32
-                x, y = sess.run(next_element)
-                # Optimize the model
-                loss_value, grads = grad(model, x, y)
-                optimizer.apply_gradients(zip(grads, model.trainable_variables))
-                sess.run(all_summary_ops)
-                # Make sure that all pending events have been written to disk.
-                sess.run(writer_flush)
-            epoch_train_time = int(time.time() - epoch_start)
-            print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
+        writer = tf.summary.FileWriter(train_dir)
+        n_train_steps = FLAGS.epochs * steps_per_epoch
+        for step in range(n_train_steps):
+            print("epoch step %s" % step)
+            # Training loop - using batches of 32
+            x, y = sess.run(next_element)
+            # Optimize the model
+            loss_value, grads = grad(model, x, y)
+            tf.summary.scalar("loss", loss_value)
+            optimizer.apply_gradients(zip(grads, model.trainable_variables))
+            k_val = step / float(n_train_steps)
+            summaries = tf.summary.merge_all()
+            summ = sess.run(summaries, feed_dict={k: k_val})
+            writer.add_summary(summ, global_step=step)
+        writer.flush()
+        # epoch_train_time = int(time.time() - epoch_start)
+        # print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
 
 if __name__ == "__main__":
     app.run(main)

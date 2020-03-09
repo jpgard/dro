@@ -10,8 +10,7 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 python scripts/train_vggface2.py \
-    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
-    /mouth_open
+    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open
 """
 
 import pandas as pd
@@ -27,9 +26,9 @@ import math
 import time
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
-from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
-    FalsePositives, FalseNegatives
-from tensorflow.keras.callbacks import TensorBoard, CSVLogger
+# from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
+#     FalsePositives, FalseNegatives
+# from tensorflow.keras.callbacks import TensorBoard, CSVLogger
 from keras_vggface.vggface import VGGFace
 
 # tf.compat.v1.enable_eager_execution()
@@ -47,46 +46,8 @@ flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 CLASS_NAMES = np.array(["0", "1"])
-LABELS_DTYPE = tf.int32
+LABELS_DTYPE = tf.float32
 
-class VGGModel:
-    def __init__(self, batch_x, batch_y):
-        self._create_architecture(batch_x, batch_y)
-
-    def _create_architecture(self, batch_x, batch_y):
-        y_hot = tf.one_hot(batch_y, 2)
-        logits = self._create_model(batch_x)
-        logits = tf.squeeze(logits)
-        predictions = tf.argmax(logits, 1, output_type=LABELS_DTYPE)
-        self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
-            labels=y_hot,
-            logits=logits))
-        self.optimizer = tf.train.AdamOptimizer(
-            learning_rate=FLAGS.learning_rate).minimize(self.loss)
-        self.accuracy = tf.reduce_mean(tf.cast(tf.equal(predictions, batch_y),
-                                               tf.float32))
-
-    def _create_model(self, X):
-        # Convolution Features
-        vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
-        # set the vgg_model layers to non-trainable
-        for layer in vgg_model.layers:
-            layer.trainable = False
-        last_layer = vgg_model.get_layer('pool5').output
-        # Classification block
-        x = Flatten(name='flatten')(last_layer)
-        x = Dense(4096, name='fc6')(x)
-        x = Activation('relu', name='fc6/relu')(x)
-        x = Dropout(rate=FLAGS.dropout_rate)(x)
-        x = Dense(256, name='fc7')(x)
-        x = Activation('relu', name='fc7/relu')(x)
-        x = Dropout(rate=FLAGS.dropout_rate)(x)
-        x = Dense(2, name='fc8')(x)
-        out = Activation('sigmoid', name='fc8/sigmoid')(x)
-
-        custom_vgg_model = Model(vgg_model.input, out)
-
-        return custom_vgg_model(X)
 
 
 def main(argv):
@@ -109,9 +70,8 @@ def main(argv):
     #     print(f.numpy())
 
     def get_label(file_path):
-        # convert the path to a list of path components
+        # extract the label from the path
         label = tf.strings.substr(file_path, -21, 1)
-        # The second to last is the class-directory
         return tf.strings.to_number(label, out_type=LABELS_DTYPE)
 
     def decode_img(img, normalize_by_channel=False):
@@ -185,31 +145,6 @@ def main(argv):
     # Disable eager
     # tf.compat.v1.disable_eager_execution()
 
-    # tensorboard_callback = TensorBoard(
-    #     log_dir='./training-logs/{}'.format(uid),
-    #     batch_size=FLAGS.batch_size,
-    #     write_graph=True,
-    #     # write_grads=False,
-    #     # write_images=False,
-    #     # embeddings_freq=0,
-    #     # embeddings_layer_names=None,
-    #     # embeddings_metadata=None,
-    #     # embeddings_data=None,
-    #     update_freq='epoch')
-    # csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
-    #
-    # custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
-    #                          loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
-    #                          metrics=['accuracy',
-    #                                   AUC(name='auc'),
-    #                                   TruePositives(name='tp'),
-    #                                   FalsePositives(name='fp'),
-    #                                   TrueNegatives(name='tn'),
-    #                                   FalseNegatives(name='fn')
-    #                                   ],
-    #                          callbacks=[tensorboard_callback, csv_callback]
-    #                          )
-    # custom_vgg_model.summary()
 
     # TODO(jpgard): set this to the correct value given the sample size and number of
     #  epochs
@@ -220,41 +155,103 @@ def main(argv):
     #  https://stackoverflow.com/questions/47067401/how-to-iterate-a-dataset-several
     #  -times-using-tensorflows-dataset-api
     ds_iterator = train_ds.make_one_shot_iterator()
-    batch_x, batch_y = ds_iterator.get_next()
-    custom_vgg_model = VGGModel(batch_x, batch_y)
+    next_element = ds_iterator.get_next()
+
+    ########################################################################
+
+    # Convolution Features
+    vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
+    # set the vgg_model layers to non-trainable
+    for layer in vgg_model.layers:
+        layer.trainable = False
+    last_layer = vgg_model.get_layer('pool5').output
+    # Classification block
+    x = Flatten(name='flatten')(last_layer)
+    x = Dense(4096, name='fc6')(x)
+    x = Activation('relu', name='fc6/relu')(x)
+    x = Dropout(rate=FLAGS.dropout_rate)(x)
+    x = Dense(256, name='fc7')(x)
+    x = Activation('relu', name='fc7/relu')(x)
+    x = Dropout(rate=FLAGS.dropout_rate)(x)
+    x = Dense(1, name='fc8')(x)
+    out = Activation('sigmoid', name='fc8/sigmoid')(x)
+    model = Model(vgg_model.input, out)
+
+    loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+
+    def loss(model, x, y, training):
+        # training=training is needed only if there are layers with different
+        # behavior during training versus inference (e.g. Dropout).
+        y_ = model(x, training=training)
+        y_ = tf.squeeze(y_)  # Convert shape from (batch_size, 1) to (batch_size,)
+        return loss_object(y_true=y, y_pred=y_)
+
+    def grad(model, inputs, targets):
+        with tf.GradientTape() as tape:
+            loss_value = loss(model, inputs, targets, training=True)
+        return loss_value, tape.gradient(loss_value, model.trainable_variables)
+
+    optimizer = tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate)
+    # loss_value, grads = grad(model, batch_x, batch_y)
+    # optimizer.apply_gradients(zip(grads, model.trainable_variables))
+    ########################################################################
+
 
     config = tf.compat.v1.ConfigProto(
         allow_soft_placement=True,
-        log_device_placement=True,
+        # log_device_placement=True,
         gpu_options=tf.GPUOptions(allow_growth=True)
     )
 
     with tf.Session(config=config) as sess:
         print("training")
-        sess.run(tf.global_variables_initializer())
+        # sess.run(tf.global_variables_initializer())
 
         for epoch in range(FLAGS.epochs):
-            epoch_start = time.time()
-            epoch_total_accuracy = 0.
-            epoch_total_loss = 0.
+            epoch_loss_avg = tf.keras.metrics.Mean()
+            epoch_accuracy = tf.keras.metrics.BinaryAccuracy()
             for step in range(steps_per_epoch):
-                try:
-                    # while True:
-                    # TODO(jpgard): figure out why the loss is not going down.
-                    batch_acc, batch_loss, _ = sess.run([custom_vgg_model.accuracy,
-                                                  custom_vgg_model.loss,
-                                                  custom_vgg_model.optimizer])
-                    epoch_total_accuracy += batch_acc
-                    epoch_total_loss += batch_loss
-                except tf.errors.OutOfRangeError:
-                    print("[WARNING] reached end of dataset.")
-                    break
-            epoch_train_time = int(time.time() - epoch_start)
-            print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
-            print("epoch %s loss %4f accuracy %4f" %
-                  (epoch, epoch_total_loss/float(steps_per_epoch),
-                   epoch_total_accuracy/float(steps_per_epoch)))
-            print("=" * 80)
+                print("epoch %s step %s" % (epoch, step))
+                # Training loop - using batches of 32
+                x, y = sess.run(next_element)
+                # Optimize the model
+                loss_value, grads = grad(model, x, y)
+                optimizer.apply_gradients(zip(grads, model.trainable_variables))
+
+                # Track progress
+                epoch_loss_avg(loss_value)  # Add current batch loss
+                # Compare predicted label to actual label
+                # training=True is needed only if there are layers with different
+                # behavior during training versus inference (e.g. Dropout).
+                epoch_accuracy(y, model(x, training=True))
+            print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(epoch,
+                                                                        epoch_loss_avg.result(),
+                                                                        epoch_accuracy.result()))
+
+            # End epoch
+            # train_loss_results.append(epoch_loss_avg.result())
+            # train_accuracy_results.append(epoch_accuracy.result())
+        #     epoch_start = time.time()
+        #     epoch_total_accuracy = 0.
+        #     epoch_total_loss = 0.
+        #     for step in range(steps_per_epoch):
+        #         try:
+        #             # while True:
+        #             # TODO(jpgard): figure out why the loss is not going down.
+        #             batch_acc, batch_loss, _ = sess.run([custom_vgg_model.accuracy,
+        #                                           custom_vgg_model.loss,
+        #                                           custom_vgg_model.optimizer])
+        #             epoch_total_accuracy += batch_acc
+        #             epoch_total_loss += batch_loss
+        #         except tf.errors.OutOfRangeError:
+        #             print("[WARNING] reached end of dataset.")
+        #             break
+        #     epoch_train_time = int(time.time() - epoch_start)
+        #     print("[INFO] epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
+        #     print("epoch %s loss %4f accuracy %4f" %
+        #           (epoch, epoch_total_loss/float(steps_per_epoch),
+        #            epoch_total_accuracy/float(steps_per_epoch)))
+        #     print("=" * 80)
 
 
 if __name__ == "__main__":

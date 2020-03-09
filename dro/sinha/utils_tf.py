@@ -134,7 +134,6 @@ def model_train(sess, x, y, predictions, X_train, Y_train, save=False,
                     batch_x = X_train[start:end]
                     batch_y = Y_train[start:end]
 
-
                 # TODO(jpgard): perform a check if X_train and Y_train are iterators;
                 #  otherwise use the existing code as default.
                 # We allow an iterator to be passed; in this case, we slice it first.

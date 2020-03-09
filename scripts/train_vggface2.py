@@ -29,11 +29,21 @@ tf.compat.v1.enable_eager_execution()
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
+
+# the vggface2/training parameters
 flags.DEFINE_integer("batch_size", 16, "batch size")
 flags.DEFINE_integer("epochs", 5, "the number of training epochs")
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
 flags.DEFINE_float("learning_rate", 0.001, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
+
+# the wrm parameters
+flags.DEFINE_multi_float('wrm_eps', 1.3,
+                         'epsilon value to use for Wasserstein robust method; note that '
+                         'original default value is 1.3.')
+flags.DEFINE_integer('wrm_ord', 2, 'order of norm to use in Wasserstein robust method')
+flags.DEFINE_integer('wrm_steps', 15,
+                     'number of steps to use in Wasserstein robus method')
 
 
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
@@ -41,9 +51,12 @@ flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
+
 def main(argv):
     list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
                                          seed=2974)
+    wrm_params = {'eps': FLAGS.wrm_eps, 'ord': FLAGS.wrm_ord, 'y': None,  #TODO: define y
+                  'steps': FLAGS.wrm_steps}
 
     def make_model_uid():
         model_uid = """bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""".format(
@@ -178,13 +191,12 @@ def main(argv):
                                       FalsePositives(name='fp'),
                                       TrueNegatives(name='tn'),
                                       FalseNegatives(name='fn')
-                                      ],
-                             callbacks=[tensorboard_callback, csv_callback]
+                                      ]
                              )
     custom_vgg_model.summary()
     steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
     custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
-                                   epochs=FLAGS.epochs)
+                                   epochs=FLAGS.epochs, callbacks=[tensorboard_callback, csv_callback])
 
     # print_metrics_every_n_steps = 10
     # for epoch in range(FLAGS.epochs):

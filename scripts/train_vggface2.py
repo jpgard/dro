@@ -10,8 +10,7 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 python scripts/train_vggface2.py \
-    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
-    /mouth_open
+    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open
 """
 
 import pandas as pd
@@ -24,6 +23,7 @@ import re
 import tensorflow as tf
 import os
 import math
+import time
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
@@ -89,6 +89,8 @@ class VGGModel:
 def main(argv):
     list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
                                          seed=2974)
+    # TODO(jpgard): read this from dataset or directory.
+    n_train = 1000
 
     def make_model_uid():
         model_uid = """bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""".format(
@@ -156,8 +158,11 @@ def main(argv):
             else:
                 ds = ds.cache()
         ds = ds.shuffle(buffer_size=shuffle_buffer_size)
-        # Repeat forever
-        ds = ds.repeat()
+
+        # Repeat the dataset only FLAGS.epochs times. Then, the iterator will
+        #  naturally run out at the termination of the desired number of batches and we
+        #  don't need to precisely count individual batches.
+        ds = ds.repeat(FLAGS.epochs)
         ds = ds.batch(FLAGS.batch_size)
         # `prefetch` lets the dataset fetch batches in the background while the model
         # is training.
@@ -203,10 +208,13 @@ def main(argv):
     #                          )
     # custom_vgg_model.summary()
 
-    # custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
-    #                                epochs=FLAGS.epochs)
+    # TODO(jpgard): set this to the correct value given the sample size and number of
+    #  epochs
 
-    steps_per_epoch = math.floor(1000 / FLAGS.batch_size)
+    steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
+    # TODO(jpgard): instead, make an initializable iterator and re-initizlize at every
+    #  epoch, as shown in answer below.
+    #  https://stackoverflow.com/questions/47067401/how-to-iterate-a-dataset-several-times-using-tensorflows-dataset-api
     ds_iterator = train_ds.make_one_shot_iterator()
     batch_x, batch_y = ds_iterator.get_next()
     custom_vgg_model = VGGModel(batch_x, batch_y)
@@ -221,18 +229,25 @@ def main(argv):
         print("training")
         sess.run(tf.global_variables_initializer())
 
-        tot_accuracy = 0
-        iternum = 0
-        try:
-            while True:
-                print("iter %s" % iternum)
-                accuracy, loss, _ = sess.run([custom_vgg_model.accuracy,
-                                              custom_vgg_model.loss,
-                                              custom_vgg_model.optimizer])
-                print("iteration %s loss %4f accuracy %4f" % (iternum, loss, accuracy))
-                iternum += 1
-        except tf.errors.OutOfRangeError:
-            pass
+        for epoch in range(FLAGS.epochs):
+            epoch_start = time.time()
+            for step in range(steps_per_epoch):
+                try:
+                    while True:
+                        # TODO(jpgard): figure out why the loss is not going down, and get it
+                        #  to print correctly here if it is indeed being reduced.
+                        # TODO(jpgard): print the metrics every epoch, not after every batch!!
+                        accuracy, loss, _ = sess.run([custom_vgg_model.accuracy,
+                                                      custom_vgg_model.loss,
+                                                      custom_vgg_model.optimizer])
+                        print("step %s loss %4f accuracy %4f" %
+                              (step, loss, accuracy))
+                except tf.errors.OutOfRangeError:
+                    print("[WARNING] reached end of dataset.")
+                    break
+            epoch_train_time = int(epoch_start - time.time())
+            print("epoch %4s completed in %f seconds" % (epoch, epoch_train_time))
+
 
 
 if __name__ == "__main__":

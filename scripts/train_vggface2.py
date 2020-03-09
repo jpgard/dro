@@ -40,6 +40,7 @@ flags.DEFINE_integer("epochs", 5, "the number of training epochs")
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
 flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
+flags.DEFINE_bool("debug", False, "whether to run in debug mode.")
 
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
@@ -145,7 +146,11 @@ def main(argv):
 
     # TODO(jpgard): set this to the correct value given the sample size and number of
     #  epochs
-    steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
+    if not FLAGS.debug:
+        steps_per_epoch = math.floor(n_train / FLAGS.batch_size)
+    else:
+        print("[INFO] running in DEBUG mode; setting steps_per_epoch to 5.")
+        steps_per_epoch = 5
     # TODO(jpgard): instead, make an initializable iterator and re-initizlize at every
     #  epoch, as shown in answer below.
     #  https://stackoverflow.com/questions/47067401/how-to-iterate-a-dataset-several
@@ -185,19 +190,13 @@ def main(argv):
     def grad(model, inputs, targets):
         with tf.GradientTape() as tape:
             loss_value = loss(model, inputs, targets, training=True)
+        tf.summary.scalar("loss", loss_value)
         return loss_value, tape.gradient(loss_value, model.trainable_variables)
 
     optimizer = tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate)
 
     ########################################################################
     train_dir = "./training-logs/{}".format(uid)
-    g = tf.compat.v1.Graph()
-    # with g.as_default():
-    #     writer = tf.compat.v1.summary.FileWriter(train_dir)
-    #     tf.summary.scalar("my_metric", 0.5)
-    #     writer.add_graph(tf.get_default_graph())
-    #     all_summary_ops = tf.compat.v1.summary.all_v2_summary_ops()
-    #     writer_flush = writer.flush()
 
     config = tf.compat.v1.ConfigProto(
         allow_soft_placement=True,
@@ -207,10 +206,17 @@ def main(argv):
 
     k = tf.placeholder(tf.float32)  # placeholder for step count
 
+    # create the scalar variable
+    x_scalar = tf.get_variable('x_scalar', shape=[],
+                               initializer=tf.truncated_normal_initializer(mean=0,
+                                                                           stddev=1))
+    # ____step 1:____ create the scalar summary
+    first_summary = tf.summary.scalar(name='My_first_scalar_summary', tensor=x_scalar)
+
     with tf.Session(config=config) as sess:
         print("[INFO] starting training")
         sess.run(tf.global_variables_initializer())
-        writer = tf.summary.FileWriter(train_dir)
+        writer = tf.summary.FileWriter(train_dir, sess.graph)
         n_train_steps = FLAGS.epochs * steps_per_epoch
         for step in range(n_train_steps):
             print("epoch step %s" % step)
@@ -218,11 +224,12 @@ def main(argv):
             x, y = sess.run(next_element)
             # Optimize the model
             loss_value, grads = grad(model, x, y)
-            tf.summary.scalar("loss", loss_value)
+
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
             k_val = step / float(n_train_steps)
-            summaries = tf.summary.merge_all()
-            summ = sess.run(summaries, feed_dict={k: k_val})
+            # summaries = tf.summary.merge_all()
+            # summ = sess.run(summaries, feed_dict={k: k_val})
+            summ = sess.run(first_summary)
             writer.add_summary(summ, global_step=step)
         writer.flush()
         # epoch_train_time = int(time.time() - epoch_start)

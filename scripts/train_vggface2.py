@@ -200,16 +200,6 @@ def main(argv):
     custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_epoch,
                                    epochs=FLAGS.epochs, callbacks=[tensorboard_callback, csv_callback])
 
-    # print_metrics_every_n_steps = 10
-    # for epoch in range(FLAGS.epochs):
-    #     print("epoch %s" % epoch)
-    #     for step in range(steps_per_epoch):
-    #         batch_x, batch_y = next(iter(train_ds))
-    #         metrics = custom_vgg_model.train_on_batch(batch_x, batch_y)
-    #         if step % print_metrics_every_n_steps == 0:
-    #             print("step %s metrics:" % step)
-    #             print(metrics)
-
 
 
 if __name__ == "__main__":

@@ -206,7 +206,7 @@ def main(argv):
 
     with tf.Session(config=config) as sess:
         print("training")
-        # sess.run(tf.global_variables_initializer())
+        sess.run(tf.global_variables_initializer())
 
         for epoch in range(FLAGS.epochs):
             epoch_start = time.time()
@@ -226,7 +226,7 @@ def main(argv):
                 # training=True is needed only if there are layers with different
                 # behavior during training versus inference (e.g. Dropout).
                 # epoch_accuracy(y_true=y, y_pred=model(x, training=True))
-                print("loss_value:", loss_value)
+                print("loss_value:", loss_value.eval())
             # print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(
             #     epoch, epoch_loss_avg.result(), epoch_accuracy.result()))
             epoch_train_time = int(time.time() - epoch_start)

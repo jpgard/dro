@@ -71,11 +71,24 @@ def convert_to_dictionaries(image, label):
     return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
 
 
-def make_callbacks(uid, adversarial_training: bool):
+def make_model_uid():
+    """Create a unique identifier for the model."""
+    model_uid = """bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""".format(
+        batch_size=FLAGS.batch_size,
+        epochs=FLAGS.epochs,
+        lr=FLAGS.learning_rate,
+        dropout_rate=FLAGS.dropout_rate
+    )
+    return model_uid
+
+
+def make_callbacks(adversarial_training: bool):
+    """Create the callbacks for training, including properly naming files."""
+    callback_uid = make_model_uid()
     if adversarial_training:
-        callback_uid = "-".join([uid, "adv"])
-    else:
-        callback_uid = uid
+        callback_uid = "{callback_uid}-adv-m{mul}-s{step}-n{norm}".format(
+            callback_uid=callback_uid, mul=FLAGS.adv_multiplier,
+            step=FLAGS.adv_step_size, norm=FLAGS.adv_grad_norm)
     tensorboard_callback = TensorBoard(
         log_dir='./training-logs/{}'.format(callback_uid),
         batch_size=FLAGS.batch_size,
@@ -89,17 +102,6 @@ def make_callbacks(uid, adversarial_training: bool):
 def main(argv):
     list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
                                          seed=2974)
-
-    def make_model_uid():
-        model_uid = """bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""".format(
-            batch_size=FLAGS.batch_size,
-            epochs=FLAGS.epochs,
-            lr=FLAGS.learning_rate,
-            dropout_rate=FLAGS.dropout_rate
-        )
-        return model_uid
-
-    uid = make_model_uid()
 
     # for f in list_ds.take(3):
     #     print(f.numpy())
@@ -158,7 +160,6 @@ def main(argv):
     # from dro.utils.vis import show_batch
     # show_batch(image_batch.numpy(), label_batch.numpy())
 
-
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     N = 1000
     n_val = int(N * FLAGS.val_frac)
@@ -191,7 +192,7 @@ def main(argv):
     custom_vgg_model.summary()
     if FLAGS.train_base:
         print("[INFO] training base model")
-        callbacks = make_callbacks(uid, adversarial_training=False)
+        callbacks = make_callbacks(adversarial_training=False)
         custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
                                        epochs=FLAGS.epochs,
                                        callbacks=callbacks)
@@ -222,7 +223,7 @@ def main(argv):
                                    TrueNegatives(name='tn'),
                                    FalseNegatives(name='fn')
                                    ])
-        callbacks = make_callbacks(uid, adversarial_training=True)
+        callbacks = make_callbacks(adversarial_training=True)
         adv_model.fit_generator(train_set_for_adv_model,
                                 steps_per_epoch=steps_per_train_epoch,
                                 epochs=FLAGS.epochs,

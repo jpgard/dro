@@ -16,7 +16,7 @@ import warnings
 
 from dro.sinha.utils import _ArgsWrapper, batch_indices
 from dro.utils.training_utils import get_batch
-
+from dro import keys
 
 from tensorflow.python.platform import flags
 
@@ -37,6 +37,7 @@ class _FlagsWrapper(_ArgsWrapper):
     Plain _ArgsWrapper should be used instead if the support for FLAGS
     is removed.
     """
+
     def __getattr__(self, name):
         val = self.args.get(name)
         if val is None:
@@ -58,7 +59,7 @@ def model_loss(y, model, mean=True):
     """
 
     op = model.op
-    #print(op)
+    # print(op)
     if "softmax" in str(op).lower():
         logits, = op.inputs
     else:
@@ -113,7 +114,7 @@ def model_train(sess, x, y, y_hat, X_train, Y_train, save=False,
     loss = model_loss(y, y_hat)
     if predictions_adv is not None:
         p = 1.0
-        loss = ((1-p)*loss + p*model_loss(y, predictions_adv))
+        loss = ((1 - p) * loss + p * model_loss(y, predictions_adv))
 
     train_step = tf.train.AdamOptimizer(learning_rate=args.learning_rate).minimize(loss)
 
@@ -171,7 +172,7 @@ def model_train(sess, x, y, y_hat, X_train, Y_train, save=False,
 
 
 def model_eval(sess, x, y, y_hat, X_test, Y_test, args=None, dataset_iterator=None,
-               nb_batches=None):
+               nb_batches=None, return_extended_metrics=False):
     """
     Compute the accuracy of a TF model on some data
     :param sess: TF session to use when training the graph
@@ -188,14 +189,14 @@ def model_eval(sess, x, y, y_hat, X_test, Y_test, args=None, dataset_iterator=No
 
     assert args.batch_size, "Batch size was not given in args dict"
 
-    # Define symbol for accuracy
-    # Keras 2.0 categorical_accuracy no longer calculates the mean internally
-    # tf.reduce_mean is called in here and is backward compatible with previous
-    # versions of Keras
+    # Evaluation metrics
     acc_value = tf.reduce_mean(keras.metrics.categorical_accuracy(y, y_hat))
+    ce_value = tf.reduce_mean(tf.keras.losses.categorical_crossentropy(y, y_hat,
+                                                                       from_logits=True))
 
     # Init result var
     accuracy = 0.0
+    cross_entropy_loss = 0.0
 
     # Variable to track size
     n_test = 0
@@ -221,13 +222,20 @@ def model_eval(sess, x, y, y_hat, X_test, Y_test, args=None, dataset_iterator=No
 
             # The last batch may be smaller than all others, so we need to
             # account for variable batch size here
-            cur_acc = acc_value.eval(
-                feed_dict={x: batch_x,
-                           y: batch_y})
+            cur_acc, ce_value = sess.run(acc_value,
+                               feed_dict={x: batch_x,
+                                          y: batch_y})
+            # cur_acc = acc_value.eval(
+            #     feed_dict={x: batch_x,
+            #                y: batch_y})
 
             accuracy += (cur_batch_size * cur_acc)
+            cross_entropy_loss += (cur_batch_size * ce_value)
 
         # Divide by number of examples to get final value
         accuracy /= n_test
-
-    return accuracy
+        cross_entropy_loss /= n_test
+    if not return_extended_metrics:  # legacy logic to ensure backward compatibility
+        return accuracy
+    else:
+        return accuracy, cross_entropy_loss

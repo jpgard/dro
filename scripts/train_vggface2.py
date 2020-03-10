@@ -15,13 +15,8 @@ python scripts/train_vggface2.py \
 """
 
 from functools import partial
-import glob
-import pandas as pd
 import math
-import numpy as np
-import os
 import pandas as pd
-import re
 
 from absl import app
 from absl import flags
@@ -33,7 +28,7 @@ from dro.sinha.utils_tf import model_train
 from dro.utils.experiment_utils import model_eval_fn
 
 from dro.sinha.attacks import WassersteinRobustMethod
-from dro.datasets import train_test_val_split
+from dro.utils.training_utils import prepare_dataset_for_training
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
@@ -122,31 +117,6 @@ def main(argv):
     #     print("Image shape: ", image.numpy().shape)
     #     print("Label: ", label.numpy())
 
-    def prepare_for_training(ds, cache=True, shuffle_buffer_size=1000,
-                             repeat_forever=False, batch_size=None):
-        # This is a small dataset, only load it once, and keep it in memory.
-        # use `.cache(filename)` to cache preprocessing work for datasets that don't
-        # fit in memory.
-        if cache:
-            if isinstance(cache, str):
-                ds = ds.cache(cache)
-            else:
-                ds = ds.cache()
-        ds = ds.shuffle(buffer_size=shuffle_buffer_size)
-        # Repeat forever
-        if repeat_forever:
-            ds = ds.repeat()
-        if batch_size:
-            ds = ds.batch(FLAGS.batch_size)
-        # `prefetch` lets the dataset fetch batches in the background while the model
-        # is training.
-        ds = ds.prefetch(buffer_size=AUTOTUNE)
-        return ds
-
-    # if the data doesn't fit in memory see the example usage at the
-    # bottom of the page here:
-    # https: // www.tensorflow.org / tutorials / load_data / images
-
     # TODO(jpgard): save batch to pdf instead
     # image_batch, label_batch = next(iter(train_ds))
     # from dro.utils.vis import show_batch
@@ -169,7 +139,7 @@ def main(argv):
     )
 
     if FLAGS.adversarial:
-        train_ds = prepare_for_training(labeled_ds, repeat_forever=True, batch_size=None)
+        train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True, batch_size=None)
         test_ds = train_ds.take(n_val).repeat()
         # train_iter is an iterator which returns X,Y pairs of numpy arrays where
         # X has shape (224, 224, 3) and Y has shape (2,).
@@ -208,7 +178,7 @@ def main(argv):
 
     else:
 
-        train_ds = prepare_for_training(labeled_ds, repeat_forever=True,
+        train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
                                         batch_size=FLAGS.batch_size)
         tensorboard_callback = TensorBoard(
             log_dir='./training-logs/{}'.format(uid),

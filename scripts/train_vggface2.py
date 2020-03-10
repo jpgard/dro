@@ -4,7 +4,7 @@ Script to fine-tune pretrained VGGFace2 model.
 usage:
 
 # set the gpu
-export GPU_ID="3"
+export GPU_ID="2"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
@@ -14,23 +14,26 @@ python scripts/train_vggface2.py \
     /mouth_open
 """
 
-import pandas as pd
+from functools import partial
 import glob
+import pandas as pd
+import math
+import numpy as np
+import os
+import pandas as pd
+import re
+
 from absl import app
 from absl import flags
-import numpy as np
-from dro.datasets import train_test_val_split
-import re
-import tensorflow as tf
-import os
-import math
-from dro.sinha.attacks import WassersteinRobustMethod
 import keras
-import pandas as pd
+import tensorflow as tf
+import tensorflow_datasets as tfds
+
 from dro.sinha.utils_tf import model_train
 from dro.utils.experiment_utils import model_eval_fn
-from functools import partial
-import tensorflow_datasets as tfds
+
+from dro.sinha.attacks import WassersteinRobustMethod
+from dro.datasets import train_test_val_split
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS

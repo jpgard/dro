@@ -19,6 +19,10 @@ import math
 from absl import app
 from absl import flags
 import tensorflow as tf
+from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
+    FalsePositives, FalseNegatives
+from tensorflow.keras.callbacks import TensorBoard, CSVLogger
+from dro.training.models import vggface2_model
 
 from dro.utils.training_utils import prepare_dataset_for_training
 
@@ -65,6 +69,21 @@ LABEL_INPUT_NAME = 'label'
 def convert_to_dictionaries(image, label):
     """Convert a set of x,y tuples to a dict for use in adversarial training."""
     return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
+
+
+def make_callbacks(uid, adversarial_training: bool):
+    if adversarial_training:
+        callback_uid = "-".join([uid, "adv"])
+    else:
+        callback_uid = uid
+    tensorboard_callback = TensorBoard(
+        log_dir='./training-logs/{}'.format(callback_uid),
+        batch_size=FLAGS.batch_size,
+        write_graph=True,
+        write_grads=True,
+        update_freq='epoch')
+    csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(callback_uid))
+    return [tensorboard_callback, csv_callback]
 
 
 def main(argv):
@@ -139,10 +158,7 @@ def main(argv):
     # from dro.utils.vis import show_batch
     # show_batch(image_batch.numpy(), label_batch.numpy())
 
-    from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
-        FalsePositives, FalseNegatives
-    from tensorflow.keras.callbacks import TensorBoard, CSVLogger
-    from dro.training.models import vggface2_model
+
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     N = 1000
     n_val = int(N * FLAGS.val_frac)
@@ -161,13 +177,6 @@ def main(argv):
                                             prefetch_buffer_size=AUTOTUNE)
     # train_ds = train_ds.make_one_shot_iterator()
 
-    tensorboard_callback = TensorBoard(
-        log_dir='./training-logs/{}'.format(uid),
-        batch_size=FLAGS.batch_size,
-        write_graph=True,
-        write_grads=True,
-        update_freq='epoch')
-    csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                              loss=tf.keras.losses.CategoricalCrossentropy(
                                  from_logits=True),
@@ -182,9 +191,10 @@ def main(argv):
     custom_vgg_model.summary()
     if FLAGS.train_base:
         print("[INFO] training base model")
+        callbacks = make_callbacks(uid, adversarial_training=False)
         custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
                                        epochs=FLAGS.epochs,
-                                       callbacks=[tensorboard_callback, csv_callback])
+                                       callbacks=callbacks)
     if FLAGS.train_adversarial:
         print("[INFO] training adversarial model")
         # the adversarial training block
@@ -212,9 +222,11 @@ def main(argv):
                                    TrueNegatives(name='tn'),
                                    FalseNegatives(name='fn')
                                    ])
+        callbacks = make_callbacks(uid, adversarial_training=True)
         adv_model.fit_generator(train_set_for_adv_model,
                                 steps_per_epoch=steps_per_train_epoch,
                                 epochs=FLAGS.epochs,
+                                callbacks=callbacks
                                 )
 
 

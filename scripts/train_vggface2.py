@@ -22,6 +22,8 @@ import tensorflow as tf
 
 from dro.utils.training_utils import prepare_dataset_for_training
 
+tf.compat.v1.enable_eager_execution()
+
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
 
@@ -110,7 +112,8 @@ def main(argv):
         # load the raw data from the file as a string
         img = tf.io.read_file(file_path)
         img = decode_img(img)
-        return {IMAGE_INPUT_NAME: img, LABEL_INPUT_NAME: label}
+        return img, label
+        # return {IMAGE_INPUT_NAME: img, LABEL_INPUT_NAME: label}
 
     # def tuple_to_dict(element):
     #     x,y = element
@@ -140,13 +143,15 @@ def main(argv):
     steps_per_val_epoch = math.floor(n_val / FLAGS.batch_size)
 
     # build the datasets
-    test_ds = labeled_ds.take(n_val)
-    test_ds = prepare_dataset_for_training(test_ds, repeat_forever=True,
+    val_ds = labeled_ds.take(n_val)
+    val_ds = prepare_dataset_for_training(val_ds, repeat_forever=True,
                                            batch_size=FLAGS.batch_size,
                                            prefetch_buffer_size=AUTOTUNE)
+    # val_ds = val_ds.make_one_shot_iterator()
     train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
                                             batch_size=FLAGS.batch_size,
                                             prefetch_buffer_size=AUTOTUNE)
+    # train_ds = train_ds.make_one_shot_iterator()
 
     tensorboard_callback = TensorBoard(
         log_dir='./training-logs/{}'.format(uid),
@@ -167,6 +172,7 @@ def main(argv):
                                       ]
                              )
     custom_vgg_model.summary()
+
     custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
                                    epochs=FLAGS.epochs,
                                    callbacks=[tensorboard_callback, csv_callback])

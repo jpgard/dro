@@ -116,7 +116,11 @@ def main(argv):
         # load the raw data from the file as a string
         img = tf.io.read_file(file_path)
         img = decode_img(img)
-        return img, label
+        return {"image": img, "label": label}
+
+    # def tuple_to_dict(element):
+    #     x,y = element
+    #     return {"image": x, "label": y}
 
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
     labeled_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
@@ -174,9 +178,15 @@ def main(argv):
         # the adversarial training block
         import neural_structured_learning as nsl
         adv_config = nsl.configs.make_adv_reg_config(
-            multiplier=HPARAMS.adv_multiplier,
-            adv_step_size=HPARAMS.adv_step_size,
-            adv_grad_norm=HPARAMS.adv_grad_norm
+            multiplier=FLAGS..adv_multiplier,
+            adv_step_size=FLAGS.adv_step_size,
+            adv_grad_norm=FLAGS.adv_grad_norm
+        )
+        base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
+        adv_model = nsl.keras.AdversarialRegularization(
+            base_adv_model,
+            label_keys=[LABEL_INPUT_NAME],
+            adv_config=adv_config
         )
 
 

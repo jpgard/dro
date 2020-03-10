@@ -47,23 +47,23 @@ class _FlagsWrapper(_ArgsWrapper):
         return val
 
 
-def model_loss(y, model, mean=True):
+def model_loss(y, y_hat, mean=True):
     """
     Define loss of TF graph
     :param y: correct labels
-    :param model: output of the model
+    :param y_hat: output of the model
     :param mean: boolean indicating whether should return mean of loss
                  or vector of losses for each input of the batch
     :return: return mean of loss if True, otherwise return vector with per
              sample loss
     """
 
-    op = model.op
+    op = y_hat.op
     # print(op)
     if "softmax" in str(op).lower():
         logits, = op.inputs
     else:
-        logits = model
+        logits = y_hat
 
     out = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=y)
 

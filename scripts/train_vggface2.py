@@ -42,6 +42,9 @@ flags.DEFINE_bool("train_adversarial", False, "whether to train an adversarial m
 flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
                                       "model.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
+flags.DEFINE_bool("debug", False,
+                  "whether to run in debug mode (super short iterations to check for "
+                  "bugs)")
 
 # the wrm parameters
 flags.DEFINE_multi_float('wrm_eps', 1.3,
@@ -65,6 +68,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 IMAGE_INPUT_NAME = 'image'
 LABEL_INPUT_NAME = 'label'
+N = 1000  # the number of training observations
 
 
 def convert_to_dictionaries(image, label):
@@ -171,22 +175,26 @@ def main(argv):
     # show_batch(image_batch.numpy(), label_batch.numpy())
 
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
-    N = 1000
     n_val = int(N * FLAGS.val_frac)
     n_train = N - n_val
-    steps_per_train_epoch = math.floor(n_train / FLAGS.batch_size)
-    steps_per_val_epoch = math.floor(n_val / FLAGS.batch_size)
+    if not FLAGS.debug:
+        steps_per_train_epoch = math.floor(n_train / FLAGS.batch_size)
+        steps_per_val_epoch = math.floor(n_val / FLAGS.batch_size)
+    else:
+        print("[INFO] running in debug mode")
+        steps_per_train_epoch = 5
+        steps_per_val_epoch = 5
 
     # build the datasets
     val_ds = labeled_ds.take(n_val)
     val_ds = prepare_dataset_for_training(val_ds, repeat_forever=True,
                                           batch_size=FLAGS.batch_size,
                                           prefetch_buffer_size=AUTOTUNE)
-    # val_ds = val_ds.make_one_shot_iterator()
+    val_ds_inputs = val_ds.map(lambda x,y: x)
+    val_ds_labels = val_ds.map(lambda x,y: y)
     train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
                                             batch_size=FLAGS.batch_size,
                                             prefetch_buffer_size=AUTOTUNE)
-    # train_ds = train_ds.make_one_shot_iterator()
 
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                              loss=tf.keras.losses.CategoricalCrossentropy(
@@ -206,6 +214,9 @@ def main(argv):
         custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
                                        epochs=FLAGS.epochs,
                                        callbacks=callbacks)
+        preds = custom_vgg_model.predict_generator(val_ds_inputs,
+                                                   steps=steps_per_val_epoch)
+        import ipdb;ipdb.set_trace()
     if FLAGS.train_adversarial:
         print("[INFO] training adversarial model")
         # the adversarial training block

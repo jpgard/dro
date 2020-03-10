@@ -14,20 +14,12 @@ python scripts/train_vggface2.py \
     /mouth_open
 """
 
-from functools import partial
 import math
-import pandas as pd
 
 from absl import app
 from absl import flags
-import keras
 import tensorflow as tf
-import tensorflow_datasets as tfds
 
-from dro.sinha.utils_tf import model_train
-from dro.utils.experiment_utils import model_eval_fn
-
-from dro.sinha.attacks import WassersteinRobustMethod
 from dro.utils.training_utils import prepare_dataset_for_training
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE

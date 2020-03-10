@@ -10,14 +10,17 @@ def model_eval_fn(sess, x, y, predictions, predictions_adv, X_test, Y_test, eval
                                          dataset_iterator=dataset_iterator,
                                          nb_batches=nb_batches,
                                          return_extended_metrics=True)
-    print('Test accuracy on legitimate test examples: %0.4f' % accuracy)
+    print('Test accuracy and CD on legitimate test examples: %0.4f, %0.4f' %
+          (accuracy, cross_entropy))
 
     # Accuracy of the model on Wasserstein adversarial examples
     accuracy_adv_wass, ce_adv_wass = model_eval(sess, x, y, predictions_adv, X_test,
                                                 Y_test, args=eval_params,
                                                 dataset_iterator=dataset_iterator,
-                                                nb_batches=nb_batches)
-    print('Test accuracy on Wasserstein examples: %0.4f\n' % accuracy_adv_wass)
+                                                nb_batches=nb_batches,
+                                                return_extended_metrics=True)
+    print('Test accuracy on Wasserstein examples: %0.4f, %0.4f\n' %
+          (accuracy_adv_wass, ce_adv_wass))
     metrics_dict = {keys.ACC: accuracy,
                     keys.CE: cross_entropy,
                     keys.CE_ADV_W: ce_adv_wass,

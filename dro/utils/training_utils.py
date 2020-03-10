@@ -1,9 +1,9 @@
 from itertools import islice
 
 import numpy as np
+import tensorflow as tf
 
-from scripts.train_vggface2 import FLAGS, AUTOTUNE
-
+AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 def get_batch(dataset_iterator, batch_size):
     slice = tuple(islice(dataset_iterator, batch_size))
@@ -13,7 +13,8 @@ def get_batch(dataset_iterator, batch_size):
 
 
 def prepare_dataset_for_training(ds, cache=True, shuffle_buffer_size=1000,
-                         repeat_forever=False, batch_size=None):
+                         repeat_forever=False, batch_size=None,
+                                 prefetch_buffer_size=AUTOTUNE):
     """Shuffle, repeat, batch, and prefetch the dataset."""
     # This is a small dataset, only load it once, and keep it in memory.
     # use `.cache(filename)` to cache preprocessing work for datasets that don't
@@ -32,8 +33,8 @@ def prepare_dataset_for_training(ds, cache=True, shuffle_buffer_size=1000,
     if repeat_forever:
         ds = ds.repeat()
     if batch_size:
-        ds = ds.batch(FLAGS.batch_size)
+        ds = ds.batch(batch_size)
     # `prefetch` lets the dataset fetch batches in the background while the model
     # is training.
-    ds = ds.prefetch(buffer_size=AUTOTUNE)
+    ds = ds.prefetch(buffer_size=prefetch_buffer_size)
     return ds

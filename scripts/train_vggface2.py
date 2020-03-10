@@ -142,9 +142,11 @@ def main(argv):
     # build the datasets
     test_ds = labeled_ds.take(n_val)
     test_ds = prepare_dataset_for_training(test_ds, repeat_forever=True,
-                                           batch_size=FLAGS.batch_size)
+                                           batch_size=FLAGS.batch_size,
+                                           prefetch_buffer_size=AUTOTUNE)
     train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
-                                            batch_size=None)
+                                            batch_size=None,
+                                            prefetch_buffer_size=AUTOTUNE)
 
     tensorboard_callback = TensorBoard(
         log_dir='./training-logs/{}'.format(uid),

@@ -62,6 +62,8 @@ flags.DEFINE_string('adv_grad_norm', 'infinity',
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
+IMAGE_INPUT_NAME = 'image'
+LABEL_INPUT_NAME = 'label'
 
 def main(argv):
     list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
@@ -116,7 +118,7 @@ def main(argv):
         # load the raw data from the file as a string
         img = tf.io.read_file(file_path)
         img = decode_img(img)
-        return {"image": img, "label": label}
+        return {IMAGE_INPUT_NAME: img, LABEL_INPUT_NAME: label}
 
     # def tuple_to_dict(element):
     #     x,y = element
@@ -178,7 +180,7 @@ def main(argv):
         # the adversarial training block
         import neural_structured_learning as nsl
         adv_config = nsl.configs.make_adv_reg_config(
-            multiplier=FLAGS..adv_multiplier,
+            multiplier=FLAGS.adv_multiplier,
             adv_step_size=FLAGS.adv_step_size,
             adv_grad_norm=FLAGS.adv_grad_norm
         )

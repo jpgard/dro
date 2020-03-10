@@ -145,7 +145,7 @@ def main(argv):
                                            batch_size=FLAGS.batch_size,
                                            prefetch_buffer_size=AUTOTUNE)
     train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
-                                            batch_size=None,
+                                            batch_size=FLAGS.batch_size,
                                             prefetch_buffer_size=AUTOTUNE)
 
     tensorboard_callback = TensorBoard(

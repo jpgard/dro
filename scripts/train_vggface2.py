@@ -50,6 +50,14 @@ flags.DEFINE_integer('wrm_ord', 2, 'order of norm to use in Wasserstein robust m
 flags.DEFINE_integer('wrm_steps', 15,
                      'number of steps to use in Wasserstein robus method')
 
+# the adversarial training parameters
+flags.DEFINE_float('adv_multiplier', 0.2,
+                   " The weight of adversarial loss in the training objective, relative "
+                   "to the labeled loss")
+flags.DEFINE_float('adv_step_size', 0.2, "The magnitude of adversarial perturbation.")
+flags.DEFINE_string('adv_grad_norm', 'infinity',
+                    "The norm to measure the magnitude of adversarial perturbation.")
+
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -133,75 +141,43 @@ def main(argv):
     steps_per_train_epoch = math.floor(n_train / FLAGS.batch_size)
     steps_per_val_epoch = math.floor(n_val / FLAGS.batch_size)
 
-    config = tf.compat.v1.ConfigProto(
-        allow_soft_placement=True,
-        gpu_options=tf.GPUOptions(allow_growth=True)
-    )
+    # build the datasets
+    test_ds = labeled_ds.take(n_val)
+    test_ds = prepare_dataset_for_training(test_ds, repeat_forever=True,
+                                           batch_size=FLAGS.batch_size)
+    train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
+                                            batch_size=None)
 
+    tensorboard_callback = TensorBoard(
+        log_dir='./training-logs/{}'.format(uid),
+        batch_size=FLAGS.batch_size,
+        write_graph=True,
+        write_grads=True,
+        update_freq='epoch')
+    csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
+    custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
+                             loss=tf.keras.losses.CategoricalCrossentropy(
+                                 from_logits=True),
+                             metrics=['accuracy',
+                                      AUC(name='auc'),
+                                      TruePositives(name='tp'),
+                                      FalsePositives(name='fp'),
+                                      TrueNegatives(name='tn'),
+                                      FalseNegatives(name='fn')
+                                      ]
+                             )
+    custom_vgg_model.summary()
+    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
+                                   epochs=FLAGS.epochs,
+                                   callbacks=[tensorboard_callback, csv_callback])
     if FLAGS.adversarial:
-        train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True, batch_size=None)
-        test_ds = train_ds.take(n_val).repeat()
-        # train_iter is an iterator which returns X,Y pairs of numpy arrays where
-        # X has shape (224, 224, 3) and Y has shape (2,).
-        train_iter = tfds.as_numpy(train_ds)
-        test_iter = tfds.as_numpy(test_ds)
-
-        # The adversarial perturbation block
-        x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3))
-        y = tf.placeholder(tf.float32, shape=(None, 2))
-        wrm_params = {'eps': FLAGS.wrm_eps, 'ord': FLAGS.wrm_ord, 'y': y,
-                      'steps': FLAGS.wrm_steps}
-        # Create TF session and set as Keras backend session
-        sess = tf.Session(config=config)
-        keras.backend.set_session(sess)
-        wrm = WassersteinRobustMethod(custom_vgg_model, sess=sess)
-        predictions = custom_vgg_model(x)
-        predictions_adv_wrm = custom_vgg_model(wrm.generate(x, **wrm_params))
-        eval_params = {'batch_size': FLAGS.batch_size}
-        eval_fn = partial(model_eval_fn, sess, x, y, predictions, predictions_adv_wrm,
-                          X_test=None, Y_test=None, eval_params=eval_params,
-                          dataset_iterator=test_iter,
-                          nb_batches=steps_per_val_epoch)
-        model_train_fn = partial(model_train,
-                                 sess, x, y, predictions_adv_wrm, X_train=None,
-                                 Y_train=None,
-                                 evaluate=eval_fn,
-                                 args={"nb_epochs": FLAGS.epochs,
-                                       "learning_rate": FLAGS.learning_rate,
-                                       "batch_size": FLAGS.batch_size},
-                                 save=False,
-                                 dataset_iterator=train_iter,
-                                 nb_batches=steps_per_train_epoch)
-        metrics = model_train_fn()
-        print(metrics)
-        pd.DataFrame(metrics).to_csv("./metrics/{uid}.csv".format(uid=uid), index=False)
-
-    else:
-
-        train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
-                                        batch_size=FLAGS.batch_size)
-        tensorboard_callback = TensorBoard(
-            log_dir='./training-logs/{}'.format(uid),
-            batch_size=FLAGS.batch_size,
-            write_graph=True,
-            write_grads=True,
-            update_freq='epoch')
-        csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(uid))
-        custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
-                                 loss=tf.keras.losses.CategoricalCrossentropy(
-                                     from_logits=True),
-                                 metrics=['accuracy',
-                                          AUC(name='auc'),
-                                          TruePositives(name='tp'),
-                                          FalsePositives(name='fp'),
-                                          TrueNegatives(name='tn'),
-                                          FalseNegatives(name='fn')
-                                          ]
-                                 )
-        custom_vgg_model.summary()
-        custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
-                                       epochs=FLAGS.epochs,
-                                       callbacks=[tensorboard_callback, csv_callback])
+        # the adversarial training block
+        import neural_structured_learning as nsl
+        adv_config = nsl.configs.make_adv_reg_config(
+            multiplier=HPARAMS.adv_multiplier,
+            adv_step_size=HPARAMS.adv_step_size,
+            adv_grad_norm=HPARAMS.adv_grad_norm
+        )
 
 
 if __name__ == "__main__":

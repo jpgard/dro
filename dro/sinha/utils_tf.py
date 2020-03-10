@@ -230,7 +230,7 @@ def model_eval(sess, x, y, y_hat, X_test, Y_test, args=None, dataset_iterator=No
             #                y: batch_y})
 
             accuracy += (cur_batch_size * cur_acc)
-            cross_entropy_loss += (cur_batch_size * ce_value)
+            cross_entropy_loss += (cur_batch_size * cur_ce)
 
         # Divide by number of examples to get final value
         accuracy /= n_test

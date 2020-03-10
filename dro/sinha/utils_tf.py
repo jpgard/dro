@@ -191,12 +191,17 @@ def model_eval(sess, x, y, y_hat, X_test, Y_test, args=None, dataset_iterator=No
 
     # Evaluation metrics
     acc_value = tf.reduce_mean(keras.metrics.categorical_accuracy(y, y_hat))
-    ce_value = tf.reduce_mean(tf.keras.metrics.categorical_crossentropy(y, y_hat,
-                                                                        from_logits=True))
+    acc_std = tf.math.reduce_std(keras.metrics.categorical_accuracy(y, y_hat))
+    ce_value = tf.reduce_mean(tf.keras.metrics.categorical_crossentropy(
+        y, y_hat, from_logits=True))
+    ce_std = tf.math.reduce_std(tf.keras.metrics.categorical_crossentropy(
+        y, y_hat, from_logits=True))
 
     # Init result var
     accuracy = 0.0
-    cross_entropy_loss = 0.0
+    accuracy_std = 0.0
+    cross_entropy = 0.0
+    cross_entropy_std = 0.0
 
     # Variable to track size
     n_test = 0
@@ -222,17 +227,22 @@ def model_eval(sess, x, y, y_hat, X_test, Y_test, args=None, dataset_iterator=No
 
             # The last batch may be smaller than all others, so we need to
             # account for variable batch size here
-            cur_acc, cur_ce = sess.run([acc_value, ce_value],
+            cur_acc, cur_acc_std, cur_ce, cur_ce_std = sess.run(
+                [acc_value, acc_std, ce_value, ce_std],
                                        feed_dict={x: batch_x,
                                                   y: batch_y})
 
             accuracy += (cur_batch_size * cur_acc)
-            cross_entropy_loss += (cur_batch_size * cur_ce)
+            accuracy_std += (cur_batch_size * cur_acc_std)
+            cross_entropy += (cur_batch_size * cur_ce)
+            cross_entropy_std += (cur_batch_size * cur_ce_std)
 
         # Divide by number of examples to get final value
         accuracy /= n_test
-        cross_entropy_loss /= n_test
+        accuracy_std /= n_test
+        cross_entropy /= n_test
+        cross_entropy_std /= n_test
     if not return_extended_metrics:  # legacy logic to ensure backward compatibility
         return accuracy
     else:
-        return accuracy, cross_entropy_loss
+        return accuracy, accuracy_std, cross_entropy, cross_entropy

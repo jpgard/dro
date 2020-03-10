@@ -15,13 +15,14 @@ python scripts/train_vggface2.py \
 """
 
 import math
+import os
 
 from absl import app
 from absl import flags
 import tensorflow as tf
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
-from tensorflow.keras.callbacks import TensorBoard, CSVLogger
+from tensorflow.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
 from dro.training.models import vggface2_model
 
 from dro.utils.training_utils import prepare_dataset_for_training
@@ -89,14 +90,23 @@ def make_callbacks(adversarial_training: bool):
         callback_uid = "{callback_uid}-adv-m{mul}-s{step}-n{norm}".format(
             callback_uid=callback_uid, mul=FLAGS.adv_multiplier,
             step=FLAGS.adv_step_size, norm=FLAGS.adv_grad_norm)
+    logdir = './training-logs/{}'.format(callback_uid)
     tensorboard_callback = TensorBoard(
-        log_dir='./training-logs/{}'.format(callback_uid),
+        log_dir=logdir,
         batch_size=FLAGS.batch_size,
         write_graph=True,
         write_grads=True,
         update_freq='epoch')
-    csv_callback = CSVLogger("./metrics/{}-vggface2-training.log".format(callback_uid))
-    return [tensorboard_callback, csv_callback]
+    csv_fp = "./metrics/{}-vggface2-training.log".format(callback_uid)
+    csv_callback = CSVLogger(csv_fp)
+    ckpt_fp = os.path.join(logdir, callback_uid + ".ckpt")
+    ckpt_callback = ModelCheckpoint(ckpt_fp,
+                                    monitor='val_loss', verbose=0,
+                                    save_best_only=True,
+                                    save_weights_only=False,
+                                    save_freq='epoch',
+                                    mode='auto')
+    return [tensorboard_callback, csv_callback, ckpt_callback]
 
 
 def main(argv):

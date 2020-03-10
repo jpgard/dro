@@ -222,9 +222,9 @@ def model_eval(sess, x, y, y_hat, X_test, Y_test, args=None, dataset_iterator=No
 
             # The last batch may be smaller than all others, so we need to
             # account for variable batch size here
-            cur_acc, ce_value = sess.run(acc_value,
-                               feed_dict={x: batch_x,
-                                          y: batch_y})
+            cur_acc, ce_value = sess.run([acc_value, cross_entropy_loss],
+                                         feed_dict={x: batch_x,
+                                                    y: batch_y})
             # cur_acc = acc_value.eval(
             #     feed_dict={x: batch_x,
             #                y: batch_y})

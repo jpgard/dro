@@ -17,15 +17,10 @@ import pandas as pd
 import glob
 from absl import app
 from absl import flags
-import numpy as np
-from dro.datasets import train_test_val_split
 import re
-import tensorflow as tf
 import os
 
-tf.compat.v1.enable_eager_execution()
 
-AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
 flags.DEFINE_integer("batch_size", 256, "batch size")
 flags.DEFINE_integer("epochs", 5, "the number of training epochs")

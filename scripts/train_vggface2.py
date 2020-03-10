@@ -33,7 +33,9 @@ flags.DEFINE_integer("epochs", 5, "the number of training epochs")
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
 flags.DEFINE_float("learning_rate", 0.001, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
-flags.DEFINE_bool("adversarial", False, "whether to use adversarial perturbation.")
+flags.DEFINE_bool("train_adversarial", False, "whether to train an adversarial model.")
+flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
+                                      "model.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
 
 # the wrm parameters
@@ -58,6 +60,12 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 IMAGE_INPUT_NAME = 'image'
 LABEL_INPUT_NAME = 'label'
+
+
+def convert_to_dictionaries(image, label):
+    """Convert a set of x,y tuples to a dict for use in adversarial training."""
+    return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
+
 
 def main(argv):
     list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
@@ -145,8 +153,8 @@ def main(argv):
     # build the datasets
     val_ds = labeled_ds.take(n_val)
     val_ds = prepare_dataset_for_training(val_ds, repeat_forever=True,
-                                           batch_size=FLAGS.batch_size,
-                                           prefetch_buffer_size=AUTOTUNE)
+                                          batch_size=FLAGS.batch_size,
+                                          prefetch_buffer_size=AUTOTUNE)
     # val_ds = val_ds.make_one_shot_iterator()
     train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
                                             batch_size=FLAGS.batch_size,
@@ -172,11 +180,13 @@ def main(argv):
                                       ]
                              )
     custom_vgg_model.summary()
-
-    custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
-                                   epochs=FLAGS.epochs,
-                                   callbacks=[tensorboard_callback, csv_callback])
-    if FLAGS.adversarial:
+    if FLAGS.train_base:
+        print("[INFO] training base model")
+        custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
+                                       epochs=FLAGS.epochs,
+                                       callbacks=[tensorboard_callback, csv_callback])
+    if FLAGS.train_adversarial:
+        print("[INFO] training adversarial model")
         # the adversarial training block
         import neural_structured_learning as nsl
         adv_config = nsl.configs.make_adv_reg_config(
@@ -190,6 +200,22 @@ def main(argv):
             label_keys=[LABEL_INPUT_NAME],
             adv_config=adv_config
         )
+        train_set_for_adv_model = train_ds.map(convert_to_dictionaries)
+        test_set_for_adv_model = val_ds.map(convert_to_dictionaries)
+        adv_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
+                          loss=tf.keras.losses.CategoricalCrossentropy(
+                              from_logits=True),
+                          metrics=['accuracy',
+                                   AUC(name='auc'),
+                                   TruePositives(name='tp'),
+                                   FalsePositives(name='fp'),
+                                   TrueNegatives(name='tn'),
+                                   FalseNegatives(name='fn')
+                                   ])
+        adv_model.fit_generator(train_set_for_adv_model,
+                                steps_per_epoch=steps_per_train_epoch,
+                                epochs=FLAGS.epochs,
+                                )
 
 
 if __name__ == "__main__":

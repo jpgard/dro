@@ -25,7 +25,7 @@ def model_eval_fn(sess, x, y, predictions, predictions_adv, X_test, Y_test, eval
           'examples' %
           (acc_adv_wass, acc_std_adv_wass, ce_adv_wass, ce_std_adv_wass))
     metrics_dict = {keys.ACC: acc,
-                    keys.ACC_SIGMA: acc_std
+                    keys.ACC_SIGMA: acc_std,
                     keys.CE: ce,
                     keys.CE_SIGMA: ce_std,
                     keys.CE_ADV_W: ce_adv_wass,

@@ -20,6 +20,6 @@ def model_eval_fn(sess, x, y, predictions, predictions_adv, X_test, Y_test, eval
     print('Test accuracy on Wasserstein examples: %0.4f\n' % accuracy_adv_wass)
     metrics_dict = {keys.ACC: accuracy,
                     keys.CE: cross_entropy,
-                    keys.CE_ADV_W: ce_adv_wass
+                    keys.CE_ADV_W: ce_adv_wass,
                     keys.ACC_ADV_W: accuracy_adv_wass}
     return metrics_dict

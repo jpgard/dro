@@ -12,6 +12,7 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 python scripts/train_vggface2.py \
     --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
     /mouth_open
+    --train_base --train_adversarial
 """
 
 import math

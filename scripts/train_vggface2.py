@@ -30,7 +30,7 @@ import tensorflow_datasets as tfds
 import neural_structured_learning as nsl
 
 from dro.training.models import vggface2_model
-from dro.utils.training_utils import prepare_dataset_for_training
+from dro.utils.training_utils import preprocess_dataset, process_path
 
 tf.compat.v1.enable_eager_execution()
 
@@ -138,43 +138,6 @@ def main(argv):
     # for f in list_ds.take(3):
     #     print(f.numpy())
 
-    def get_label(file_path):
-        # convert the path to a list of path components
-        label = tf.strings.substr(file_path, -21, 1)
-        # The second to last is the class-directory
-        return tf.strings.to_number(label, out_type=tf.int32)
-
-    def decode_img(img, normalize_by_channel=False):
-        # convert the compressed string to a 3D uint8 tensor
-        img = tf.image.decode_jpeg(img, channels=3)
-        # Use `convert_image_dtype` to convert to floats in the [0,1] range.
-        img = tf.image.convert_image_dtype(img, tf.float32)
-        # resize to a square image of 256 x 256, then crop to random 224 x 224
-        img = tf.expand_dims(img, axis=0)
-        img = tf.image.resize_images(img, size=(256, 256), preserve_aspect_ratio=True)
-        img = tf.image.resize_with_crop_or_pad(img, target_height=256, target_width=256)
-        img = tf.squeeze(img, axis=0)
-        img = tf.image.random_crop(img, (224, 224, 3))
-
-        # Apply normalization: subtract the channel-wise mean from each image as in
-        # https://github.com/rcmalli/keras-vggface/blob/master/keras_vggface/utils.py ;
-        # divide means by 255.0 since the conversion above restricts to range [0,1].
-        if normalize_by_channel:
-            ch1mean = tf.constant(91.4953 / 255.0, shape=(224, 224, 1))
-            ch2mean = tf.constant(103.8827 / 255.0, shape=(224, 224, 1))
-            ch3mean = tf.constant(131.0912 / 255.0, shape=(224, 224, 1))
-            channel_norm_tensor = tf.concat([ch1mean, ch2mean, ch3mean], axis=2)
-            img -= channel_norm_tensor
-        return img
-
-    def process_path(file_path):
-        label = get_label(file_path)
-        label = tf.one_hot(label, 2)
-        # load the raw data from the file as a string
-        img = tf.io.read_file(file_path)
-        img = decode_img(img)
-        return img, label
-
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
     input_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
 
@@ -204,17 +167,17 @@ def main(argv):
     # build the datasets
     val_ds_pre = input_ds.take(n_val)
     test_ds_pre = input_ds.take(n_test)
-    val_ds = prepare_dataset_for_training(val_ds_pre, repeat_forever=True,
-                                          batch_size=FLAGS.batch_size,
-                                          prefetch_buffer_size=AUTOTUNE)
-    test_ds = prepare_dataset_for_training(test_ds_pre, repeat_forever=False,
-                                           batch_size=FLAGS.batch_size,
-                                           prefetch_buffer_size=AUTOTUNE)
+    val_ds = preprocess_dataset(val_ds_pre, repeat_forever=True,
+                                batch_size=FLAGS.batch_size,
+                                prefetch_buffer_size=AUTOTUNE)
+    test_ds = preprocess_dataset(test_ds_pre, repeat_forever=False,
+                                 batch_size=FLAGS.batch_size,
+                                 prefetch_buffer_size=AUTOTUNE)
     test_ds_inputs = test_ds.map(lambda x, y: x)
     test_ds_labels = test_ds.map(lambda x, y: y)
-    train_ds = prepare_dataset_for_training(input_ds, repeat_forever=True,
-                                            batch_size=FLAGS.batch_size,
-                                            prefetch_buffer_size=AUTOTUNE)
+    train_ds = preprocess_dataset(input_ds, repeat_forever=True,
+                                  batch_size=FLAGS.batch_size,
+                                  prefetch_buffer_size=AUTOTUNE)
     # The metrics to optimize during training
     train_metrics = ['accuracy',
                      AUC(name='auc'),
@@ -271,7 +234,7 @@ def main(argv):
         # The test dataset can be initialized from test_ds_pre(); the prepare_...
         # function will re-initialize it as a fresh generator from the same elements.
 
-        test_ds_adv = prepare_dataset_for_training(
+        test_ds_adv = preprocess_dataset(
             test_ds_pre,
             repeat_forever=False,
             batch_size=FLAGS.batch_size,

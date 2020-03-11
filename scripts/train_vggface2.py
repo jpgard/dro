@@ -16,6 +16,7 @@ python scripts/train_vggface2.py \
 
 import math
 import os
+import numpy as np
 
 from absl import app
 from absl import flags
@@ -23,8 +24,10 @@ import tensorflow as tf
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
 from tensorflow.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
-from dro.training.models import vggface2_model
+import tensorflow_datasets as tfds
+import neural_structured_learning as nsl
 
+from dro.training.models import vggface2_model
 from dro.utils.training_utils import prepare_dataset_for_training
 
 tf.compat.v1.enable_eager_execution()
@@ -42,6 +45,7 @@ flags.DEFINE_bool("train_adversarial", False, "whether to train an adversarial m
 flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
                                       "model.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
+flags.DEFINE_float("test_frac", 0.1, "proportion of data to use for testing")
 flags.DEFINE_bool("debug", False,
                   "whether to run in debug mode (super short iterations to check for "
                   "bugs)")
@@ -76,7 +80,7 @@ def convert_to_dictionaries(image, label):
     return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
 
 
-def make_model_uid():
+def make_model_uid(is_adversarial=False):
     """Create a unique identifier for the model."""
     model_uid = """bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""".format(
         batch_size=FLAGS.batch_size,
@@ -84,16 +88,16 @@ def make_model_uid():
         lr=FLAGS.learning_rate,
         dropout_rate=FLAGS.dropout_rate
     )
+    if is_adversarial:
+        model_uid = "{model_uid}-adv-m{mul}-s{step}-n{norm}".format(
+            model_uid=model_uid, mul=FLAGS.adv_multiplier,
+            step=FLAGS.adv_step_size, norm=FLAGS.adv_grad_norm)
     return model_uid
 
 
-def make_callbacks(adversarial_training: bool):
+def make_callbacks(is_adversarial: bool):
     """Create the callbacks for training, including properly naming files."""
-    callback_uid = make_model_uid()
-    if adversarial_training:
-        callback_uid = "{callback_uid}-adv-m{mul}-s{step}-n{norm}".format(
-            callback_uid=callback_uid, mul=FLAGS.adv_multiplier,
-            step=FLAGS.adv_step_size, norm=FLAGS.adv_grad_norm)
+    callback_uid = make_model_uid(is_adversarial=is_adversarial)
     logdir = './training-logs/{}'.format(callback_uid)
     tensorboard_callback = TensorBoard(
         log_dir=logdir,
@@ -111,6 +115,12 @@ def make_callbacks(adversarial_training: bool):
                                     save_freq='epoch',
                                     mode='auto')
     return [tensorboard_callback, csv_callback, ckpt_callback]
+
+
+def compute_element_wise_loss(preds, labels):
+    test_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=preds)
+    element_wise_test_loss = tf.reduce_sum(test_loss, axis=1)
+    return element_wise_test_loss
 
 
 def main(argv):
@@ -176,51 +186,71 @@ def main(argv):
 
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     n_val = int(N * FLAGS.val_frac)
-    n_train = N - n_val
+    n_test = int(N * FLAGS.test_frac)
+    n_train = N - n_val - n_test
     if not FLAGS.debug:
         steps_per_train_epoch = math.floor(n_train / FLAGS.batch_size)
         steps_per_val_epoch = math.floor(n_val / FLAGS.batch_size)
+        steps_per_test_epoch = math.floor(n_test / FLAGS.batch_size)
     else:
         print("[INFO] running in debug mode")
         steps_per_train_epoch = 5
         steps_per_val_epoch = 5
+        steps_per_test_epoch = 5
 
     # build the datasets
     val_ds = labeled_ds.take(n_val)
+    test_ds = labeled_ds.take(n_test)
     val_ds = prepare_dataset_for_training(val_ds, repeat_forever=True,
                                           batch_size=FLAGS.batch_size,
                                           prefetch_buffer_size=AUTOTUNE)
-    val_ds_inputs = val_ds.map(lambda x,y: x)
-    val_ds_labels = val_ds.map(lambda x,y: y)
+    test_ds = prepare_dataset_for_training(test_ds, repeat_forever=False,
+                                           batch_size=FLAGS.batch_size,
+                                           prefetch_buffer_size=AUTOTUNE)
+    test_ds_inputs = test_ds.map(lambda x, y: x)
+    test_ds_labels = test_ds.map(lambda x, y: y)
     train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
                                             batch_size=FLAGS.batch_size,
                                             prefetch_buffer_size=AUTOTUNE)
-
+    # The metrics to optimize during training
+    train_metrics = ['accuracy',
+           AUC(name='auc'),
+           TruePositives(name='tp'),
+           FalsePositives(name='fp'),
+           TrueNegatives(name='tn'),
+           FalseNegatives(name='fn')
+           ]
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                              loss=tf.keras.losses.CategoricalCrossentropy(
                                  from_logits=True),
-                             metrics=['accuracy',
-                                      AUC(name='auc'),
-                                      TruePositives(name='tp'),
-                                      FalsePositives(name='fp'),
-                                      TrueNegatives(name='tn'),
-                                      FalseNegatives(name='fn')
-                                      ]
+                             metrics=train_metrics
                              )
     custom_vgg_model.summary()
     if FLAGS.train_base:
         print("[INFO] training base model")
-        callbacks = make_callbacks(adversarial_training=False)
-        custom_vgg_model.fit_generator(train_ds, steps_per_epoch=steps_per_train_epoch,
+        callbacks = make_callbacks(is_adversarial=False)
+        custom_vgg_model.fit_generator(train_ds,
+                                       steps_per_epoch=steps_per_train_epoch,
                                        epochs=FLAGS.epochs,
-                                       callbacks=callbacks)
-        preds = custom_vgg_model.predict_generator(val_ds_inputs,
-                                                   steps=steps_per_val_epoch)
-        import ipdb;ipdb.set_trace()
+                                       callbacks=callbacks,
+                                       validation_data=val_ds,
+                                       validation_steps=steps_per_val_epoch)
+        # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
+        preds = custom_vgg_model.predict_generator(test_ds_inputs)
+        labels = np.concatenate([y for y in tfds.as_numpy(test_ds_labels)])
+        element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)
+        print("Final non-adversarial test loss: mean {} std ({})".format(
+            tf.reduce_mean(element_wise_test_loss),
+            tf.math.reduce_std(element_wise_test_loss))
+        )
+        loss_filename = "./metrics/{}-test_loss.txt".format(make_model_uid(
+            is_adversarial=False))
+        np.savetxt(loss_filename, element_wise_test_loss)
+
     if FLAGS.train_adversarial:
         print("[INFO] training adversarial model")
         # the adversarial training block
-        import neural_structured_learning as nsl
+
         adv_config = nsl.configs.make_adv_reg_config(
             multiplier=FLAGS.adv_multiplier,
             adv_step_size=FLAGS.adv_step_size,
@@ -232,24 +262,39 @@ def main(argv):
             label_keys=[LABEL_INPUT_NAME],
             adv_config=adv_config
         )
-        train_set_for_adv_model = train_ds.map(convert_to_dictionaries)
-        test_set_for_adv_model = val_ds.map(convert_to_dictionaries)
+        train_ds_adv = train_ds.map(convert_to_dictionaries)
+        val_ds_adv = val_ds.map(convert_to_dictionaries)
+        # The test dataset can be a copy of the original test set; the prepare_...
+        # function re-initializes it as a fresh generator.
+        test_ds_adv = prepare_dataset_for_training(
+            test_ds,
+            repeat_forever=False,
+            batch_size=FLAGS.batch_size,
+            prefetch_buffer_size=AUTOTUNE)
+        test_ds_adv_inputs = test_ds.map(lambda x, y: x)
+        test_ds_adv_labels = test_ds.map(lambda x, y: y)
         adv_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
-                          loss=tf.keras.losses.CategoricalCrossentropy(
-                              from_logits=True),
-                          metrics=['accuracy',
-                                   AUC(name='auc'),
-                                   TruePositives(name='tp'),
-                                   FalsePositives(name='fp'),
-                                   TrueNegatives(name='tn'),
-                                   FalseNegatives(name='fn')
-                                   ])
-        callbacks = make_callbacks(adversarial_training=True)
-        adv_model.fit_generator(train_set_for_adv_model,
+                          loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+                          metrics=train_metrics)
+        callbacks = make_callbacks(is_adversarial=True)
+        adv_model.fit_generator(train_ds_adv,
                                 steps_per_epoch=steps_per_train_epoch,
                                 epochs=FLAGS.epochs,
-                                callbacks=callbacks
+                                callbacks=callbacks,
+                                validation_data=val_ds_adv,
+                                validation_steps=steps_per_val_epoch
                                 )
+        # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
+        preds = adv_model.predict_generator(test_ds_adv_inputs)
+        labels = np.concatenate([y for y in tfds.as_numpy(test_ds_adv_labels)])
+        element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)
+        print("Final adversarial test loss: mean {} std ({})".format(
+            tf.reduce_mean(element_wise_test_loss),
+            tf.math.reduce_std(element_wise_test_loss))
+        )
+        loss_filename = "./metrics/{}-test_loss.txt".format(make_model_uid(
+            is_adversarial=False))
+        np.savetxt(loss_filename, element_wise_test_loss)
 
 
 if __name__ == "__main__":

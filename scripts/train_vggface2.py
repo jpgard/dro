@@ -49,7 +49,9 @@ flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversaria
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
 flags.DEFINE_float("test_frac", 0.1, "proportion of data to use for testing")
 flags.DEFINE_string("label_name", None,
-                    "name of the prediction label (e.g. sunglasses, mouth_open)")
+                    "name of the prediction label (e.g. sunglasses, mouth_open)",
+                    )
+flags.mark_flag_as_required("label_name")
 flags.DEFINE_bool("debug", False,
                   "whether to run in debug mode (super short iterations to check for "
                   "bugs)")

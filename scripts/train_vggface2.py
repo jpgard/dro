@@ -84,7 +84,6 @@ def convert_to_dictionaries(image, label):
     """Convert a set of x,y tuples to a dict for use in adversarial training."""
     return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
 
-
 def make_model_uid(is_adversarial=False):
     """Create a unique identifier for the model."""
     model_uid = """{label_name}bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""" \

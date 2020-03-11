@@ -175,11 +175,6 @@ def main(argv):
         img = tf.io.read_file(file_path)
         img = decode_img(img)
         return img, label
-        # return {IMAGE_INPUT_NAME: img, LABEL_INPUT_NAME: label}
-
-    # def tuple_to_dict(element):
-    #     x,y = element
-    #     return {"image": x, "label": y}
 
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
     labeled_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
@@ -296,6 +291,7 @@ def main(argv):
                                 validation_steps=steps_per_val_epoch
                                 )
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
+        import ipdb;ipdb.set_trace()
         preds = adv_model.predict_generator(test_ds_adv)
         labels = np.concatenate([y for y in tfds.as_numpy(test_ds_adv_labels)])
         element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)

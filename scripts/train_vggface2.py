@@ -15,6 +15,7 @@ python scripts/train_vggface2.py \
     --train_base --train_adversarial
 """
 
+import glob
 import math
 import os
 import numpy as np
@@ -73,7 +74,6 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 IMAGE_INPUT_NAME = 'image'
 LABEL_INPUT_NAME = 'label'
-N = 1000  # the number of training observations
 
 
 def convert_to_dictionaries(image, label):
@@ -125,7 +125,9 @@ def compute_element_wise_loss(preds, labels):
 
 
 def main(argv):
-    list_ds = tf.data.Dataset.list_files(str(FLAGS.img_dir + '/*/*/*.jpg'), shuffle=True,
+    filepattern = str(FLAGS.img_dir + '/*/*/*.jpg')
+    N = len(glob.glob(filepattern))
+    list_ds = tf.data.Dataset.list_files(filepattern, shuffle=True,
                                          seed=2974)
 
     # for f in list_ds.take(3):
@@ -272,8 +274,9 @@ def main(argv):
             repeat_forever=False,
             batch_size=FLAGS.batch_size,
             prefetch_buffer_size=AUTOTUNE)
-        test_ds_adv_inputs = test_ds.map(lambda x, y: x)
-        test_ds_adv_labels = test_ds.map(lambda x, y: y)
+        # We only need the labels for the adversarial model; the prediction function
+        # takes the combined inputs in AT.
+        test_ds_adv_labels = test_ds_adv.map(lambda x, y: y)
         adv_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                           loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                           metrics=train_metrics)
@@ -286,7 +289,7 @@ def main(argv):
                                 validation_steps=steps_per_val_epoch
                                 )
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        preds = adv_model.predict_generator(test_ds_adv_inputs)
+        preds = adv_model.predict_generator(test_ds_adv)
         labels = np.concatenate([y for y in tfds.as_numpy(test_ds_adv_labels)])
         element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)
         print("Final adversarial test loss: mean {} std ({})".format(

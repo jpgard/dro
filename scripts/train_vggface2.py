@@ -201,9 +201,9 @@ def main(argv):
         steps_per_test_epoch = math.floor(n_test / FLAGS.batch_size)
     else:
         print("[INFO] running in debug mode")
-        steps_per_train_epoch = 5
-        steps_per_val_epoch = 5
-        steps_per_test_epoch = 5
+        steps_per_train_epoch = 2
+        steps_per_val_epoch = 2
+        steps_per_test_epoch = 2
 
     # build the datasets
     val_ds = labeled_ds.take(n_val)
@@ -278,6 +278,7 @@ def main(argv):
             repeat_forever=False,
             batch_size=FLAGS.batch_size,
             prefetch_buffer_size=AUTOTUNE)
+        test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
         # We only need the labels for the adversarial model; the prediction function
         # takes the combined inputs in AT.
         test_ds_adv_labels = test_ds_adv.map(lambda x, y: y)

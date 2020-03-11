@@ -177,9 +177,9 @@ def main(argv):
         return img, label
 
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
-    labeled_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
+    input_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
 
-    # for image, label in labeled_ds.take(10):
+    # for image, label in input_ds.take(10):
     #     print("Image shape: ", image.numpy().shape)
     #     print("Label: ", label.numpy())
 
@@ -203,17 +203,17 @@ def main(argv):
         steps_per_test_epoch = 1
 
     # build the datasets
-    val_ds = labeled_ds.take(n_val)
-    test_ds = labeled_ds.take(n_test)
-    val_ds = prepare_dataset_for_training(val_ds, repeat_forever=True,
+    val_ds_pre = input_ds.take(n_val)
+    test_ds_pre = input_ds.take(n_test)
+    val_ds = prepare_dataset_for_training(val_ds_pre, repeat_forever=True,
                                           batch_size=FLAGS.batch_size,
                                           prefetch_buffer_size=AUTOTUNE)
-    test_ds = prepare_dataset_for_training(test_ds, repeat_forever=False,
+    test_ds = prepare_dataset_for_training(test_ds_pre, repeat_forever=False,
                                            batch_size=FLAGS.batch_size,
                                            prefetch_buffer_size=AUTOTUNE)
     test_ds_inputs = test_ds.map(lambda x, y: x)
     test_ds_labels = test_ds.map(lambda x, y: y)
-    train_ds = prepare_dataset_for_training(labeled_ds, repeat_forever=True,
+    train_ds = prepare_dataset_for_training(input_ds, repeat_forever=True,
                                             batch_size=FLAGS.batch_size,
                                             prefetch_buffer_size=AUTOTUNE)
     # The metrics to optimize during training
@@ -269,11 +269,11 @@ def main(argv):
         train_ds_adv = train_ds.map(convert_to_dictionaries)
         val_ds_adv = val_ds.map(convert_to_dictionaries)
 
-        # The test dataset can be a copy of the original test set; the prepare_...
-        # function re-initializes it as a fresh generator.
+        # The test dataset can be initialized from test_ds_pre(); the prepare_...
+        # function will re-initialize it as a fresh generator from the same elements.
 
         test_ds_adv = prepare_dataset_for_training(
-            test_ds,
+            test_ds_pre,
             repeat_forever=False,
             batch_size=FLAGS.batch_size,
             prefetch_buffer_size=AUTOTUNE)
@@ -296,7 +296,6 @@ def main(argv):
                                 )
 
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        import ipdb;ipdb.set_trace()
         preds = adv_model.predict_generator(test_ds_adv)
         labels = np.concatenate([y for y in tfds.as_numpy(test_ds_adv_labels)])
         element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)

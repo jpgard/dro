@@ -48,6 +48,8 @@ flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversaria
                                       "model.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
 flags.DEFINE_float("test_frac", 0.1, "proportion of data to use for testing")
+flags.DEFINE_string("label_name", None,
+                    "name of the prediction label (e.g. sunglasses, mouth_open)")
 flags.DEFINE_bool("debug", False,
                   "whether to run in debug mode (super short iterations to check for "
                   "bugs)")
@@ -83,7 +85,9 @@ def convert_to_dictionaries(image, label):
 
 def make_model_uid(is_adversarial=False):
     """Create a unique identifier for the model."""
-    model_uid = """bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""".format(
+    model_uid = """{label_name}bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""" \
+        .format(
+        label_name=FLAGS.label_name,
         batch_size=FLAGS.batch_size,
         epochs=FLAGS.epochs,
         lr=FLAGS.learning_rate,
@@ -217,12 +221,12 @@ def main(argv):
                                             prefetch_buffer_size=AUTOTUNE)
     # The metrics to optimize during training
     train_metrics = ['accuracy',
-           AUC(name='auc'),
-           TruePositives(name='tp'),
-           FalsePositives(name='fp'),
-           TrueNegatives(name='tn'),
-           FalseNegatives(name='fn')
-           ]
+                     AUC(name='auc'),
+                     TruePositives(name='tp'),
+                     FalsePositives(name='fp'),
+                     TrueNegatives(name='tn'),
+                     FalseNegatives(name='fn')
+                     ]
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                              loss=tf.keras.losses.CategoricalCrossentropy(
                                  from_logits=True),

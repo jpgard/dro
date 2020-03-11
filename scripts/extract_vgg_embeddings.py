@@ -40,7 +40,7 @@ def main(argv):
     list_ds = tf.data.Dataset.list_files(filepattern, shuffle=True,
                                          seed=2974)
     input_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
-    train_ds = preprocess_dataset(input_ds, epochs=FLAGS.n_embeddings,
+    train_ds = preprocess_dataset(input_ds, epochs=FLAGS.n_embed,
                                   batch_size=1,
                                   shuffle=False,
                                   prefetch_buffer_size=AUTOTUNE)
@@ -51,7 +51,7 @@ def main(argv):
 
     # embeddings has shape [N * n_embeddings, 2048]; take average over each sample due
     # to the random cropping of the inputs.
-    embeddings = tf.reshape(embeddings, (N, embedding_dim, FLAGS.n_embeddings))
+    embeddings = tf.reshape(embeddings, (N, embedding_dim, FLAGS.n_embed))
     embeddings = tf.reduce_mean(embeddings, axis=-1)
     embeddings = embeddings.numpy()
     similarities = cosine_similarity(embeddings)

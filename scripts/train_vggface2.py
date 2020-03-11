@@ -268,8 +268,10 @@ def main(argv):
         )
         train_ds_adv = train_ds.map(convert_to_dictionaries)
         val_ds_adv = val_ds.map(convert_to_dictionaries)
+
         # The test dataset can be a copy of the original test set; the prepare_...
         # function re-initializes it as a fresh generator.
+
         test_ds_adv = prepare_dataset_for_training(
             test_ds,
             repeat_forever=False,
@@ -277,8 +279,10 @@ def main(argv):
             prefetch_buffer_size=AUTOTUNE)
         test_ds_adv_labels = test_ds_adv.map(lambda x, y: y)
         test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
+
         # We only need the labels for the adversarial model; the prediction function
         # takes the combined inputs in AT.
+
         adv_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                           loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                           metrics=train_metrics)
@@ -290,6 +294,7 @@ def main(argv):
                                 validation_data=val_ds_adv,
                                 validation_steps=steps_per_val_epoch
                                 )
+
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
         import ipdb;ipdb.set_trace()
         preds = adv_model.predict_generator(test_ds_adv)

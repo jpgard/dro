@@ -23,7 +23,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string("img_dir", None, "directory containing the images")
 flags.DEFINE_string("out_dir", "./embeddings", "directory to dump the embeddings and "
                                                "similarity to")
-flags.DEFINE_string("n_embed", 10, "number of embeddings to compute for each sample; "
+flags.DEFINE_integer("n_embed", 10, "number of embeddings to compute for each sample; "
                                    "these are averaged to account for the random "
                                    "cropping.")
 

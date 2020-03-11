@@ -6,6 +6,7 @@ import tensorflow as tf
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
+
 def get_batch(dataset_iterator, batch_size):
     slice = tuple(islice(dataset_iterator, batch_size))
     batch_x = np.stack([i[0] for i in slice], axis=0)
@@ -13,9 +14,11 @@ def get_batch(dataset_iterator, batch_size):
     return batch_x, batch_y
 
 
-def prepare_dataset_for_training(ds, cache=True, shuffle_buffer_size=1000,
-                         repeat_forever=False, batch_size=None,
-                                 prefetch_buffer_size=AUTOTUNE):
+def preprocess_dataset(
+        ds, cache=True, shuffle_buffer_size=1000,
+        repeat_forever=False, batch_size: int = None,
+        prefetch_buffer_size=AUTOTUNE, shuffle=True,
+        epochs: int = None):
     """Shuffle, repeat, batch, and prefetch the dataset."""
     # This is a small dataset, only load it once, and keep it in memory.
     # use `.cache(filename)` to cache preprocessing work for datasets that don't
@@ -29,10 +32,13 @@ def prepare_dataset_for_training(ds, cache=True, shuffle_buffer_size=1000,
             ds = ds.cache(cache)
         else:
             ds = ds.cache()
-    ds = ds.shuffle(buffer_size=shuffle_buffer_size)
+    if shuffle:
+        ds = ds.shuffle(buffer_size=shuffle_buffer_size)
     # Repeat forever
     if repeat_forever:
         ds = ds.repeat()
+    elif epochs:
+        ds = ds.repeat(epochs)
     if batch_size:
         ds = ds.batch(batch_size)
     # `prefetch` lets the dataset fetch batches in the background while the model

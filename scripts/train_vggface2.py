@@ -30,7 +30,7 @@ import tensorflow_datasets as tfds
 import neural_structured_learning as nsl
 
 from dro.training.models import vggface2_model
-from dro.utils.training_utils import prepare_dataset_for_training, process_path
+from dro.utils.training_utils import preprocess_dataset, process_path
 
 tf.compat.v1.enable_eager_execution()
 
@@ -167,17 +167,17 @@ def main(argv):
     # build the datasets
     val_ds_pre = input_ds.take(n_val)
     test_ds_pre = input_ds.take(n_test)
-    val_ds = prepare_dataset_for_training(val_ds_pre, repeat_forever=True,
-                                          batch_size=FLAGS.batch_size,
-                                          prefetch_buffer_size=AUTOTUNE)
-    test_ds = prepare_dataset_for_training(test_ds_pre, repeat_forever=False,
-                                           batch_size=FLAGS.batch_size,
-                                           prefetch_buffer_size=AUTOTUNE)
+    val_ds = preprocess_dataset(val_ds_pre, repeat_forever=True,
+                                batch_size=FLAGS.batch_size,
+                                prefetch_buffer_size=AUTOTUNE)
+    test_ds = preprocess_dataset(test_ds_pre, repeat_forever=False,
+                                 batch_size=FLAGS.batch_size,
+                                 prefetch_buffer_size=AUTOTUNE)
     test_ds_inputs = test_ds.map(lambda x, y: x)
     test_ds_labels = test_ds.map(lambda x, y: y)
-    train_ds = prepare_dataset_for_training(input_ds, repeat_forever=True,
-                                            batch_size=FLAGS.batch_size,
-                                            prefetch_buffer_size=AUTOTUNE)
+    train_ds = preprocess_dataset(input_ds, repeat_forever=True,
+                                  batch_size=FLAGS.batch_size,
+                                  prefetch_buffer_size=AUTOTUNE)
     # The metrics to optimize during training
     train_metrics = ['accuracy',
                      AUC(name='auc'),
@@ -234,7 +234,7 @@ def main(argv):
         # The test dataset can be initialized from test_ds_pre(); the prepare_...
         # function will re-initialize it as a fresh generator from the same elements.
 
-        test_ds_adv = prepare_dataset_for_training(
+        test_ds_adv = preprocess_dataset(
             test_ds_pre,
             repeat_forever=False,
             batch_size=FLAGS.batch_size,

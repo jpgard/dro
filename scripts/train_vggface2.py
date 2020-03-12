@@ -266,7 +266,7 @@ def main(argv):
             tf.math.reduce_std(element_wise_test_loss))
         )
         loss_filename = "./metrics/{}-test_loss.txt".format(make_model_uid(
-            is_adversarial=False))
+            is_adversarial=True))
         np.savetxt(loss_filename, element_wise_test_loss)
 
 

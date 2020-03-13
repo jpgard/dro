@@ -1,6 +1,16 @@
 """
 A script to fetch the VGG embeddings for each image in a directory and write them to a
 file.
+
+# set the gpu
+export GPU_ID="2"
+export CUDA_DEVICE_ORDER="PCI_BUS_ID"
+export CUDA_VISIBLE_DEVICES=$GPU_ID
+
+# run the script
+python3 scripts/extract_vgg_embeddings.py \
+    --img_dir \
+    /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open_tiny
 """
 
 from absl import app
@@ -26,6 +36,10 @@ flags.DEFINE_string("out_dir", "./embeddings", "directory to dump the embeddings
 flags.DEFINE_integer("n_embed", 10, "number of embeddings to compute for each sample; "
                                    "these are averaged to account for the random "
                                    "cropping.")
+flags.DEFINE_bool("similarity", True, "whether or not to write the similarity matrix; "
+                                      "this can be huge for large datasets and it may "
+                                      "be easier to just store the embeddings and "
+                                      "compute similarity later.")
 
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
@@ -66,11 +80,12 @@ def main(argv):
     # embeddings = tf.reshape(embeddings, (N, embedding_dim, FLAGS.n_embed))
     # embeddings = tf.reduce_mean(embeddings, axis=-1)
     # embeddings = embeddings.numpy()
-    similarities = cosine_similarity(embeddings)
-    similarity_df = pd.DataFrame(similarities, index=image_ids, columns=image_ids)
     embedding_df = pd.DataFrame(embeddings, index=image_ids)
-    similarity_df.to_csv(os.path.join(FLAGS.out_dir, "similarity.csv"), index=True)
     embedding_df.to_csv(os.path.join(FLAGS.out_dir, "embedding.csv"), index=True)
+    if FLAGS.similarity:
+        similarities = cosine_similarity(embeddings)
+        similarity_df = pd.DataFrame(similarities, index=image_ids, columns=image_ids)
+        similarity_df.to_csv(os.path.join(FLAGS.out_dir, "similarity.csv"), index=True)
 
 
 if __name__ == "__main__":

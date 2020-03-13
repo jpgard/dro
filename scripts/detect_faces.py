@@ -43,14 +43,19 @@ def extract_face(filename, required_size=(224, 224)):
     # detect faces in the image
     results = face_detector.detect_faces(pixels)
     # extract the bounding box from the first face
-    x1, y1, width, height = results[0]['box']
-    x2, y2 = x1 + width, y1 + height
-    # extract the face
-    face = pixels[y1:y2, x1:x2]
-    # resize pixels to the model size
-    image = Image.fromarray(face)
-    image = image.resize(required_size)
-    return image
+    try:
+        x1, y1, width, height = results[0]['box']
+        x2, y2 = x1 + width, y1 + height
+        # extract the face
+        face = pixels[y1:y2, x1:x2]
+        # resize pixels to the model size
+        image = Image.fromarray(face)
+        image = image.resize(required_size)
+        return image
+    except IndexError:
+        print("no face detected; skipping {}".format(filename))
+    except Exception as e:
+        print("exception: {}; skipping {}".format(e, filename))
 
 def main(argv):
     out_dir = FLAGS.out_dir
@@ -62,11 +67,12 @@ def main(argv):
     for f in image_ids:
         try:
             face_im = extract_face(f)
-            image_id = image_uid_from_fp(f)
-            out_fp = out_dir + image_id
-            os.makedirs(os.path.dirname(out_fp), exist_ok=True)
-            print("writing to %s" % out_fp)
-            face_im.save(out_fp)
+            if face_im:
+                image_id = image_uid_from_fp(f)
+                out_fp = out_dir + image_id
+                os.makedirs(os.path.dirname(out_fp), exist_ok=True)
+                print("writing to %s" % out_fp)
+                face_im.save(out_fp)
         except ValueError as e:
             print("[WARNING] crop error for {}; skipping".format(f))
             print(e)

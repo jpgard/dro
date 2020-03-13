@@ -47,13 +47,18 @@ def preprocess_dataset(
     return ds
 
 
-def process_path(file_path, crop=True):
-    label = get_label(file_path)
-    label = tf.one_hot(label, 2)
+def process_path(file_path, crop=True, labels=True):
+    """Load the data from file_path. Returns either an (x,y) tuplesif
+    labels=True, or just x if label=False."""
     # load the raw data from the file as a string
     img = tf.io.read_file(file_path)
     img = decode_img(img, crop=crop)
-    return img, label
+    if not labels:
+        return img
+    else:
+        label = get_label(file_path)
+        label = tf.one_hot(label, 2)
+        return img, label
 
 def random_crop_and_resize(img):
     # resize to a square image of 256 x 256, then crop to random 224 x 224

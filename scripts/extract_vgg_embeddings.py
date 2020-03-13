@@ -40,20 +40,32 @@ def main(argv):
     list_ds = tf.data.Dataset.list_files(filepattern, shuffle=True,
                                          seed=2974)
     input_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
-    train_ds = preprocess_dataset(input_ds, epochs=FLAGS.n_embed,
+    train_ds = preprocess_dataset(input_ds,
                                   batch_size=1,
                                   shuffle=False,
                                   prefetch_buffer_size=AUTOTUNE)
+    # TODO(jpgard): repeat each element n times; see if random crops are the same or
+    #  different.
     # drop the labels from train_ds
     train_ds = train_ds.map(lambda x, y: x)
+    # import matplotlib.pyplot as plt
+    # for image, label in input_ds.take(FLAGS.n_embed):
+    #     plt.figure(figsize=(6, 14))
+    #     for n in range(FLAGS.n_embed+1):
+    #         ax = plt.subplot(8, 2, n + 1)
+    #         plt.imshow(image)
+    #         plt.axis('off')
+    #     plt.show()
+    # import ipdb;ipdb.set_trace()
+
     vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3), pooling='avg')
     embeddings = vgg_model.predict_generator(train_ds)
 
-    # embeddings has shape [N * n_embeddings, 2048]; take average over each sample due
+    # embeddings has shape [N * n_embeddings, 512]; take average over each sample due
     # to the random cropping of the inputs.
-    embeddings = tf.reshape(embeddings, (N, embedding_dim, FLAGS.n_embed))
-    embeddings = tf.reduce_mean(embeddings, axis=-1)
-    embeddings = embeddings.numpy()
+    # embeddings = tf.reshape(embeddings, (N, embedding_dim, FLAGS.n_embed))
+    # embeddings = tf.reduce_mean(embeddings, axis=-1)
+    # embeddings = embeddings.numpy()
     similarities = cosine_similarity(embeddings)
     similarity_df = pd.DataFrame(similarities, index=image_ids, columns=image_ids)
     embedding_df = pd.DataFrame(embeddings, index=image_ids)

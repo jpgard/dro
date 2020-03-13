@@ -22,8 +22,6 @@ import os
 
 
 FLAGS = flags.FLAGS
-flags.DEFINE_integer("batch_size", 256, "batch size")
-flags.DEFINE_integer("epochs", 5, "the number of training epochs")
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
 flags.DEFINE_string("out_dir", None, "directory to output")
 flags.DEFINE_string("anno_fp", None, "path to the target annotation file.")

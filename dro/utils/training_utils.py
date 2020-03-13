@@ -47,26 +47,31 @@ def preprocess_dataset(
     return ds
 
 
-def process_path(file_path):
+def process_path(file_path, crop=True):
     label = get_label(file_path)
     label = tf.one_hot(label, 2)
     # load the raw data from the file as a string
     img = tf.io.read_file(file_path)
-    img = decode_img(img)
+    img = decode_img(img, crop=crop)
     return img, label
 
-
-def decode_img(img, normalize_by_channel=False):
-    # convert the compressed string to a 3D uint8 tensor
-    img = tf.image.decode_jpeg(img, channels=3)
-    # Use `convert_image_dtype` to convert to floats in the [0,1] range.
-    img = tf.image.convert_image_dtype(img, tf.float32)
+def random_crop_and_resize(img):
     # resize to a square image of 256 x 256, then crop to random 224 x 224
-    img = tf.expand_dims(img, axis=0)
+    if len(img.shape) < 4:  # add a batch dimension if one does not exist
+        img = tf.expand_dims(img, axis=0)
     img = tf.image.resize_images(img, size=(256, 256), preserve_aspect_ratio=True)
     img = tf.image.resize_with_crop_or_pad(img, target_height=256, target_width=256)
     img = tf.squeeze(img, axis=0)
     img = tf.image.random_crop(img, (224, 224, 3))
+    return img
+
+def decode_img(img, normalize_by_channel=False, crop=True):
+    # convert the compressed string to a 3D uint8 tensor
+    img = tf.image.decode_jpeg(img, channels=3)
+    # Use `convert_image_dtype` to convert to floats in the [0,1] range.
+    img = tf.image.convert_image_dtype(img, tf.float32)
+    if crop:
+        img = random_crop_and_resize(img)
 
     # Apply normalization: subtract the channel-wise mean from each image as in
     # https://github.com/rcmalli/keras-vggface/blob/master/keras_vggface/utils.py ;

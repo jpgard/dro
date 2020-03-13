@@ -92,11 +92,15 @@ def main(argv):
     embeddings = tf.reduce_mean(embeddings, axis=1)
     embeddings = embeddings.numpy()
     embedding_df = pd.DataFrame(embeddings, index=image_ids)
-    embedding_df.to_csv(os.path.join(FLAGS.out_dir, "embedding.csv"), index=True)
+    embedding_df.to_csv(os.path.join(FLAGS.out_dir,
+                                     "embedding-n{}.csv".format(FLAGS.n_embed)),
+                        index=True)
     if FLAGS.similarity:
         similarities = cosine_similarity(embeddings)
         similarity_df = pd.DataFrame(similarities, index=image_ids, columns=image_ids)
-        similarity_df.to_csv(os.path.join(FLAGS.out_dir, "similarity.csv"), index=True)
+        similarity_df.to_csv(os.path.join(FLAGS.out_dir,
+                                          "similarity-n{}.csv".format(FLAGS.n_embed)),
+                             index=True)
     # TODO(jpgard): check that these embeddings are CLOSE to embeddings which are
     #  generated with n_embed=1. The averaging should change the embeddings a little
     #  bit, but not too much, and the difference should be random across samples.

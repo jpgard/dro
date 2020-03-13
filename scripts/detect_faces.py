@@ -30,6 +30,8 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 from PIL import Image
 import re
 
+from dro.utils.vggface import image_uid_from_fp
+
 face_detector = MTCNN()  # the detector to use below, using default weights
 
 
@@ -60,7 +62,7 @@ def main(argv):
     for f in image_ids:
         try:
             face_im = extract_face(f)
-            image_id = re.match('.*(.*/.*/.*\\.jpg)', f).group(1)
+            image_id = image_uid_from_fp(f)
             out_fp = out_dir + image_id
             os.makedirs(os.path.dirname(out_fp), exist_ok=True)
             print("writing to %s" % out_fp)

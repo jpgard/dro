@@ -34,8 +34,8 @@ flags.DEFINE_string("img_dir", None, "directory containing the images")
 flags.DEFINE_string("out_dir", "./embeddings", "directory to dump the embeddings and "
                                                "similarity to")
 flags.DEFINE_integer("n_embed", 10, "number of embeddings to compute for each sample; "
-                                   "these are averaged to account for the random "
-                                   "cropping.")
+                                    "these are averaged to account for the random "
+                                    "cropping.")
 flags.DEFINE_bool("similarity", True, "whether or not to write the similarity matrix; "
                                       "this can be huge for large datasets and it may "
                                       "be easier to just store the embeddings and "
@@ -47,30 +47,39 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
 def main(argv):
-    filepattern = str(FLAGS.img_dir + '/*/*/*.jpg')
+    filepattern = str(FLAGS.img_dir + '/*/*/*.jpg')  # TODO(jpgard): allow
+    # specification of this
     embedding_dim = 512
     image_ids = glob.glob(filepattern)
     N = len(image_ids)
     list_ds = tf.data.Dataset.list_files(filepattern, shuffle=True,
                                          seed=2974)
-    input_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
+    from functools import partial
+    _process_path = partial(process_path, crop=False)
+    input_ds = list_ds.map(_process_path, num_parallel_calls=AUTOTUNE)
     train_ds = preprocess_dataset(input_ds,
                                   batch_size=1,
                                   shuffle=False,
                                   prefetch_buffer_size=AUTOTUNE)
-    # TODO(jpgard): repeat each element n times; see if random crops are the same or
-    #  different.
-    # drop the labels from train_ds
-    train_ds = train_ds.map(lambda x, y: x)
-    # import matplotlib.pyplot as plt
-    # for image, label in input_ds.take(FLAGS.n_embed):
-    #     plt.figure(figsize=(6, 14))
-    #     for n in range(FLAGS.n_embed+1):
-    #         ax = plt.subplot(8, 2, n + 1)
-    #         plt.imshow(image)
-    #         plt.axis('off')
-    #     plt.show()
-    # import ipdb;ipdb.set_trace()
+    from dro.utils.training_utils import random_crop_and_resize
+    # repeat each element, discaring the labels
+    train_ds = train_ds.flat_map(lambda x, y: tf.data.Dataset.from_tensors(x).repeat(
+        FLAGS.n_embed))
+    train_ds = train_ds.map(lambda x: tf.squeeze(x, axis=0))  # remove this later
+    # TODO(jpgard): see if images are being repeated
+    import matplotlib.pyplot as plt
+    x = 0
+    for image in train_ds.take(FLAGS.n_embed):
+        ax = plt.subplot(FLAGS.n_embed, 1, x + 1)
+        ax.imshow(image.numpy())
+        plt.axis('off')
+        x += 1
+    plt.show()
+    import ipdb;
+    ipdb.set_trace()
+    # apply different random cropping to each iterate of x, and drop the labels.
+
+    # TODO(jpgard): see if random crops are the same or different. Want different.
 
     vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3), pooling='avg')
     embeddings = vgg_model.predict_generator(train_ds)

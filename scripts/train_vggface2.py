@@ -17,8 +17,9 @@ python scripts/train_vggface2.py \
 
 import glob
 import math
-import os
 import numpy as np
+import os
+import time
 
 from absl import app
 from absl import flags
@@ -31,6 +32,7 @@ import neural_structured_learning as nsl
 
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import preprocess_dataset, process_path
+from dro.utils.viz import show_batch
 
 tf.compat.v1.enable_eager_execution()
 
@@ -72,8 +74,7 @@ flags.DEFINE_float('adv_step_size', 0.2, "The magnitude of adversarial perturbat
 flags.DEFINE_string('adv_grad_norm', 'infinity',
                     "The norm to measure the magnitude of adversarial perturbation.")
 
-# Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
-# impossible to parse.
+# Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 IMAGE_INPUT_NAME = 'image'
@@ -138,10 +139,10 @@ def main(argv):
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
     input_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
 
-    # TODO(jpgard): save batch to pdf instead
-    # image_batch, label_batch = next(iter(train_ds))
-    # from dro.utils.vis import show_batch
-    # show_batch(image_batch.numpy(), label_batch.numpy())
+    # Save a sample batch to png for debugging
+    image_batch, label_batch = next(iter(input_ds))
+    show_batch(image_batch.numpy(), label_batch.numpy(),
+               fp="./debug/sample_batch{}.png".format(int(time.time())))
 
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     n_val = int(N * FLAGS.val_frac)

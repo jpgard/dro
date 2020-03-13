@@ -1,18 +1,18 @@
+"""
+?Uses a face detector to crop the face only. This helps ensure that embeddings reflect
+the users face, not other elements in the image (clothing, background), as much as
+possible.
 
+python3 scripts/detect_faces.py --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open_tiny/ --out_dir ./tmp/mouth_open_tiny_cropped
+"""
 from absl import app
 from absl import flags
 import glob
 import numpy as np
 import os
 
-import pandas as pd
 import tensorflow as tf
-from sklearn.metrics.pairwise import cosine_similarity
-import matplotlib.pyplot as plt
 
-from keras_vggface.vggface import VGGFace
-from dro.utils.training_utils import process_path, preprocess_dataset, \
-    random_crop_and_resize
 from mtcnn import MTCNN
 
 # tf.compat.v1.enable_eager_execution()
@@ -53,16 +53,21 @@ def extract_face(filename, required_size=(224, 224)):
 def main(argv):
     out_dir = FLAGS.out_dir
     assert not out_dir.endswith("/"), "specify out_dir without a trailing /"
-    filepattern = str(FLAGS.img_dir + '*/*.jpg')
-    image_ids = glob.glob(filepattern)
+    filepattern = str(FLAGS.img_dir + '**/*.jpg')
+    image_ids = glob.glob(filepattern, recursive=True)
+    assert len(image_ids) > 0, "no images detected; try checking img_dir and filepattern."
     N = len(image_ids)
     for f in image_ids:
-        face_im = extract_face(f)
-        image_id = re.match('.*(.*/.*/.*\\.jpg)', f).group(1)
-        out_fp = out_dir + image_id
-        os.makedirs(os.path.dirname(out_fp), exist_ok=True)
-        print("writing to %s" % out_fp)
-        face_im.save(out_fp)
+        try:
+            face_im = extract_face(f)
+            image_id = re.match('.*(.*/.*/.*\\.jpg)', f).group(1)
+            out_fp = out_dir + image_id
+            os.makedirs(os.path.dirname(out_fp), exist_ok=True)
+            print("writing to %s" % out_fp)
+            face_im.save(out_fp)
+        except ValueError as e:
+            print("[WARNING] crop error for {}; skipping".format(f))
+            print(e)
 
 
 

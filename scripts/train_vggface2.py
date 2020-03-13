@@ -135,15 +135,8 @@ def main(argv):
     list_ds = tf.data.Dataset.list_files(filepattern, shuffle=True,
                                          seed=2974)
 
-    # for f in list_ds.take(3):
-    #     print(f.numpy())
-
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
     input_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
-
-    # for image, label in input_ds.take(10):
-    #     print("Image shape: ", image.numpy().shape)
-    #     print("Label: ", label.numpy())
 
     # TODO(jpgard): save batch to pdf instead
     # image_batch, label_batch = next(iter(train_ds))

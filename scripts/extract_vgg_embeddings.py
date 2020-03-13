@@ -24,7 +24,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
 
 from keras_vggface.vggface import VGGFace
-from dro.utils.training_utils import process_path, preprocess_dataset
+from dro.utils.training_utils import process_path, preprocess_dataset, \
+    random_crop_and_resize
 
 tf.compat.v1.enable_eager_execution()
 
@@ -72,7 +73,6 @@ def main(argv):
                                   batch_size=1,
                                   shuffle=False,
                                   prefetch_buffer_size=AUTOTUNE)
-    from dro.utils.training_utils import random_crop_and_resize
     # Repeat each element, discarding the labels
     train_ds = train_ds.flat_map(lambda x, y: tf.data.Dataset.from_tensors(x).repeat(
         FLAGS.n_embed))

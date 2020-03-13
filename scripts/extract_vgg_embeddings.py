@@ -40,7 +40,7 @@ flags.DEFINE_bool("similarity", True, "whether or not to write the similarity ma
                                       "this can be huge for large datasets and it may "
                                       "be easier to just store the embeddings and "
                                       "compute similarity later.")
-
+flags.DEFINE_integer("batch_size", 16, "batch size to use for inference")
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -62,40 +62,39 @@ def main(argv):
                                   shuffle=False,
                                   prefetch_buffer_size=AUTOTUNE)
     from dro.utils.training_utils import random_crop_and_resize
-    # repeat each element, discaring the labels
+    # Repeat each element, discarding the labels
     train_ds = train_ds.flat_map(lambda x, y: tf.data.Dataset.from_tensors(x).repeat(
         FLAGS.n_embed))
-    train_ds = train_ds.map(lambda x: tf.squeeze(x, axis=0))  # remove this later
-    # TODO(jpgard): see if images are being repeated
+    # Apply different random cropping to each iterate of x, and drop the labels.
+    train_ds = train_ds.map(lambda x: random_crop_and_resize(x))
+    # Write one image to file, as debug check
     import matplotlib.pyplot as plt
     x = 0
     for image in train_ds.take(FLAGS.n_embed):
-        ax = plt.subplot(FLAGS.n_embed, 1, x + 1)
+        ax = plt.subplot(FLAGS.n_embed//2, 2, x + 1)
         ax.imshow(image.numpy())
         plt.axis('off')
         x += 1
-    plt.show()
-    import ipdb;
-    ipdb.set_trace()
-    # apply different random cropping to each iterate of x, and drop the labels.
-
-    # TODO(jpgard): see if random crops are the same or different. Want different.
+    plt.savefig("./debug/crop_sample.png")
+    train_ds = train_ds.batch(FLAGS.batch_size)
 
     vgg_model = VGGFace(include_top=False, input_shape=(224, 224, 3), pooling='avg')
     embeddings = vgg_model.predict_generator(train_ds)
 
     # embeddings has shape [N * n_embeddings, 512]; take average over each sample due
     # to the random cropping of the inputs.
-    # embeddings = tf.reshape(embeddings, (N, embedding_dim, FLAGS.n_embed))
-    # embeddings = tf.reduce_mean(embeddings, axis=-1)
-    # embeddings = embeddings.numpy()
+    embeddings = tf.reshape(embeddings, (N, FLAGS.n_embed, embedding_dim))
+    embeddings = tf.reduce_mean(embeddings, axis=1)
+    embeddings = embeddings.numpy()
     embedding_df = pd.DataFrame(embeddings, index=image_ids)
     embedding_df.to_csv(os.path.join(FLAGS.out_dir, "embedding.csv"), index=True)
     if FLAGS.similarity:
         similarities = cosine_similarity(embeddings)
         similarity_df = pd.DataFrame(similarities, index=image_ids, columns=image_ids)
         similarity_df.to_csv(os.path.join(FLAGS.out_dir, "similarity.csv"), index=True)
-
+    # TODO(jpgard): check that these embeddings are CLOSE to embeddings which are
+    #  generated with n_embed=1. The averaging should change the embeddings a little
+    #  bit, but not too much, and the difference should be random across samples.
 
 if __name__ == "__main__":
     app.run(main)

@@ -9,11 +9,16 @@ def plot_faces(img_ary, nplot=7, figsize=(30, 10)):
     plt.show()
     return
 
-def show_batch(image_batch, label_batch):
+def show_batch(image_batch, label_batch=None, fp=None):
     plt.figure(figsize=(6, 14))
     for n in range(16):
         ax = plt.subplot(8, 2, n + 1)
         plt.imshow(image_batch[n])
-        plt.title(str(label_batch[n]))
+        if label_batch:
+            plt.title(str(label_batch[n]))
         plt.axis('off')
-    plt.show()
+    if fp:
+        print("[INFO] saving batch to {}".format(fp))
+        plt.savefig(fp)
+    else:
+        plt.show()

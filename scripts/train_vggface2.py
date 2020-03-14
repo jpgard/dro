@@ -98,7 +98,7 @@ def main(argv):
     test_file_pattern = str(FLAGS.test_dir + '/*/*/*.jpg')
     n_train_val = get_n_from_file_pattern(train_file_pattern)
     n_test = get_n_from_file_pattern(test_file_pattern)
-    print("[INFO] %s training observations; %s testing observsations" % (n_train_val,
+    print("[INFO] %s training observations; %s testing observations" % (n_train_val,
                                                                          n_test))
 
     # Create the datasets and process files to create (x,y) tuples. Set
@@ -115,12 +115,10 @@ def main(argv):
     if not FLAGS.debug:
         steps_per_train_epoch = steps_per_epoch(n_train)
         steps_per_val_epoch = steps_per_epoch(n_val)
-        steps_per_test_epoch = steps_per_epoch(n_test)
     else:
         print("[INFO] running in debug mode")
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
-        steps_per_test_epoch = 1
 
     # Build the datasets. Take the validation samples from the training data prior to
     # doing any preprocessing or repeating; this ensures validation and train sets do
@@ -209,11 +207,7 @@ def main(argv):
             shuffle=False,
             batch_size=FLAGS.batch_size,
             prefetch_buffer_size=AUTOTUNE)
-        # test_ds_adv_labels = test_ds_adv.map(lambda x, y: y)
         test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
-
-        # We only need the labels for the adversarial model; the prediction function
-        # takes the combined inputs in AT.
 
         adv_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                           loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),

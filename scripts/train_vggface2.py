@@ -152,7 +152,9 @@ def main(argv):
                )
     # The metrics to optimize during training
     train_metrics_dict = get_train_metrics()
-    train_metrics_names = list(train_metrics_dict.keys())
+    # .evaluate() automatically prepends the loss(es), so it will always include at
+    # least categorical_crossentropy (adversarial also adds the AT loss terms)
+    train_metrics_names = ["categorical_crossentropy", ] + list(train_metrics_dict.keys())
     train_metrics = list(train_metrics_dict.values())
 
     model_compile_args = {
@@ -178,8 +180,9 @@ def main(argv):
 
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
         test_metrics = vgg_model_base.evaluate_generator(test_ds)
-        test_metrics = {k: v for k, v in zip(train_metrics_names, test_metrics)}
-        write_test_metrics_to_csv(test_metrics, FLAGS, is_adversarial=False)
+        assert len(train_metrics_names) == len(test_metrics)
+        test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
+        write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
 
     # Adversarial model training
     if FLAGS.train_adversarial:
@@ -216,12 +219,14 @@ def main(argv):
                                 validation_data=val_ds_adv,
                                 **train_args)
         test_metrics_adv = adv_model.evaluate_generator(test_ds_adv)
-        # The evaluate_generator() function does not return metrics in expected order,
-        # so here we construct the dictionary of metrics manually.
-        test_metrics_adv_names = ["total_combined_loss", "categorical_crossentropy",
-                                  ] + train_metrics_names + ["adversarial_loss", ]
+        # The evaluate_generator() function adds the total_loss and adversarial_loss,
+        # so here we include those.
+        test_metrics_adv_names = \
+            ["total_combined_loss", ] + train_metrics_names + ["adversarial_loss", ]
+        assert len(test_metrics_adv_names) == len(test_metrics_adv)
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
+
 
 
 if __name__ == "__main__":

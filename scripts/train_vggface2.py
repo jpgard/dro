@@ -215,7 +215,7 @@ def main(argv):
                                 **train_args)
         test_metrics_adv = adv_model.evaluate_generator(test_ds_adv)
         test_metrics_adv = {k: v for k, v in zip(train_metrics_names, test_metrics_adv)}
-        write_test_metrics_to_csv(test_metrics_adv, flags, is_adversarial=True)
+        write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@ flags.DEFINE_integer("batch_size", 16, "batch size")
 flags.DEFINE_integer("epochs", 5, "the number of training epochs")
 flags.DEFINE_string("train_dir", None, "directory containing the training images")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
-flags.DEFINE_float("learning_rate", 0.001, "learning rate to use")
+flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.DEFINE_bool("train_adversarial", True, "whether to train an adversarial model.")
 flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
@@ -153,11 +153,13 @@ def main(argv):
     train_metrics_names = list(train_metrics_dict.keys())
     train_metrics = list(train_metrics_dict.values())
 
-    custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
-                             loss=tf.keras.losses.CategoricalCrossentropy(
-                                 from_logits=False),
-                             metrics=train_metrics
-                             )
+    model_compile_args = {
+        "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
+        "loss": tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+        "metrics": train_metrics
+    }
+
+    custom_vgg_model.compile(**model_compile_args)
     custom_vgg_model.summary()
 
     # Shared training arguments for the model fitting.
@@ -206,9 +208,7 @@ def main(argv):
             prefetch_buffer_size=AUTOTUNE)
         test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
 
-        adv_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
-                          loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
-                          metrics=train_metrics)
+        adv_model.compile(**model_compile_args)
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
         adv_model.fit_generator(train_ds_adv, callbacks=callbacks_adv,
                                 validation_data=val_ds_adv,

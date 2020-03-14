@@ -199,8 +199,8 @@ def main(argv):
         train_ds_adv = train_ds.map(convert_to_dictionaries)
         val_ds_adv = val_ds.map(convert_to_dictionaries)
 
-        # The test dataset can be initialized from test_ds_pre(); the prepare_...
-        # function will re-initialize it as a fresh generator from the same elements.
+        # The test dataset can be initialized from test_input_ds; preprocess_dataset()
+        # will re-initialize it as a fresh generator from the same elements.
 
         test_ds_adv = preprocess_dataset(
             test_input_ds,

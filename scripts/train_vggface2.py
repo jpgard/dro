@@ -10,7 +10,8 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 python scripts/train_vggface2.py \
-    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open \
+    --train_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
+    /mouth_open \
     --train_base --train_adversarial --label_name mouth_open
 """
 
@@ -40,7 +41,8 @@ FLAGS = flags.FLAGS
 # the vggface2/training parameters
 flags.DEFINE_integer("batch_size", 16, "batch size")
 flags.DEFINE_integer("epochs", 5, "the number of training epochs")
-flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
+flags.DEFINE_string("train_dir", None, "directory containing the training images")
+flags.DEFINE_string("test_dir", None, "directory containing the test images")
 flags.DEFINE_float("learning_rate", 0.001, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.DEFINE_bool("train_adversarial", False, "whether to train an adversarial model.")
@@ -91,35 +93,40 @@ def compute_element_wise_loss(preds, labels):
 
 
 def main(argv):
-    filepattern = str(FLAGS.img_dir + '/*/*/*.jpg')
-    N = len(glob.glob(filepattern))
-    train_val_input_ds = tf.data.Dataset.list_files(filepattern, shuffle=True,
-                                         seed=2974)
+    train_file_pattern = str(FLAGS.train_dir + '/*/*/*.jpg')
+    test_file_pattern = str(FLAGS.test_dir + '/*/*/*.jpg')
+    n_train_val = len(glob.glob(train_file_pattern))
 
-    # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
-    train_val_input_ds = train_val_input_ds.map(process_path, num_parallel_calls=AUTOTUNE)
+    # Create the datasets and process files to create (x,y) tuples. Set
+    # `num_parallel_calls` so multiple images are loaded/processed in parallel.
+    train_val_input_ds = tf.data.Dataset.list_files(
+        train_file_pattern, shuffle=True, seed=2974) \
+        .map(process_path, num_parallel_calls=AUTOTUNE)
+    test_input_ds = tf.data.Dataset.list_files(test_file_pattern, shuffle=False) \
+        .map(process_path, num_parallel_calls=AUTOTUNE)
 
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
-    n_val = int(N * FLAGS.val_frac)
-    n_test = int(N * FLAGS.test_frac)
-    n_train = N - n_val - n_test
+    n_val = int(n_train_val * FLAGS.val_frac)
+    n_train = n_train_val - n_val
     if not FLAGS.debug:
         steps_per_train_epoch = math.floor(n_train / FLAGS.batch_size)
         steps_per_val_epoch = math.floor(n_val / FLAGS.batch_size)
-        steps_per_test_epoch = math.floor(n_test / FLAGS.batch_size)
     else:
         print("[INFO] running in debug mode")
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
-        steps_per_test_epoch = 1
 
-    # build the datasets
+    # Build the datasets. Take the validation samples from the training data prior to
+    # doing any preprocessing or repeating; this ensures validation and train sets do
+    # not overlap. Note that we create new variables (instead of reassigning the same
+    # variable) because the original, unprocessed versions are needed for re-processing
+    # priot to the adversarial training below.
+
     val_ds_pre = train_val_input_ds.take(n_val)
-    test_ds_pre = train_val_input_ds.take(n_test)
     val_ds = preprocess_dataset(val_ds_pre, repeat_forever=True,
                                 batch_size=FLAGS.batch_size,
                                 prefetch_buffer_size=AUTOTUNE)
-    test_ds = preprocess_dataset(test_ds_pre, repeat_forever=False,
+    test_ds = preprocess_dataset(test_input_ds, repeat_forever=False,
                                  batch_size=FLAGS.batch_size,
                                  prefetch_buffer_size=AUTOTUNE)
     test_ds_inputs = test_ds.map(lambda x, y: x)
@@ -149,15 +156,18 @@ def main(argv):
                              metrics=train_metrics
                              )
     custom_vgg_model.summary()
+
+    # Shared training arguments for the model fitting.
+    train_args = {"steps_per_epoch": steps_per_train_epoch,
+                  "epochs": FLAGS.epochs,
+                  "validation_steps": steps_per_val_epoch}
+
+    # Base model training
     if FLAGS.train_base:
         print("[INFO] training base model")
-        callbacks = make_callbacks(FLAGS, is_adversarial=False)
-        custom_vgg_model.fit_generator(train_ds,
-                                       steps_per_epoch=steps_per_train_epoch,
-                                       epochs=FLAGS.epochs,
-                                       callbacks=callbacks,
-                                       validation_data=val_ds,
-                                       validation_steps=steps_per_val_epoch)
+        callbacks_adv = make_callbacks(FLAGS, is_adversarial=False)
+        custom_vgg_model.fit_generator(train_ds, callbacks=callbacks_adv,
+                                       validation_data=val_ds, **train_args)
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
         preds = custom_vgg_model.predict_generator(test_ds_inputs)
         labels = np.concatenate([y for y in tfds.as_numpy(test_ds_labels)])
@@ -171,9 +181,9 @@ def main(argv):
                            is_adversarial=False))
         np.savetxt(loss_filename, element_wise_test_loss)
 
+    # Adversarial model training
     if FLAGS.train_adversarial:
         print("[INFO] training adversarial model")
-        # the adversarial training block
 
         adv_config = nsl.configs.make_adv_reg_config(
             multiplier=FLAGS.adv_multiplier,
@@ -193,7 +203,7 @@ def main(argv):
         # function will re-initialize it as a fresh generator from the same elements.
 
         test_ds_adv = preprocess_dataset(
-            test_ds_pre,
+            test_input_ds,
             repeat_forever=False,
             batch_size=FLAGS.batch_size,
             prefetch_buffer_size=AUTOTUNE)
@@ -206,14 +216,10 @@ def main(argv):
         adv_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                           loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                           metrics=train_metrics)
-        callbacks = make_callbacks(FLAGS, is_adversarial=True)
-        adv_model.fit_generator(train_ds_adv,
-                                steps_per_epoch=steps_per_train_epoch,
-                                epochs=FLAGS.epochs,
-                                callbacks=callbacks,
+        callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
+        adv_model.fit_generator(train_ds_adv, callbacks=callbacks_adv,
                                 validation_data=val_ds_adv,
-                                validation_steps=steps_per_val_epoch
-                                )
+                                **train_args)
 
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
         preds = adv_model.predict_generator(test_ds_adv)

@@ -85,26 +85,6 @@ def convert_to_dictionaries(image, label):
     return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
 
 
-def compute_element_wise_loss(preds, labels):
-    loss_object = tf.keras.losses.CategoricalCrossentropy()
-    import ipdb;
-    ipdb.set_trace()
-    test_loss = loss_object(y_true=labels, y_pred=preds)
-    return test_loss
-
-
-def compute_and_write_element_wise_loss(preds, labels, is_adversarial: bool):
-    element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)
-    print("Final non-adversarial test loss: mean {} std ({})".format(
-        tf.reduce_mean(element_wise_test_loss),
-        tf.math.reduce_std(element_wise_test_loss))
-    )
-    uid = make_model_uid(FLAGS, is_adversarial)
-    adv = get_adversarial_mode(is_adversarial)
-    loss_filename = "./metrics/{}-{}-test_loss.txt".format(uid, adv)
-    np.savetxt(loss_filename, element_wise_test_loss)
-
-
 def get_n_from_file_pattern(file_pattern):
     return len(glob.glob(file_pattern))
 

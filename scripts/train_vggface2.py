@@ -10,9 +10,8 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 python scripts/train_vggface2.py \
-    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
-    /mouth_open
-    --train_base --train_adversarial
+    --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open \
+    --train_base --train_adversarial --label_name mouth_open
 """
 
 import glob
@@ -94,16 +93,11 @@ def compute_element_wise_loss(preds, labels):
 def main(argv):
     filepattern = str(FLAGS.img_dir + '/*/*/*.jpg')
     N = len(glob.glob(filepattern))
-    list_ds = tf.data.Dataset.list_files(filepattern, shuffle=True,
+    train_val_input_ds = tf.data.Dataset.list_files(filepattern, shuffle=True,
                                          seed=2974)
 
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
-    input_ds = list_ds.map(process_path, num_parallel_calls=AUTOTUNE)
-
-    # Save a sample batch to png for debugging
-    image_batch, label_batch = next(iter(input_ds))
-    show_batch(image_batch.numpy(), label_batch.numpy(),
-               fp="./debug/sample_batch{}.png".format(int(time.time())))
+    train_val_input_ds = train_val_input_ds.map(process_path, num_parallel_calls=AUTOTUNE)
 
     custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     n_val = int(N * FLAGS.val_frac)
@@ -120,8 +114,8 @@ def main(argv):
         steps_per_test_epoch = 1
 
     # build the datasets
-    val_ds_pre = input_ds.take(n_val)
-    test_ds_pre = input_ds.take(n_test)
+    val_ds_pre = train_val_input_ds.take(n_val)
+    test_ds_pre = train_val_input_ds.take(n_test)
     val_ds = preprocess_dataset(val_ds_pre, repeat_forever=True,
                                 batch_size=FLAGS.batch_size,
                                 prefetch_buffer_size=AUTOTUNE)
@@ -130,9 +124,17 @@ def main(argv):
                                  prefetch_buffer_size=AUTOTUNE)
     test_ds_inputs = test_ds.map(lambda x, y: x)
     test_ds_labels = test_ds.map(lambda x, y: y)
-    train_ds = preprocess_dataset(input_ds, repeat_forever=True,
+    train_ds = preprocess_dataset(train_val_input_ds, repeat_forever=True,
                                   batch_size=FLAGS.batch_size,
                                   prefetch_buffer_size=AUTOTUNE)
+
+    # Save a sample batch to png for debugging
+    image_batch, label_batch = next(iter(train_ds))
+    show_batch(image_batch.numpy(), label_batch.numpy(),
+               fp="./debug/sample_batch_label{}-{}.png".format(FLAGS.label_name,
+                                                               int(time.time()))
+               )
+
     # The metrics to optimize during training
     train_metrics = ['accuracy',
                      AUC(name='auc'),

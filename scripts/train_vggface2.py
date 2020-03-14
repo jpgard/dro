@@ -44,7 +44,7 @@ flags.DEFINE_string("train_dir", None, "directory containing the training images
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
 flags.DEFINE_float("learning_rate", 0.001, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
-flags.DEFINE_bool("train_adversarial", False, "whether to train an adversarial model.")
+flags.DEFINE_bool("train_adversarial", True, "whether to train an adversarial model.")
 flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
                                       "model.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
@@ -178,12 +178,9 @@ def main(argv):
                                        validation_data=val_ds, **train_args)
 
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        test_metrics = custom_vgg_model.evaluate_generator(
-            test_ds
-        )
+        test_metrics = custom_vgg_model.evaluate_generator(test_ds)
         test_metrics = {k: v for k, v in zip(train_metrics_names, test_metrics)}
         write_test_metrics_to_csv(test_metrics, FLAGS, is_adversarial=False)
-        import ipdb;ipdb.set_trace()
 
     # Adversarial model training
     if FLAGS.train_adversarial:
@@ -209,9 +206,10 @@ def main(argv):
         test_ds_adv = preprocess_dataset(
             test_input_ds,
             repeat_forever=False,
+            shuffle=False,
             batch_size=FLAGS.batch_size,
             prefetch_buffer_size=AUTOTUNE)
-        test_ds_adv_labels = test_ds_adv.map(lambda x, y: y)
+        # test_ds_adv_labels = test_ds_adv.map(lambda x, y: y)
         test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
 
         # We only need the labels for the adversarial model; the prediction function
@@ -224,19 +222,9 @@ def main(argv):
         adv_model.fit_generator(train_ds_adv, callbacks=callbacks_adv,
                                 validation_data=val_ds_adv,
                                 **train_args)
-
-        # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        preds = adv_model.predict_generator(test_ds_adv)
-        labels = np.concatenate([y for y in tfds.as_numpy(test_ds_adv_labels)])
-        element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)
-        print("Final adversarial test loss: mean {} std ({})".format(
-            tf.reduce_mean(element_wise_test_loss),
-            tf.math.reduce_std(element_wise_test_loss))
-        )
-        loss_filename = "./metrics/{}-test_loss.txt".format(
-            make_model_uid(FLAGS, is_adversarial=True))
-        np.savetxt(loss_filename, element_wise_test_loss)
-
+        test_metrics_adv = adv_model.evaluate_generator(test_ds_adv)
+        test_metrics_adv = {k:v for k,v in zip(train_metrics_names, test_metrics_adv)}
+        write_test_metrics_to_csv(test_metrics_adv, flags, is_adversarial=True)
 
 if __name__ == "__main__":
     app.run(main)

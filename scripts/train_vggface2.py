@@ -30,7 +30,7 @@ import neural_structured_learning as nsl
 
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
-    make_model_uid, make_csv_callback
+    make_model_uid, make_csv_callback, get_adversarial_mode
 from dro.utils.viz import show_batch
 
 tf.compat.v1.enable_eager_execution()
@@ -88,15 +88,37 @@ def convert_to_dictionaries(image, label):
 
 def compute_element_wise_loss(preds, labels):
     loss_object = tf.keras.losses.CategoricalCrossentropy()
+    import ipdb;
+    ipdb.set_trace()
     test_loss = loss_object(y_true=labels, y_pred=preds)
     return test_loss
 
 
+def compute_and_write_element_wise_loss(preds, labels, is_adversarial: bool):
+    element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)
+    print("Final non-adversarial test loss: mean {} std ({})".format(
+        tf.reduce_mean(element_wise_test_loss),
+        tf.math.reduce_std(element_wise_test_loss))
+    )
+    uid = make_model_uid(FLAGS, is_adversarial)
+    adv = get_adversarial_mode(is_adversarial)
+    loss_filename = "./metrics/{}-{}-test_loss.txt".format(uid, adv)
+    np.savetxt(loss_filename, element_wise_test_loss)
+
+
+def get_n_from_file_pattern(file_pattern):
+    return len(glob.glob(file_pattern))
+
+def steps_per_epoch(n):
+    return math.floor(n / FLAGS.batch_size)
+
 def main(argv):
     train_file_pattern = str(FLAGS.train_dir + '/*/*/*.jpg')
     test_file_pattern = str(FLAGS.test_dir + '/*/*/*.jpg')
-    n_train_val = len(glob.glob(train_file_pattern))
-    n_test = len(glob.glob(test_file_pattern))
+    n_train_val = get_n_from_file_pattern(train_file_pattern)
+    n_test = get_n_from_file_pattern(test_file_pattern)
+    print("[INFO] %s training observations; %s testing observsations" % (n_train_val,
+                                                                         n_test))
 
     # Create the datasets and process files to create (x,y) tuples. Set
     # `num_parallel_calls` so multiple images are loaded/processed in parallel.
@@ -110,9 +132,9 @@ def main(argv):
     n_val = int(n_train_val * FLAGS.val_frac)
     n_train = n_train_val - n_val
     if not FLAGS.debug:
-        steps_per_train_epoch = math.floor(n_train / FLAGS.batch_size)
-        steps_per_val_epoch = math.floor(n_val / FLAGS.batch_size)
-        steps_per_test_epoch = math.floor(n_test) / FLAGS.batch_size
+        steps_per_train_epoch = steps_per_epoch(n_train)
+        steps_per_val_epoch = steps_per_epoch(n_val)
+        steps_per_test_epoch = steps_per_epoch(n_test)
     else:
         print("[INFO] running in debug mode")
         steps_per_train_epoch = 1
@@ -134,7 +156,6 @@ def main(argv):
                                  batch_size=FLAGS.batch_size,
                                  prefetch_buffer_size=AUTOTUNE)
     test_ds_x = test_ds.map(lambda x, y: x)
-    # Take just one epoch of labels, since test dataset repeats infinitely.
     test_ds_y = test_ds.map(lambda x, y: y)
     train_ds = preprocess_dataset(train_val_input_ds, repeat_forever=True,
                                   batch_size=FLAGS.batch_size,
@@ -143,10 +164,15 @@ def main(argv):
     # Save a sample batch to png for debugging
     image_batch, label_batch = next(iter(train_ds))
     show_batch(image_batch.numpy(), label_batch.numpy(),
-               fp="./debug/sample_batch_label{}-{}.png".format(FLAGS.label_name,
-                                                               int(time.time()))
+               fp="./debug/sample_batch_label-train-{}-{}.png".format(FLAGS.label_name,
+                                                                      int(time.time()))
                )
 
+    image_batch_test, label_batch_test = next(iter(test_ds))
+    show_batch(image_batch_test.numpy(), label_batch_test.numpy(),
+               fp="./debug/sample_batch_label-test-{}-{}.png".format(FLAGS.label_name,
+                                                                     int(time.time()))
+               )
     # The metrics to optimize during training
     train_metrics = ['accuracy',
                      AUC(name='auc'),
@@ -174,27 +200,19 @@ def main(argv):
         custom_vgg_model.fit_generator(train_ds, callbacks=callbacks_adv,
                                        validation_data=val_ds, **train_args)
 
-        # Use evaluate_generator to get nice CSV of test metrics; then,
-        # use predict_generator() to get the full predictions so we can see the loss
-        # distribution over the test set.
+        # Use evaluate_generator to get nice CSV of test metrics and the full predictions
+        # so we can see the loss distribution over the test set.
 
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
         preds = custom_vgg_model.evaluate_generator(
-            test_ds_x, steps=steps_per_test_epoch,
+            test_ds, steps=steps_per_test_epoch,
             callbacks=[make_csv_callback(FLAGS, is_adversarial=False, testing=True), ]
         )
 
         labels = np.concatenate([y for y in tfds.as_numpy(test_ds_y)])
-        element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)
-        print("Final non-adversarial test loss: mean {} std ({})".format(
-            tf.reduce_mean(element_wise_test_loss),
-            tf.math.reduce_std(element_wise_test_loss))
-        )
         import ipdb;ipdb.set_trace()
-        loss_filename = "./metrics/{}-test_loss.txt".format(
-            make_model_uid(FLAGS,
-                           is_adversarial=False))
-        np.savetxt(loss_filename, element_wise_test_loss)
+        compute_and_write_element_wise_loss(preds=preds, labels=labels,
+                                            is_adversarial=False)
 
     # Adversarial model training
     if FLAGS.train_adversarial:

@@ -129,12 +129,13 @@ def main(argv):
     val_ds = preprocess_dataset(val_ds_pre, repeat_forever=True,
                                 batch_size=FLAGS.batch_size,
                                 prefetch_buffer_size=AUTOTUNE)
-    test_ds = preprocess_dataset(test_input_ds, repeat_forever=True,
+    test_ds = preprocess_dataset(test_input_ds, repeat_forever=False,
+                                 shuffle=False,
                                  batch_size=FLAGS.batch_size,
                                  prefetch_buffer_size=AUTOTUNE)
     test_ds_x = test_ds.map(lambda x, y: x)
     # Take just one epoch of labels, since test dataset repeats infinitely.
-    test_ds_y = test_ds.take(steps_per_test_epoch).map(lambda x, y: y)
+    test_ds_y = test_ds.map(lambda x, y: y)
     train_ds = preprocess_dataset(train_val_input_ds, repeat_forever=True,
                                   batch_size=FLAGS.batch_size,
                                   prefetch_buffer_size=AUTOTUNE)
@@ -177,13 +178,12 @@ def main(argv):
         # use predict_generator() to get the full predictions so we can see the loss
         # distribution over the test set.
 
-        custom_vgg_model.evaluate_generator(
+        # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
+        preds = custom_vgg_model.evaluate_generator(
             test_ds_x, steps=steps_per_test_epoch,
             callbacks=[make_csv_callback(FLAGS, is_adversarial=False, testing=True), ]
         )
 
-        # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        preds = custom_vgg_model.predict_generator(test_ds_x, steps=steps_per_test_epoch)
         labels = np.concatenate([y for y in tfds.as_numpy(test_ds_y)])
         element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)
         print("Final non-adversarial test loss: mean {} std ({})".format(

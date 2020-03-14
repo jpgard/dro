@@ -17,19 +17,16 @@ python scripts/train_vggface2.py \
 
 import glob
 import math
-import numpy as np
 import time
 
 from absl import app
 from absl import flags
 import tensorflow as tf
-import tensorflow_datasets as tfds
 import neural_structured_learning as nsl
 
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
-    make_model_uid, make_csv_callback, get_adversarial_mode, write_test_metrics_to_csv, \
-    get_train_metrics
+    write_test_metrics_to_csv, get_train_metrics
 from dro.utils.viz import show_batch
 
 tf.compat.v1.enable_eager_execution()
@@ -99,7 +96,7 @@ def main(argv):
     n_train_val = get_n_from_file_pattern(train_file_pattern)
     n_test = get_n_from_file_pattern(test_file_pattern)
     print("[INFO] %s training observations; %s testing observations" % (n_train_val,
-                                                                         n_test))
+                                                                        n_test))
 
     # Create the datasets and process files to create (x,y) tuples. Set
     # `num_parallel_calls` so multiple images are loaded/processed in parallel.
@@ -217,8 +214,9 @@ def main(argv):
                                 validation_data=val_ds_adv,
                                 **train_args)
         test_metrics_adv = adv_model.evaluate_generator(test_ds_adv)
-        test_metrics_adv = {k:v for k,v in zip(train_metrics_names, test_metrics_adv)}
+        test_metrics_adv = {k: v for k, v in zip(train_metrics_names, test_metrics_adv)}
         write_test_metrics_to_csv(test_metrics_adv, flags, is_adversarial=True)
+
 
 if __name__ == "__main__":
     app.run(main)

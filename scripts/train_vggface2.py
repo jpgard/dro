@@ -15,6 +15,7 @@ python scripts/train_vggface2.py \
     --train_base --train_adversarial --label_name mouth_open
 """
 
+from collections import OrderedDict
 import glob
 import math
 import time
@@ -65,7 +66,8 @@ flags.DEFINE_integer('wrm_steps', 15,
 # the adversarial training parameters
 flags.DEFINE_float('adv_multiplier', 0.2,
                    " The weight of adversarial loss in the training objective, relative "
-                   "to the labeled loss")
+                   "to the labeled loss. e.g. if this is 0.2, The model minimizes "
+                   "(mean_crossentropy_loss + 0.2 * adversarial_regularization) ")
 flags.DEFINE_float('adv_step_size', 0.2, "The magnitude of adversarial perturbation.")
 flags.DEFINE_string('adv_grad_norm', 'infinity',
                     "The norm to measure the magnitude of adversarial perturbation.")
@@ -106,7 +108,7 @@ def main(argv):
     test_input_ds = tf.data.Dataset.list_files(test_file_pattern, shuffle=False) \
         .map(process_path, num_parallel_calls=AUTOTUNE)
 
-    custom_vgg_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
+    vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     n_val = int(n_train_val * FLAGS.val_frac)
     n_train = n_train_val - n_val
     if not FLAGS.debug:
@@ -159,8 +161,8 @@ def main(argv):
         "metrics": train_metrics
     }
 
-    custom_vgg_model.compile(**model_compile_args)
-    custom_vgg_model.summary()
+    vgg_model_base.compile(**model_compile_args)
+    vgg_model_base.summary()
 
     # Shared training arguments for the model fitting.
     train_args = {"steps_per_epoch": steps_per_train_epoch,
@@ -171,11 +173,11 @@ def main(argv):
     if FLAGS.train_base:
         print("[INFO] training base model")
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=False)
-        custom_vgg_model.fit_generator(train_ds, callbacks=callbacks_adv,
-                                       validation_data=val_ds, **train_args)
+        vgg_model_base.fit_generator(train_ds, callbacks=callbacks_adv,
+                                     validation_data=val_ds, **train_args)
 
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        test_metrics = custom_vgg_model.evaluate_generator(test_ds)
+        test_metrics = vgg_model_base.evaluate_generator(test_ds)
         test_metrics = {k: v for k, v in zip(train_metrics_names, test_metrics)}
         write_test_metrics_to_csv(test_metrics, FLAGS, is_adversarial=False)
 
@@ -214,7 +216,11 @@ def main(argv):
                                 validation_data=val_ds_adv,
                                 **train_args)
         test_metrics_adv = adv_model.evaluate_generator(test_ds_adv)
-        test_metrics_adv = {k: v for k, v in zip(train_metrics_names, test_metrics_adv)}
+        # The evaluate_generator() function does not return metrics in expected order,
+        # so here we construct the dictionary of metrics manually.
+        test_metrics_adv_names = ["total_combined_loss", "categorical_crossentropy",
+                                  ] + train_metrics_names + ["adversarial_loss", ]
+        test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
 
 

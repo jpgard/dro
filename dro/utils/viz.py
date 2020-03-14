@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+from math import sqrt
+
 
 def plot_faces(img_ary, nplot=7, figsize=(30, 10)):
     """Generate a plot of a sample of the first nplot faces in img_ary."""
@@ -11,9 +13,10 @@ def plot_faces(img_ary, nplot=7, figsize=(30, 10)):
 
 
 def show_batch(image_batch, label_batch=None, fp=None):
-    plt.figure(figsize=(6, 14))
-    for n in range(16):
-        ax = plt.subplot(8, 2, n + 1)
+    plt.figure(figsize=(12,12))
+    batch_size = len(image_batch)
+    for n in range(batch_size):
+        ax = plt.subplot(int(sqrt(batch_size)), int(sqrt(batch_size)) + 1, n + 1)
         plt.imshow(image_batch[n])
         if label_batch is not None:
             plt.title(str(label_batch[n]))

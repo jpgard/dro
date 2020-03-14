@@ -150,6 +150,7 @@ def get_train_metrics():
                           'fp': FalsePositives(name='fp'),
                           'tn': TrueNegatives(name='tn'),
                           'fn': FalseNegatives(name='fn'),
+                          'ce': tf.keras.losses.CategoricalCrossentropy(),
                           'sigma_ce': cross_entropy_sigma,
                           'max_ce': cross_entropy_max
                           }

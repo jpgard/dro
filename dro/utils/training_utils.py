@@ -95,6 +95,14 @@ def decode_img(img, normalize_by_channel=False, crop=True):
     return img
 
 
+def get_adversarial_mode(is_adversarial: bool):
+    """Get a string indicator for whether the mode is adversarial or not."""
+    if is_adversarial:
+        return "adversarial"
+    else:
+        return "base"
+
+
 def get_label(file_path):
     # convert the path to a list of path components
     label = tf.strings.substr(file_path, -21, 1)
@@ -143,7 +151,8 @@ def make_model_uid(flags, is_adversarial=False):
                 dropout_rate=flags.dropout_rate
                 )
     if is_adversarial:
-        model_uid = "{model_uid}-adv-m{mul}-s{step}-n{norm}".format(
+        model_uid = "{model_uid}-{adv}-m{mul}-s{step}-n{norm}".format(
+            adv=get_adversarial_mode(True),
             model_uid=model_uid, mul=flags.adv_multiplier,
             step=flags.adv_step_size, norm=flags.adv_grad_norm)
     return model_uid

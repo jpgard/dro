@@ -127,6 +127,20 @@ def get_label(file_path):
 def make_csv_name(uid, mode):
     return "./metrics/{}-vggface2-{}.log".format(uid, mode)
 
+def cross_entropy_sigma(y_true, y_pred):
+    """Custom metric to compute the standard deviation of the loss."""
+    loss_object = tf.keras.losses.CategoricalCrossentropy()
+    element_wise_loss = loss_object(y_true=y_true, y_pred=y_pred)
+    loss_std = tf.math.reduce_std(element_wise_loss)
+    return loss_std
+
+
+def cross_entropy_max(y_true, y_pred):
+    loss_object = tf.keras.losses.CategoricalCrossentropy()
+    element_wise_loss = loss_object(y_true=y_true, y_pred=y_pred)
+    loss_max = tf.math.reduce_max(element_wise_loss)
+    return loss_max
+
 
 def get_train_metrics():
     """Fetch an OrderedDict of train metrics."""
@@ -135,16 +149,19 @@ def get_train_metrics():
                           'tp': TruePositives(name='tp'),
                           'fp': FalsePositives(name='fp'),
                           'tn': TrueNegatives(name='tn'),
-                          'fn': FalseNegatives(name='fn')
+                          'fn': FalseNegatives(name='fn'),
+                          'sigma_ce': cross_entropy_sigma,
+                          'max_ce': cross_entropy_max
                           }
     return train_metrics_dict
 
 
 def write_test_metrics_to_csv(metrics, flags, is_adversarial):
+    """Write a dict of {metric_name: metric_value} pairs to CSV."""
     uid = make_model_uid(flags, is_adversarial=is_adversarial)
     csv_fp = make_csv_name(uid, TEST_MODE)
     print("[INFO] writing test metrics to {}".format(csv_fp))
-    pd.DataFrame(metrics).to_csv(csv_fp)
+    pd.DataFrame.from_dict(metrics, orient='index').T.to_csv(csv_fp, index=False)
 
 
 def make_csv_callback(flags, is_adversarial: bool):

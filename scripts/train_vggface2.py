@@ -23,14 +23,13 @@ import time
 from absl import app
 from absl import flags
 import tensorflow as tf
-from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
-    FalsePositives, FalseNegatives
 import tensorflow_datasets as tfds
 import neural_structured_learning as nsl
 
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
-    make_model_uid, make_csv_callback, get_adversarial_mode
+    make_model_uid, make_csv_callback, get_adversarial_mode, write_test_metrics_to_csv, \
+    get_train_metrics
 from dro.utils.viz import show_batch
 
 tf.compat.v1.enable_eager_execution()
@@ -109,8 +108,10 @@ def compute_and_write_element_wise_loss(preds, labels, is_adversarial: bool):
 def get_n_from_file_pattern(file_pattern):
     return len(glob.glob(file_pattern))
 
+
 def steps_per_epoch(n):
     return math.floor(n / FLAGS.batch_size)
+
 
 def main(argv):
     train_file_pattern = str(FLAGS.train_dir + '/*/*/*.jpg')
@@ -145,7 +146,7 @@ def main(argv):
     # doing any preprocessing or repeating; this ensures validation and train sets do
     # not overlap. Note that we create new variables (instead of reassigning the same
     # variable) because the original, unprocessed versions are needed for re-processing
-    # priot to the adversarial training below.
+    # prior to the adversarial training below.
 
     val_ds_pre = train_val_input_ds.take(n_val)
     val_ds = preprocess_dataset(val_ds_pre, repeat_forever=True,
@@ -155,8 +156,7 @@ def main(argv):
                                  shuffle=False,
                                  batch_size=FLAGS.batch_size,
                                  prefetch_buffer_size=AUTOTUNE)
-    test_ds_x = test_ds.map(lambda x, y: x)
-    test_ds_y = test_ds.map(lambda x, y: y)
+
     train_ds = preprocess_dataset(train_val_input_ds, repeat_forever=True,
                                   batch_size=FLAGS.batch_size,
                                   prefetch_buffer_size=AUTOTUNE)
@@ -174,13 +174,10 @@ def main(argv):
                                                                      int(time.time()))
                )
     # The metrics to optimize during training
-    train_metrics = ['accuracy',
-                     AUC(name='auc'),
-                     TruePositives(name='tp'),
-                     FalsePositives(name='fp'),
-                     TrueNegatives(name='tn'),
-                     FalseNegatives(name='fn')
-                     ]
+    train_metrics_dict = get_train_metrics()
+    train_metrics_names = list(train_metrics_dict.keys())
+    train_metrics = list(train_metrics_dict.values())
+
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                              loss=tf.keras.losses.CategoricalCrossentropy(
                                  from_logits=False),
@@ -200,19 +197,13 @@ def main(argv):
         custom_vgg_model.fit_generator(train_ds, callbacks=callbacks_adv,
                                        validation_data=val_ds, **train_args)
 
-        # Use evaluate_generator to get nice CSV of test metrics and the full predictions
-        # so we can see the loss distribution over the test set.
-
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        preds = custom_vgg_model.evaluate_generator(
-            test_ds, steps=steps_per_test_epoch,
-            callbacks=[make_csv_callback(FLAGS, is_adversarial=False, testing=True), ]
+        test_metrics = custom_vgg_model.evaluate_generator(
+            test_ds
         )
-
-        labels = np.concatenate([y for y in tfds.as_numpy(test_ds_y)])
+        test_metrics = {k: v for k, v in zip(train_metrics_names, test_metrics)}
+        write_test_metrics_to_csv(test_metrics, FLAGS, is_adversarial=False)
         import ipdb;ipdb.set_trace()
-        compute_and_write_element_wise_loss(preds=preds, labels=labels,
-                                            is_adversarial=False)
 
     # Adversarial model training
     if FLAGS.train_adversarial:

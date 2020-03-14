@@ -18,7 +18,6 @@ python scripts/train_vggface2.py \
 import glob
 import math
 import numpy as np
-import os
 import time
 
 from absl import app
@@ -26,12 +25,12 @@ from absl import flags
 import tensorflow as tf
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
-from tensorflow.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
 import tensorflow_datasets as tfds
 import neural_structured_learning as nsl
 
 from dro.training.models import vggface2_model
-from dro.utils.training_utils import preprocess_dataset, process_path
+from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
+    make_model_uid
 from dro.utils.viz import show_batch
 
 tf.compat.v1.enable_eager_execution()
@@ -84,44 +83,6 @@ LABEL_INPUT_NAME = 'label'
 def convert_to_dictionaries(image, label):
     """Convert a set of x,y tuples to a dict for use in adversarial training."""
     return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
-
-def make_model_uid(is_adversarial=False):
-    """Create a unique identifier for the model."""
-    model_uid = """{label_name}bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""" \
-        .format(
-        label_name=FLAGS.label_name,
-        batch_size=FLAGS.batch_size,
-        epochs=FLAGS.epochs,
-        lr=FLAGS.learning_rate,
-        dropout_rate=FLAGS.dropout_rate
-    )
-    if is_adversarial:
-        model_uid = "{model_uid}-adv-m{mul}-s{step}-n{norm}".format(
-            model_uid=model_uid, mul=FLAGS.adv_multiplier,
-            step=FLAGS.adv_step_size, norm=FLAGS.adv_grad_norm)
-    return model_uid
-
-
-def make_callbacks(is_adversarial: bool):
-    """Create the callbacks for training, including properly naming files."""
-    callback_uid = make_model_uid(is_adversarial=is_adversarial)
-    logdir = './training-logs/{}'.format(callback_uid)
-    tensorboard_callback = TensorBoard(
-        log_dir=logdir,
-        batch_size=FLAGS.batch_size,
-        write_graph=True,
-        write_grads=True,
-        update_freq='epoch')
-    csv_fp = "./metrics/{}-vggface2-training.log".format(callback_uid)
-    csv_callback = CSVLogger(csv_fp)
-    ckpt_fp = os.path.join(logdir, callback_uid + ".ckpt")
-    ckpt_callback = ModelCheckpoint(ckpt_fp,
-                                    monitor='val_loss', verbose=0,
-                                    save_best_only=True,
-                                    save_weights_only=False,
-                                    save_freq='epoch',
-                                    mode='auto')
-    return [tensorboard_callback, csv_callback, ckpt_callback]
 
 
 def compute_element_wise_loss(preds, labels):
@@ -188,7 +149,7 @@ def main(argv):
     custom_vgg_model.summary()
     if FLAGS.train_base:
         print("[INFO] training base model")
-        callbacks = make_callbacks(is_adversarial=False)
+        callbacks = make_callbacks(FLAGS, is_adversarial=False)
         custom_vgg_model.fit_generator(train_ds,
                                        steps_per_epoch=steps_per_train_epoch,
                                        epochs=FLAGS.epochs,
@@ -203,8 +164,9 @@ def main(argv):
             tf.reduce_mean(element_wise_test_loss),
             tf.math.reduce_std(element_wise_test_loss))
         )
-        loss_filename = "./metrics/{}-test_loss.txt".format(make_model_uid(
-            is_adversarial=False))
+        loss_filename = "./metrics/{}-test_loss.txt".format(
+            make_model_uid(FLAGS,
+                           is_adversarial=False))
         np.savetxt(loss_filename, element_wise_test_loss)
 
     if FLAGS.train_adversarial:
@@ -242,7 +204,7 @@ def main(argv):
         adv_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                           loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                           metrics=train_metrics)
-        callbacks = make_callbacks(is_adversarial=True)
+        callbacks = make_callbacks(FLAGS, is_adversarial=True)
         adv_model.fit_generator(train_ds_adv,
                                 steps_per_epoch=steps_per_train_epoch,
                                 epochs=FLAGS.epochs,
@@ -259,8 +221,8 @@ def main(argv):
             tf.reduce_mean(element_wise_test_loss),
             tf.math.reduce_std(element_wise_test_loss))
         )
-        loss_filename = "./metrics/{}-test_loss.txt".format(make_model_uid(
-            is_adversarial=True))
+        loss_filename = "./metrics/{}-test_loss.txt".format(
+            make_model_uid(FLAGS, is_adversarial=True))
         np.savetxt(loss_filename, element_wise_test_loss)
 
 

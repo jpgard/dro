@@ -1,8 +1,11 @@
+import os
 from itertools import islice
 
 import numpy as np
 import tensorflow
 import tensorflow as tf
+
+from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
@@ -60,6 +63,7 @@ def process_path(file_path, crop=True, labels=True):
         label = tf.one_hot(label, 2)
         return img, label
 
+
 def random_crop_and_resize(img):
     # resize to a square image of 256 x 256, then crop to random 224 x 224
     if len(img.shape) < 4:  # add a batch dimension if one does not exist
@@ -69,6 +73,7 @@ def random_crop_and_resize(img):
     img = tf.squeeze(img, axis=0)
     img = tf.image.random_crop(img, (224, 224, 3))
     return img
+
 
 def decode_img(img, normalize_by_channel=False, crop=True):
     # convert the compressed string to a 3D uint8 tensor
@@ -95,3 +100,41 @@ def get_label(file_path):
     label = tf.strings.substr(file_path, -21, 1)
     # The second to last is the class-directory
     return tf.strings.to_number(label, out_type=tf.int32)
+
+
+def make_callbacks(flags, is_adversarial: bool):
+    """Create the callbacks for training, including properly naming files."""
+    callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    logdir = './training-logs/{}'.format(callback_uid)
+    tensorboard_callback = TensorBoard(
+        log_dir=logdir,
+        batch_size=flags.batch_size,
+        write_graph=True,
+        write_grads=True,
+        update_freq='epoch')
+    csv_fp = "./metrics/{}-vggface2-training.log".format(callback_uid)
+    csv_callback = CSVLogger(csv_fp)
+    ckpt_fp = os.path.join(logdir, callback_uid + ".ckpt")
+    ckpt_callback = ModelCheckpoint(ckpt_fp,
+                                    monitor='val_loss', verbose=0,
+                                    save_best_only=True,
+                                    save_weights_only=False,
+                                    save_freq='epoch',
+                                    mode='auto')
+    return [tensorboard_callback, csv_callback, ckpt_callback]
+
+
+def make_model_uid(flags, is_adversarial=False):
+    """Create a unique identifier for the model."""
+    model_uid = """{label_name}bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""" \
+        .format(label_name=flags.label_name,
+                batch_size=flags.batch_size,
+                epochs=flags.epochs,
+                lr=flags.learning_rate,
+                dropout_rate=flags.dropout_rate
+                )
+    if is_adversarial:
+        model_uid = "{model_uid}-adv-m{mul}-s{step}-n{norm}".format(
+            model_uid=model_uid, mul=flags.adv_multiplier,
+            step=flags.adv_step_size, norm=flags.adv_grad_norm)
+    return model_uid

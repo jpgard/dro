@@ -102,6 +102,16 @@ def get_label(file_path):
     return tf.strings.to_number(label, out_type=tf.int32)
 
 
+def make_csv_callback(flags, is_adversarial: bool, testing=False):
+    callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    if testing:
+        mode = "testing"
+    else:
+        mode = "training"
+    csv_fp = "./metrics/{}-vggface2-{}.log".format(callback_uid, mode)
+    return CSVLogger(csv_fp)
+
+
 def make_callbacks(flags, is_adversarial: bool):
     """Create the callbacks for training, including properly naming files."""
     callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
@@ -112,8 +122,7 @@ def make_callbacks(flags, is_adversarial: bool):
         write_graph=True,
         write_grads=True,
         update_freq='epoch')
-    csv_fp = "./metrics/{}-vggface2-training.log".format(callback_uid)
-    csv_callback = CSVLogger(csv_fp)
+    csv_callback = make_csv_callback(flags, is_adversarial)
     ckpt_fp = os.path.join(logdir, callback_uid + ".ckpt")
     ckpt_callback = ModelCheckpoint(ckpt_fp,
                                     monitor='val_loss', verbose=0,

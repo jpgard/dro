@@ -1,13 +1,19 @@
-import os
+from collections import OrderedDict
 from itertools import islice
+import os
 
+import pandas as pd
 import numpy as np
 import tensorflow
 import tensorflow as tf
 
 from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
+from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
+    FalsePositives, FalseNegatives
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
+TEST_MODE = "test"
+TRAIN_MODE = "train"
 
 
 def get_batch(dataset_iterator, batch_size):
@@ -103,6 +109,14 @@ def get_adversarial_mode(is_adversarial: bool):
         return "base"
 
 
+def get_training_mode(is_testing: bool):
+    """Get a string indicator for whether the mode is training or not."""
+    if is_testing:
+        return TEST_MODE
+    else:
+        return TRAIN_MODE
+
+
 def get_label(file_path):
     # convert the path to a list of path components
     label = tf.strings.substr(file_path, -21, 1)
@@ -110,13 +124,32 @@ def get_label(file_path):
     return tf.strings.to_number(label, out_type=tf.int32)
 
 
-def make_csv_callback(flags, is_adversarial: bool, testing=False):
+def make_csv_name(uid, mode):
+    return "./metrics/{}-vggface2-{}.log".format(uid, mode)
+
+
+def get_train_metrics():
+    """Fetch an OrderedDict of train metrics."""
+    train_metrics_dict = {'accuracy': 'accuracy',
+                          'auc': AUC(name='auc'),
+                          'tp': TruePositives(name='tp'),
+                          'fp': FalsePositives(name='fp'),
+                          'tn': TrueNegatives(name='tn'),
+                          'fn': FalseNegatives(name='fn')
+                          }
+    return train_metrics_dict
+
+
+def write_test_metrics_to_csv(metrics, flags, is_adversarial):
+    uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    csv_fp = make_csv_name(uid, TEST_MODE)
+    print("[INFO] writing test metrics to {}".format(csv_fp))
+    pd.DataFrame(metrics).to_csv(csv_fp)
+
+
+def make_csv_callback(flags, is_adversarial: bool):
     callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
-    if testing:
-        mode = "testing"
-    else:
-        mode = "training"
-    csv_fp = "./metrics/{}-vggface2-{}.log".format(callback_uid, mode)
+    csv_fp = make_csv_name(callback_uid, mode=TRAIN_MODE)
     return CSVLogger(csv_fp)
 
 

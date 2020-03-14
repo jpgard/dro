@@ -15,17 +15,16 @@ python3 scripts/extract_vgg_embeddings.py \
 
 from absl import app
 from absl import flags
+from functools import partial
 import glob
 import os
 
 import pandas as pd
 import tensorflow as tf
 from sklearn.metrics.pairwise import cosine_similarity
-import matplotlib.pyplot as plt
 
 from keras_vggface.vggface import VGGFace
-from dro.utils.training_utils import process_path, preprocess_dataset, \
-    random_crop_and_resize
+from dro.utils.training_utils import process_path, preprocess_dataset
 
 tf.compat.v1.enable_eager_execution()
 
@@ -35,7 +34,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string("img_dir", None, "directory containing the images")
 flags.DEFINE_string("out_dir", "./embeddings", "directory to dump the embeddings and "
                                                "similarity to")
-flags.DEFINE_bool("similarity", True, "whether or not to write the similarity matrix; "
+flags.DEFINE_bool("similarity", False, "whether or not to write the similarity matrix; "
                                       "this can be huge for large datasets and it may "
                                       "be easier to just store the embeddings and "
                                       "compute similarity later.")
@@ -50,10 +49,8 @@ def main(argv):
     image_ids = glob.glob(filepattern)
     assert len(image_ids) > 0, "no images found"
     image_ids = [os.path.abspath(p) for p in image_ids]
-    import ipdb;ipdb.set_trace()
     N = len(image_ids)
     list_ds = tf.data.Dataset.list_files(filepattern, shuffle=False)
-    from functools import partial
     _process_path = partial(process_path, crop=False, labels=False)
     input_ds = list_ds.map(_process_path, num_parallel_calls=AUTOTUNE)
     train_ds = preprocess_dataset(input_ds,

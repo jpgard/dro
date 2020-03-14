@@ -30,7 +30,7 @@ import neural_structured_learning as nsl
 
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
-    make_model_uid
+    make_model_uid, make_csv_callback
 from dro.utils.viz import show_batch
 
 tf.compat.v1.enable_eager_execution()
@@ -87,15 +87,16 @@ def convert_to_dictionaries(image, label):
 
 
 def compute_element_wise_loss(preds, labels):
-    test_loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=preds)
-    element_wise_test_loss = tf.reduce_sum(test_loss, axis=1)
-    return element_wise_test_loss
+    loss_object = tf.keras.losses.CategoricalCrossentropy()
+    test_loss = loss_object(y_true=labels, y_pred=preds)
+    return test_loss
 
 
 def main(argv):
     train_file_pattern = str(FLAGS.train_dir + '/*/*/*.jpg')
     test_file_pattern = str(FLAGS.test_dir + '/*/*/*.jpg')
     n_train_val = len(glob.glob(train_file_pattern))
+    n_test = len(glob.glob(test_file_pattern))
 
     # Create the datasets and process files to create (x,y) tuples. Set
     # `num_parallel_calls` so multiple images are loaded/processed in parallel.
@@ -111,10 +112,12 @@ def main(argv):
     if not FLAGS.debug:
         steps_per_train_epoch = math.floor(n_train / FLAGS.batch_size)
         steps_per_val_epoch = math.floor(n_val / FLAGS.batch_size)
+        steps_per_test_epoch = math.floor(n_test) / FLAGS.batch_size
     else:
         print("[INFO] running in debug mode")
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
+        steps_per_test_epoch = 1
 
     # Build the datasets. Take the validation samples from the training data prior to
     # doing any preprocessing or repeating; this ensures validation and train sets do
@@ -126,11 +129,12 @@ def main(argv):
     val_ds = preprocess_dataset(val_ds_pre, repeat_forever=True,
                                 batch_size=FLAGS.batch_size,
                                 prefetch_buffer_size=AUTOTUNE)
-    test_ds = preprocess_dataset(test_input_ds, repeat_forever=False,
+    test_ds = preprocess_dataset(test_input_ds, repeat_forever=True,
                                  batch_size=FLAGS.batch_size,
                                  prefetch_buffer_size=AUTOTUNE)
-    test_ds_inputs = test_ds.map(lambda x, y: x)
-    test_ds_labels = test_ds.map(lambda x, y: y)
+    test_ds_x = test_ds.map(lambda x, y: x)
+    # Take just one epoch of labels, since test dataset repeats infinitely.
+    test_ds_y = test_ds.take(steps_per_test_epoch).map(lambda x, y: y)
     train_ds = preprocess_dataset(train_val_input_ds, repeat_forever=True,
                                   batch_size=FLAGS.batch_size,
                                   prefetch_buffer_size=AUTOTUNE)
@@ -152,7 +156,7 @@ def main(argv):
                      ]
     custom_vgg_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
                              loss=tf.keras.losses.CategoricalCrossentropy(
-                                 from_logits=True),
+                                 from_logits=False),
                              metrics=train_metrics
                              )
     custom_vgg_model.summary()
@@ -168,14 +172,25 @@ def main(argv):
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=False)
         custom_vgg_model.fit_generator(train_ds, callbacks=callbacks_adv,
                                        validation_data=val_ds, **train_args)
+
+        # Use evaluate_generator to get nice CSV of test metrics; then,
+        # use predict_generator() to get the full predictions so we can see the loss
+        # distribution over the test set.
+
+        custom_vgg_model.evaluate_generator(
+            test_ds_x, steps=steps_per_test_epoch,
+            callbacks=[make_csv_callback(FLAGS, is_adversarial=False, testing=True), ]
+        )
+
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        preds = custom_vgg_model.predict_generator(test_ds_inputs)
-        labels = np.concatenate([y for y in tfds.as_numpy(test_ds_labels)])
+        preds = custom_vgg_model.predict_generator(test_ds_x, steps=steps_per_test_epoch)
+        labels = np.concatenate([y for y in tfds.as_numpy(test_ds_y)])
         element_wise_test_loss = compute_element_wise_loss(preds=preds, labels=labels)
         print("Final non-adversarial test loss: mean {} std ({})".format(
             tf.reduce_mean(element_wise_test_loss),
             tf.math.reduce_std(element_wise_test_loss))
         )
+        import ipdb;ipdb.set_trace()
         loss_filename = "./metrics/{}-test_loss.txt".format(
             make_model_uid(FLAGS,
                            is_adversarial=False))
@@ -214,7 +229,7 @@ def main(argv):
         # takes the combined inputs in AT.
 
         adv_model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
-                          loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+                          loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
                           metrics=train_metrics)
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
         adv_model.fit_generator(train_ds_adv, callbacks=callbacks_adv,

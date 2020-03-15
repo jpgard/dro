@@ -250,9 +250,9 @@ def main(argv):
             # Clipping makes perturbed examples have the same range as regular ones.
             perturbed_batch[IMAGE_INPUT_NAME] = tf.clip_by_value(
                 perturbed_batch[IMAGE_INPUT_NAME], 0.0, 1.0)
-            y_true = perturbed_batch.pop(LABEL_INPUT_NAME)
+            y_true = tf.argmax(perturbed_batch.pop(LABEL_INPUT_NAME), axis=-1)
             perturbed_images.append(perturbed_batch[IMAGE_INPUT_NAME].numpy())
-            labels.append(tf.argmax(y_true).numpy())
+            labels.append(y_true.numpy())
             predictions.append({})
             for name, model in models_to_eval.items():
                 y_pred = model(perturbed_batch)

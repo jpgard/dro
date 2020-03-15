@@ -229,6 +229,7 @@ def main(argv):
 
         # # Show a set of aversarial examples
         # First, create a reference model, which will be used to generate perturbations
+        print("[INFO] generating adversarial samples to compare the models")
         reference_model = nsl.keras.AdversarialRegularization(
             vgg_model_base,
             label_keys=[LABEL_INPUT_NAME],
@@ -283,8 +284,10 @@ def main(argv):
             plt.title('true: %d, base: %d, adv: %d' % (y, y_base, y_adv))
             plt.imshow(tf.keras.preprocessing.image.array_to_img(image))
             plt.axis('off')
-
-        plt.show()
+        from dro.utils.training_utils import make_model_uid
+        adv_image_fp = "./debug/adv-examples-{}.png".format(make_model_uid(FLAGS))
+        print("[INFO] writing adversarial examples to {}".format(adv_image_fp))
+        plt.savefig(adv_image_fp)
 
 
 if __name__ == "__main__":

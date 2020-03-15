@@ -40,11 +40,11 @@ def main(argv):
             dest_dir = os.path.join(FLAGS.out_dir, str(label), id_num)
             os.makedirs(dest_dir, exist_ok=True)
             dest_fp = os.path.join(dest_dir, os.path.basename(f))
-            print("copying from {} to {}".format(f, dest_fp))
+            print("[INFO] copying from {} to {}".format(f, dest_fp))
             shutil.copy(f, dest_fp)
             found_file_count += 1
         except KeyError:
-            # print("key {} not found in annotations; skipping".format(img_key))
+            print("[WARNING] key {} not found in annotations; skipping".format(img_key))
             missing_file_count += 1
             continue
     print("found {} files; missing {} files".format(found_file_count, missing_file_count))

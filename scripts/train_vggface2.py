@@ -9,10 +9,12 @@ export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
-python scripts/train_vggface2.py \
-    --train_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
-    /mouth_open \
-    --train_base --train_adversarial --label_name mouth_open
+export LABEL="Mouth_Open"
+python3 scripts/train_vggface2.py \
+    --label_name $LABEL \
+    --test_dir /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/test/${LABEL} \
+    --train_dir /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/train/${LABEL}
+
 """
 
 from collections import OrderedDict
@@ -38,7 +40,7 @@ FLAGS = flags.FLAGS
 
 # the vggface2/training parameters
 flags.DEFINE_integer("batch_size", 16, "batch size")
-flags.DEFINE_integer("epochs", 5, "the number of training epochs")
+flags.DEFINE_integer("epochs", 250, "the number of training epochs")
 flags.DEFINE_string("train_dir", None, "directory containing the training images")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
 flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")

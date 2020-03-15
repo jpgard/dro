@@ -89,7 +89,7 @@ def get_n_from_file_pattern(file_pattern):
 
 
 def steps_per_epoch(n):
-    return math.floor(n / FLAGS.batch_size)
+    return n // FLAGS.batch_size
 
 
 def main(argv):
@@ -227,6 +227,67 @@ def main(argv):
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
 
+        # # Show a set of aversarial examples
+        # First, create a reference model, which will be used to generate perturbations
+        print("[INFO] generating adversarial samples to compare the models")
+        reference_model = nsl.keras.AdversarialRegularization(
+            vgg_model_base,
+            label_keys=[LABEL_INPUT_NAME],
+            adv_config=adv_config)
+        reference_model.compile(**model_compile_args)
+
+        perturbed_images, labels, predictions = [], [], []
+
+        models_to_eval = {
+            'base': vgg_model_base,
+            'adv-regularized': adv_model.base_model
+        }
+        metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
+                   for name in models_to_eval.keys()
+                   }
+        import numpy as np
+        for batch in test_ds_adv:
+            perturbed_batch = reference_model.perturb_on_batch(batch)
+            # Clipping makes perturbed examples have the same range as regular ones.
+            perturbed_batch[IMAGE_INPUT_NAME] = tf.clip_by_value(
+                perturbed_batch[IMAGE_INPUT_NAME], 0.0, 1.0)
+            y_true = tf.argmax(perturbed_batch.pop(LABEL_INPUT_NAME), axis=-1)
+            perturbed_images.append(perturbed_batch[IMAGE_INPUT_NAME].numpy())
+            labels.append(y_true.numpy())
+            predictions.append({})
+            for name, model in models_to_eval.items():
+                y_pred = model(perturbed_batch)
+                metrics[name](y_true, y_pred)
+                predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
+
+        for name, metric in metrics.items():
+            print('%s model accuracy: %f' % (name, metric.result().numpy()))
+
+        batch_index = 0
+        batch_image = perturbed_images[batch_index]
+        batch_label = labels[batch_index]
+        batch_pred = predictions[batch_index]
+
+        n_col = 4
+        n_row = (FLAGS.batch_size + n_col - 1) / n_col
+
+        print('accuracy in batch %d:' % batch_index)
+        for name, pred in batch_pred.items():
+            print('%s model: %d / %d' % (
+            name, np.sum(batch_label == pred), FLAGS.batch_size))
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(15, 15))
+        for i, (image, y) in enumerate(zip(batch_image, batch_label)):
+            y_base = batch_pred['base'][i]
+            y_adv = batch_pred['adv-regularized'][i]
+            plt.subplot(n_row, n_col, i + 1)
+            plt.title('true: %d, base: %d, adv: %d' % (y, y_base, y_adv))
+            plt.imshow(tf.keras.preprocessing.image.array_to_img(image))
+            plt.axis('off')
+        from dro.utils.training_utils import make_model_uid
+        adv_image_fp = "./debug/adv-examples-{}.png".format(make_model_uid(FLAGS))
+        print("[INFO] writing adversarial examples to {}".format(adv_image_fp))
+        plt.savefig(adv_image_fp)
 
 
 if __name__ == "__main__":

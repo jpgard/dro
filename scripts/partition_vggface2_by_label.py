@@ -6,13 +6,13 @@ by label.
 Usage
 
 python3 scripts/partition_vggface2_by_label.py \
-    --img_dir /Users/jpgard/Documents/research/vggface2/traim_sm \
-    --out_dir /Users/jpgard/Documents/research/vggface2/annotated_partitioned_by_label \
-    --anno_dir /Users/jpgard/Documents/research/vggface2/anno
+    --img_dir /projects/grail/jpgard/vggface2/train \
+    --out_dir /projects/grail/jpgard/vggface2/annotated_partitioned_by_label \
+    --anno_dir /projects/grail/jpgard/vggface2/anno
 
 To find the number of (train, test) files, run:
-find /Users/jpgard/Documents/research/vggface2/annotated_partitioned_by_label/test -name "*.jpg" | wc -l
-find /Users/jpgard/Documents/research/vggface2/annotated_partitioned_by_label/train -name "*.jpg" | wc -l
+find /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/test -name "*.jpg" | wc -l
+find /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/train -name "*.jpg" | wc -l
 """
 
 import shutil

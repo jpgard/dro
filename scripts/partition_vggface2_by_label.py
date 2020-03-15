@@ -5,11 +5,14 @@ label. This fits with existing tensorflow pipelines, which assume data are parti
 by label.
 Usage
 
-python scripts/partition_vggface2_by_label.py \
-    --img_dir /Users/jpgard/Documents/research/vggface2/train \
-    --anno_fp /Users/jpgard/Documents/research/vggface2/anno/11-Mouth_Open.txt \
-    --out_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label
-    /mouth_open
+python3 scripts/partition_vggface2_by_label.py \
+    --img_dir /Users/jpgard/Documents/research/vggface2/traim_sm \
+    --out_dir /Users/jpgard/Documents/research/vggface2/annotated_partitioned_by_label \
+    --anno_dir /Users/jpgard/Documents/research/vggface2/anno
+
+To find the number of (train, test) files, run:
+find /Users/jpgard/Documents/research/vggface2/annotated_partitioned_by_label/test -name "*.jpg" | wc -l
+find /Users/jpgard/Documents/research/vggface2/annotated_partitioned_by_label/train -name "*.jpg" | wc -l
 """
 
 import shutil
@@ -82,8 +85,7 @@ def process_file(img_file: str, label_name: str, label, source_dir, dest_dir,
 
 def main(argv):
     attributes_df = make_annotations_df(FLAGS.anno_dir)
-    img_files = sorted(glob.glob(FLAGS.img_dir + "/*/*.jpg"))
-    import ipdb;ipdb.set_trace()
+    img_files = glob.glob(FLAGS.img_dir + "/*/*.jpg")
     assert len(img_files) > 0
     annotated_files = [i for i in img_files if get_key_from_fp(i) in attributes_df.index]
     assert len(annotated_files) > 0
@@ -100,7 +102,6 @@ def main(argv):
         for label_name, label in zip(label_names, img_labels):
             process_file(img_file, label_name, label, FLAGS.img_dir, FLAGS.out_dir,
                          is_training)
-
 
 
 if __name__ == "__main__":

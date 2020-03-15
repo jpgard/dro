@@ -17,13 +17,14 @@ python scripts/train_vggface2.py \
 
 from collections import OrderedDict
 import glob
-import math
 import time
+import numpy as np
 
 from absl import app
 from absl import flags
 import tensorflow as tf
 import neural_structured_learning as nsl
+import matplotlib.pyplot as plt
 
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
@@ -245,7 +246,7 @@ def main(argv):
         metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
                    for name in models_to_eval.keys()
                    }
-        import numpy as np
+
         for batch in test_ds_adv:
             perturbed_batch = reference_model.perturb_on_batch(batch)
             # Clipping makes perturbed examples have the same range as regular ones.
@@ -275,7 +276,7 @@ def main(argv):
         for name, pred in batch_pred.items():
             print('%s model: %d / %d' % (
             name, np.sum(batch_label == pred), FLAGS.batch_size))
-        import matplotlib.pyplot as plt
+
         plt.figure(figsize=(15, 15))
         for i, (image, y) in enumerate(zip(batch_image, batch_label)):
             y_base = batch_pred['base'][i]

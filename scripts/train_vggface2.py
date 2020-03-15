@@ -89,7 +89,7 @@ def get_n_from_file_pattern(file_pattern):
 
 
 def steps_per_epoch(n):
-    return math.floor(n / FLAGS.batch_size)
+    return n // FLAGS.batch_size
 
 
 def main(argv):

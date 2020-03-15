@@ -99,8 +99,6 @@ def main(argv):
     test_file_pattern = str(FLAGS.test_dir + '/*/*/*.jpg')
     n_train_val = get_n_from_file_pattern(train_file_pattern)
     n_test = get_n_from_file_pattern(test_file_pattern)
-    print("[INFO] %s training observations; %s testing observations" % (n_train_val,
-                                                                        n_test))
 
     # Create the datasets and process files to create (x,y) tuples. Set
     # `num_parallel_calls` so multiple images are loaded/processed in parallel.
@@ -113,6 +111,11 @@ def main(argv):
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     n_val = int(n_train_val * FLAGS.val_frac)
     n_train = n_train_val - n_val
+    print("[INFO] {n_train} training observations; {n_val} validation observations"
+          "{n_test} testing observations".format(n_train=n_train,
+                                                 n_val=n_val,
+                                                 n_test=n_test,
+                                                 ))
     if not FLAGS.debug:
         steps_per_train_epoch = steps_per_epoch(n_train)
         steps_per_val_epoch = steps_per_epoch(n_val)
@@ -176,8 +179,8 @@ def main(argv):
     # Base model training
     if FLAGS.train_base:
         print("[INFO] training base model")
-        callbacks_adv = make_callbacks(FLAGS, is_adversarial=False)
-        vgg_model_base.fit_generator(train_ds, callbacks=callbacks_adv,
+        callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
+        vgg_model_base.fit_generator(train_ds, callbacks=callbacks_base,
                                      validation_data=val_ds, **train_args)
 
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
@@ -229,7 +232,7 @@ def main(argv):
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
 
-        # # Show a set of aversarial examples
+        # # Show a set of adversarial examples
         # First, create a reference model, which will be used to generate perturbations
         print("[INFO] generating adversarial samples to compare the models")
         reference_model = nsl.keras.AdversarialRegularization(

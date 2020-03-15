@@ -49,7 +49,6 @@ flags.DEFINE_bool("train_adversarial", True, "whether to train an adversarial mo
 flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
                                       "model.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
-flags.DEFINE_float("test_frac", 0.1, "proportion of data to use for testing")
 flags.DEFINE_string("label_name", None,
                     "name of the prediction label (e.g. sunglasses, mouth_open)",
                     )

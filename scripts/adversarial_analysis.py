@@ -43,7 +43,7 @@ flags.DEFINE_string("label_name", None,
 flags.DEFINE_integer("batch_size", 16, "batch size")
 flags.DEFINE_integer("epochs", 250, "the number of training epochs")
 flags.DEFINE_string("ckpt_dir", "./training-logs", "directory to save/load checkpoints "
-                                                  "from")
+                                                   "from")
 flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.mark_flag_as_required("label_name")
@@ -96,11 +96,32 @@ def pred_to_binary(x, thresh=0.):
     thresh."""
     return int(x > thresh)
 
-def filter_neg(x):
-    label = tf.unstack(x)
+
+def filter_neg(x, y, z):
+    # import ipdb;
+    # ipdb.set_trace()
+    label = tf.unstack(z)
     label = label[0]
     result = tf.equal(label, 0)
     return result
+
+
+def preprocess_path(x, y):
+    x = process_path(x, labels=False)
+    y = tf.one_hot(y, 2)
+    return x, y
+
+
+def build_dataset_from_dataframe(df):
+    # dset starts as tuples of (filename, label_as_float)
+    dset = tf.data.Dataset.from_tensor_slices(
+        (df['filename'].values,
+         df[FLAGS.label_name].values)
+    )
+    _process_path = partial(process_path, labels=False)
+    dset = dset.map(preprocess_path)
+    return dset
+
 
 def main(argv):
     # build a labeled dataset from the files
@@ -111,35 +132,40 @@ def main(argv):
     dset_df[FLAGS.slice_attribute_name] = dset_df[FLAGS.slice_attribute_name].apply(
         pred_to_binary)
 
-    # dset starts as tuples of (filename, label_as_float, slice_as_float)
-    dset = tf.data.Dataset.from_tensor_slices(
-        (dset_df['filename'].values,
-         dset_df[FLAGS.label_name].values,
-         dset_df[FLAGS.slice_attribute_name].values)
+    # Break the input dataset into separate tf.Datasets based on the value of the slice
+    # attribute.
+    dset_attr_pos = build_dataset_from_dataframe(
+        dset_df[dset_df[FLAGS.slice_attribute_name] == 1]
     )
-    _process_path = partial(process_path, labels=False)
-    dset = dset.map(lambda x, y, z:
-                    (_process_path(x), tf.one_hot(y, 2), tf.one_hot(z, 2)))
+    dset_attr_neg = build_dataset_from_dataframe(
+        dset_df[dset_df[FLAGS.slice_attribute_name] == 0]
+    )
 
     # TODO(jpgard): filter the datasets here.
+    print("majority group dataset:")
+    import matplotlib.pyplot as plt
+    for x, y in dset_attr_pos.take(1):
+        print("x: ", x.numpy())
+        print("y: ", y.numpy())
+        plt.imshow(x.numpy())
+        plt.show()
+
+    print("minority group dataset:")
+    for x, y in dset_attr_neg.take(1):
+        print("x: ", x.numpy())
+        print("y: ", y.numpy())
+        plt.imshow(x.numpy())
+        plt.show()
 
     import ipdb;
     ipdb.set_trace()
 
     # for testing
-    dset_minority = dset.filter(filter_neg)
-    iterator = dset_minority.make_one_shot_iterator()
+    iterator = dset_attr_neg.make_one_shot_iterator()
     sample = iterator.get_next()
-
 
     dset = preprocess_dataset(dset, shuffle=False, repeat_forever=False,
                               batch_size=None)
-
-    for x, y, z in dset.take(1):
-        print("x: ", x.numpy())
-        print(y.numpy())
-        print(z.numpy())
-
 
     # TODO(jpgard): convert the (separate) datasets for the demographic/attribute
     #  groups into dicts foruse in adversarial model.

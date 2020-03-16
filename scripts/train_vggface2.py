@@ -173,6 +173,7 @@ def main(argv):
     train_args = {"steps_per_epoch": steps_per_train_epoch,
                   "epochs": FLAGS.epochs,
                   "validation_steps": steps_per_val_epoch}
+    from dro.utils.training_utils import make_ckpt_filepath
 
     # Base model training
     if FLAGS.train_base:
@@ -188,7 +189,6 @@ def main(argv):
         write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
 
     else:  # load the model instead of training it
-        from dro.utils.training_utils import make_ckpt_filepath
         vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS,
                                                                 is_adversarial=False))
 
@@ -204,6 +204,8 @@ def main(argv):
         label_keys=[LABEL_INPUT_NAME],
         adv_config=adv_config
     )
+
+    adv_model.compile(**model_compile_args)
 
     train_ds_adv = train_ds.map(convert_to_dictionaries)
     val_ds_adv = val_ds.map(convert_to_dictionaries)
@@ -221,7 +223,6 @@ def main(argv):
 
     if FLAGS.train_adversarial:
         print("[INFO] training adversarial model")
-        adv_model.compile(**model_compile_args)
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
         adv_model.fit_generator(train_ds_adv, callbacks=callbacks_adv,
                                 validation_data=val_ds_adv,

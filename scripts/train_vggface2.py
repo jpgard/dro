@@ -16,6 +16,7 @@ python3 scripts/train_vggface2.py \
     --test_dir ${DIR}/test/${LABEL} \
     --train_dir ${DIR}/train/${LABEL}
 
+
 """
 
 from collections import OrderedDict
@@ -45,11 +46,15 @@ flags.DEFINE_integer("batch_size", 16, "batch size")
 flags.DEFINE_integer("epochs", 250, "the number of training epochs")
 flags.DEFINE_string("train_dir", None, "directory containing the training images")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
+flags.DEFINE_string("ckpt_dir", "./training-logs", "directory to save/load checkpoints "
+                                                  "from")
 flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.DEFINE_bool("train_adversarial", True, "whether to train an adversarial model.")
 flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
                                       "model.")
+flags.DEFINE_bool("perturbation_analysis", True, "whether to conduct a perturbation "
+                                                 "analysis after completing training.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
 flags.DEFINE_string("label_name", None,
                     "name of the prediction label (e.g. sunglasses, mouth_open)",
@@ -189,40 +194,39 @@ def main(argv):
         write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
 
     else:  # load the model instead of training it
-        from dro.utils.training_utils import make_ckpt_filename, make_model_uid
-        base_uid = make_model_uid(FLAGS, is_adversarial=False)
-        logdir = './training-logs/{}'.format(base_uid)
-        vgg_model_base.load_weights(filepath=make_ckpt_filename(logdir, base_uid))
+        from dro.utils.training_utils import make_ckpt_filepath
+        vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS,
+                                                                is_adversarial=False))
 
     # Adversarial model training
+    adv_config = nsl.configs.make_adv_reg_config(
+        multiplier=FLAGS.adv_multiplier,
+        adv_step_size=FLAGS.adv_step_size,
+        adv_grad_norm=FLAGS.adv_grad_norm
+    )
+    base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
+    adv_model = nsl.keras.AdversarialRegularization(
+        base_adv_model,
+        label_keys=[LABEL_INPUT_NAME],
+        adv_config=adv_config
+    )
+
+    train_ds_adv = train_ds.map(convert_to_dictionaries)
+    val_ds_adv = val_ds.map(convert_to_dictionaries)
+
+    # The test dataset can be initialized from test_input_ds; preprocess_dataset()
+    # will re-initialize it as a fresh generator from the same elements.
+
+    test_ds_adv = preprocess_dataset(
+        test_input_ds,
+        repeat_forever=False,
+        shuffle=False,
+        batch_size=FLAGS.batch_size,
+        prefetch_buffer_size=AUTOTUNE)
+    test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
+
     if FLAGS.train_adversarial:
         print("[INFO] training adversarial model")
-
-        adv_config = nsl.configs.make_adv_reg_config(
-            multiplier=FLAGS.adv_multiplier,
-            adv_step_size=FLAGS.adv_step_size,
-            adv_grad_norm=FLAGS.adv_grad_norm
-        )
-        base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
-        adv_model = nsl.keras.AdversarialRegularization(
-            base_adv_model,
-            label_keys=[LABEL_INPUT_NAME],
-            adv_config=adv_config
-        )
-        train_ds_adv = train_ds.map(convert_to_dictionaries)
-        val_ds_adv = val_ds.map(convert_to_dictionaries)
-
-        # The test dataset can be initialized from test_input_ds; preprocess_dataset()
-        # will re-initialize it as a fresh generator from the same elements.
-
-        test_ds_adv = preprocess_dataset(
-            test_input_ds,
-            repeat_forever=False,
-            shuffle=False,
-            batch_size=FLAGS.batch_size,
-            prefetch_buffer_size=AUTOTUNE)
-        test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
-
         adv_model.compile(**model_compile_args)
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
         adv_model.fit_generator(train_ds_adv, callbacks=callbacks_adv,
@@ -237,14 +241,18 @@ def main(argv):
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
 
-        # # Show a set of adversarial examples
-        # First, create a reference model, which will be used to generate
-        # perturbations. Note that this should be a TRAINED base model.
+    else:  # load the model
+        adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
+
+    if FLAGS.perturbation_analysis:
+
+        # First, create a reference model from the non-adversarially-trained model,
+        # which will be used to generate perturbations.
+
         print("[INFO] generating adversarial samples to compare the models")
         from dro.utils.training_utils import perturb_and_evaluate, \
             make_compiled_reference_model
         from dro.utils.training_utils import make_model_uid
-
         from dro.utils.viz import show_adversarial_resuts
         reference_model = make_compiled_reference_model(vgg_model_base, adv_config,
                                                         model_compile_args)

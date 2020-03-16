@@ -174,15 +174,19 @@ def make_csv_callback(flags, is_adversarial: bool):
     csv_fp = make_csv_name(callback_uid, mode=TRAIN_MODE)
     return CSVLogger(csv_fp)
 
+def make_logdir(flags, uid):
+    return os.path.join(flags.ckpt_dir, uid)
 
-def make_ckpt_filename(logdir, uid):
+def make_ckpt_filepath(flags, is_adversarial:bool):
+    uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    logdir = make_logdir(flags, uid)
     return os.path.join(logdir, uid + ".ckpt")
 
 
 def make_callbacks(flags, is_adversarial: bool):
     """Create the callbacks for training, including properly naming files."""
     callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
-    logdir = './training-logs/{}'.format(callback_uid)
+    logdir = make_logdir(flags, callback_uid)
     tensorboard_callback = TensorBoard(
         log_dir=logdir,
         batch_size=flags.batch_size,
@@ -190,7 +194,7 @@ def make_callbacks(flags, is_adversarial: bool):
         write_grads=True,
         update_freq='epoch')
     csv_callback = make_csv_callback(flags, is_adversarial)
-    ckpt_fp = make_ckpt_filename(logdir, callback_uid)
+    ckpt_fp = make_ckpt_filepath(flags, is_adversarial=is_adversarial)
     ckpt_callback = ModelCheckpoint(ckpt_fp,
                                     monitor='val_loss',
                                     save_best_only=True,
@@ -247,3 +251,5 @@ def make_compiled_reference_model(model_base, adv_config, model_compile_args):
         adv_config=adv_config)
     reference_model.compile(**model_compile_args)
     return reference_model
+
+

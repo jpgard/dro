@@ -28,6 +28,7 @@ import tensorflow as tf
 import neural_structured_learning as nsl
 import matplotlib.pyplot as plt
 
+from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
     write_test_metrics_to_csv, get_train_metrics
@@ -76,9 +77,6 @@ flags.DEFINE_string('adv_grad_norm', 'infinity',
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-IMAGE_INPUT_NAME = 'image'
-LABEL_INPUT_NAME = 'label'
 
 
 def convert_to_dictionaries(image, label):
@@ -241,29 +239,14 @@ def main(argv):
             adv_config=adv_config)
         reference_model.compile(**model_compile_args)
 
-        perturbed_images, labels, predictions = [], [], []
-
         models_to_eval = {
             'base': vgg_model_base,
             'adv-regularized': adv_model.base_model
         }
-        metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
-                   for name in models_to_eval.keys()
-                   }
 
-        for batch in test_ds_adv:
-            perturbed_batch = reference_model.perturb_on_batch(batch)
-            # Clipping makes perturbed examples have the same range as regular ones.
-            perturbed_batch[IMAGE_INPUT_NAME] = tf.clip_by_value(
-                perturbed_batch[IMAGE_INPUT_NAME], 0.0, 1.0)
-            y_true = tf.argmax(perturbed_batch.pop(LABEL_INPUT_NAME), axis=-1)
-            perturbed_images.append(perturbed_batch[IMAGE_INPUT_NAME].numpy())
-            labels.append(y_true.numpy())
-            predictions.append({})
-            for name, model in models_to_eval.items():
-                y_pred = model(perturbed_batch)
-                metrics[name](y_true, y_pred)
-                predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
+        from dro.utils.training_utils import perturb_and_evaluate
+        perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
+            test_ds_adv, models_to_eval, reference_model)
 
         for name, metric in metrics.items():
             print('%s model accuracy: %f' % (name, metric.result().numpy()))

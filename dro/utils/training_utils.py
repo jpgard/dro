@@ -11,6 +11,8 @@ from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, Model
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
 
+from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME
+
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 TEST_MODE = "test"
 TRAIN_MODE = "train"
@@ -207,3 +209,26 @@ def make_model_uid(flags, is_adversarial=False):
             model_uid=model_uid, mul=flags.adv_multiplier,
             step=flags.adv_step_size, norm=flags.adv_grad_norm)
     return model_uid
+
+
+def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
+    perturbed_images, labels, predictions = [], [], []
+    metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
+               for name in models_to_eval.keys()
+               }
+
+    for batch in test_ds_adv:
+        perturbed_batch = reference_model.perturb_on_batch(batch)
+        # Clipping makes perturbed examples have the same range as regular ones.
+        perturbed_batch[IMAGE_INPUT_NAME] = tf.clip_by_value(
+            perturbed_batch[IMAGE_INPUT_NAME], 0.0, 1.0)
+        y_true = tf.argmax(perturbed_batch.pop(LABEL_INPUT_NAME), axis=-1)
+        perturbed_images.append(perturbed_batch[IMAGE_INPUT_NAME].numpy())
+        labels.append(y_true.numpy())
+        predictions.append({})
+        for name, model in models_to_eval.items():
+            y_pred = model(perturbed_batch)
+            metrics[name](y_true, y_pred)
+            predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
+
+    return perturbed_images, labels, predictions

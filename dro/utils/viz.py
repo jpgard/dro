@@ -26,3 +26,16 @@ def show_batch(image_batch, label_batch=None, fp=None):
         plt.savefig(fp)
     else:
         plt.show()
+
+def show_adversarial_resuts(batch_image, batch_label, batch_pred, adv_image_fp,
+                            n_row, n_col):
+    plt.figure(figsize=(15, 15))
+    for i, (image, y) in enumerate(zip(batch_image, batch_label)):
+        y_base = batch_pred['base'][i]
+        y_adv = batch_pred['adv-regularized'][i]
+        plt.subplot(n_row, n_col, i + 1)
+        plt.title('true: %d, base: %d, adv: %d' % (y, y_base, y_adv))
+        plt.imshow(tf.keras.preprocessing.image.array_to_img(image))
+        plt.axis('off')
+    print("[INFO] writing adversarial examples to {}".format(adv_image_fp))
+    plt.savefig(adv_image_fp)

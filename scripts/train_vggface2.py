@@ -237,6 +237,9 @@ def main(argv):
         print("[INFO] generating adversarial samples to compare the models")
         from dro.utils.training_utils import perturb_and_evaluate, \
             make_compiled_reference_model
+        from dro.utils.training_utils import make_model_uid
+
+        from dro.utils.viz import show_adversarial_resuts
         reference_model = make_compiled_reference_model(vgg_model_base, adv_config,
                                                         model_compile_args)
 
@@ -264,18 +267,10 @@ def main(argv):
             print('%s model: %d / %d' % (
                 name, np.sum(batch_label == pred), FLAGS.batch_size))
 
-        plt.figure(figsize=(15, 15))
-        for i, (image, y) in enumerate(zip(batch_image, batch_label)):
-            y_base = batch_pred['base'][i]
-            y_adv = batch_pred['adv-regularized'][i]
-            plt.subplot(n_row, n_col, i + 1)
-            plt.title('true: %d, base: %d, adv: %d' % (y, y_base, y_adv))
-            plt.imshow(tf.keras.preprocessing.image.array_to_img(image))
-            plt.axis('off')
-        from dro.utils.training_utils import make_model_uid
         adv_image_fp = "./debug/adv-examples-{}.png".format(make_model_uid(FLAGS))
-        print("[INFO] writing adversarial examples to {}".format(adv_image_fp))
-        plt.savefig(adv_image_fp)
+        show_adversarial_resuts(batch_image, batch_label,
+                                batch_pred, adv_image_fp=adv_image_fp, n_row=n_row,
+                                n_col=n_col)
 
 
 if __name__ == "__main__":

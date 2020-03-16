@@ -20,7 +20,9 @@ import re
 
 import pandas as pd
 import tensorflow as tf
-from dro.utils.training_utils import process_path
+from dro.utils.training_utils import process_path, preprocess_dataset
+
+tf.compat.v1.enable_eager_execution()
 
 FLAGS = flags.FLAGS
 
@@ -69,14 +71,12 @@ def get_annotated_data_df():
 def pred_to_binary(x, thresh=0.):
     """Convert lfw predictions to binary (0.,1.) labels by thresholding based on
     thresh."""
-    return float(x > thresh)
+    return int(x > thresh)
 
 
 def main(argv):
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df()
-    import ipdb;
-    ipdb.set_trace()
     dset_df = annotated_files.reset_index()[
         ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
     dset_df[FLAGS.label_name] = dset_df[FLAGS.label_name].apply(pred_to_binary)
@@ -84,14 +84,26 @@ def main(argv):
         pred_to_binary)
 
     # dset starts as tuples of (filename, label_as_float, slice_as_float)
-    dset = tf.data.Dataset.from_generator(
-        dset_df.itertuples(index=False, name=None),
-        output_types=[tf.string, tf.float32, tf.float32])
+    dset = tf.data.Dataset.from_tensor_slices(
+        (dset_df['filename'].values,
+         dset_df[FLAGS.label_name].values,
+         dset_df[FLAGS.slice_attribute_name].values)
+    )
     _process_path = partial(process_path, labels=False)
     dset = dset.map(lambda x, y, z:
-                    (_process_path(x), tf.one_hot(y, 2), z))
-    positive_attr_dset = dset.filter(lambda x, y, z: z == 1.)
-    negative_attr_dset = dset.filter(lambda x, y, z: z == 0.)
+                    (_process_path(x), tf.one_hot(y, 2), tf.one_hot(z, 2)))
+
+
+    dset = preprocess_dataset(dset, shuffle=False, repeat_forever=False,
+                              batch_size=None)
+
+    for x, y, z in dset.take(1):
+        print("x: ", x.numpy())
+        print(y.numpy())
+        print(z.numpy())
+    import ipdb;
+    ipdb.set_trace()
+
 
 if __name__ == "__main__":
     print("running")

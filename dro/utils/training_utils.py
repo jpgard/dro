@@ -232,7 +232,7 @@ def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
             metrics[name](y_true, y_pred)
             predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
 
-    return perturbed_images, labels, predictions
+    return perturbed_images, labels, predictions, metrics
 
 
 def make_compiled_reference_model(model_base, adv_config, model_compile_args):

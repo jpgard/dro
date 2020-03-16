@@ -3,7 +3,14 @@
 the users face, not other elements in the image (clothing, background), as much as
 possible.
 
-python3 scripts/detect_faces.py --img_dir /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open_tiny/ --out_dir ./tmp/mouth_open_tiny_cropped
+export GPU_ID="2"
+export CUDA_DEVICE_ORDER="PCI_BUS_ID"
+export CUDA_VISIBLE_DEVICES=$GPU_ID
+
+python3 scripts/detect_faces.py \
+--img_dir /Users/jpgard/Documents/research/vggface2/train/ \
+--out_dir ./tmp/train_cropped \
+--filepattern "**[0-2]/*.jpg"
 """
 from absl import app
 from absl import flags
@@ -22,6 +29,9 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string("img_dir", None, "directory containing the images")
 flags.DEFINE_string("out_dir", None, "directory to write new images to")
+flags.DEFINE_string("filepattern", '**/*.jpg',
+                    'pattern to use when matching files. Can be useful to specify '
+                    'different patterns and run the process in parallel.')
 
 
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
@@ -60,9 +70,10 @@ def extract_face(filename, required_size=(224, 224)):
 def main(argv):
     out_dir = FLAGS.out_dir
     assert not out_dir.endswith("/"), "specify out_dir without a trailing /"
-    filepattern = str(FLAGS.img_dir + '**/*.jpg')
+    filepattern = str(FLAGS.img_dir + FLAGS.filepattern)
     image_ids = glob.glob(filepattern, recursive=True)
     assert len(image_ids) > 0, "no images detected; try checking img_dir and filepattern."
+    import ipdb;ipdb.set_trace()
     N = len(image_ids)
     for f in image_ids:
         try:

@@ -18,6 +18,7 @@ from functools import partial
 import glob
 import os.path as osp
 import re
+import time
 
 import pandas as pd
 import tensorflow as tf
@@ -25,6 +26,7 @@ from dro.utils.training_utils import process_path, preprocess_dataset
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
 from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME
+import matplotlib.pyplot as plt
 
 tf.compat.v1.enable_eager_execution()
 
@@ -38,6 +40,10 @@ flags.DEFINE_string("label_name", None,
                     "name of the prediction label (e.g. sunglasses, mouth_open) in the "
                     "LFW/test dataset",
                     )
+flags.DEFINE_float("confidence_threshold", 0.5, "only predictions with absolute value "
+                                                ">= this threshold are used ("
+                                                "predictions are centered around zero) "
+                                                "in order to ensure high-quality labels.")
 
 # the vggface2/training parameters
 flags.DEFINE_integer("batch_size", 16, "batch size")
@@ -97,15 +103,6 @@ def pred_to_binary(x, thresh=0.):
     return int(x > thresh)
 
 
-def filter_neg(x, y, z):
-    # import ipdb;
-    # ipdb.set_trace()
-    label = tf.unstack(z)
-    label = label[0]
-    result = tf.equal(label, 0)
-    return result
-
-
 def preprocess_path(x, y):
     x = process_path(x, labels=False)
     y = tf.one_hot(y, 2)
@@ -122,12 +119,27 @@ def build_dataset_from_dataframe(df):
     dset = dset.map(preprocess_path)
     return dset
 
+def apply_thresh(df, colname):
+    return df[abs(df[colname]) >= FLAGS.confidence_threshold]
+
 
 def main(argv):
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df()
-    dset_df = annotated_files.reset_index()[
-        ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
+    dset_df = annotated_files.reset_index()[['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
+    # Show histograms of the distributions
+    dset_df[FLAGS.label_name].hist(bins=25)
+    plt.title(FLAGS.label_name)
+    plt.show()
+    dset_df[FLAGS.slice_attribute_name].hist(bins=25)
+    plt.title(FLAGS.slice_attribute_name)
+    plt.show()
+    # Apply thresholding. We want observations which have absolute value greater than some
+    # threshold (predictions close to zero have low confidence). Need to inspect
+    # the distributions a bit to decide a good threshold for each feature.
+    dset_df = apply_thresh(dset_df, FLAGS.label_name)
+    dset_df = apply_thresh(dset_df, FLAGS.slice_attribute_name)
+
     dset_df[FLAGS.label_name] = dset_df[FLAGS.label_name].apply(pred_to_binary)
     dset_df[FLAGS.slice_attribute_name] = dset_df[FLAGS.slice_attribute_name].apply(
         pred_to_binary)
@@ -137,25 +149,25 @@ def main(argv):
     dset_attr_pos = build_dataset_from_dataframe(
         dset_df[dset_df[FLAGS.slice_attribute_name] == 1]
     )
+    dset_attr_pos = preprocess_dataset(dset_attr_pos, shuffle=False,
+                                       repeat_forever=False, batch_size=FLAGS.batch_size)
     dset_attr_neg = build_dataset_from_dataframe(
         dset_df[dset_df[FLAGS.slice_attribute_name] == 0]
     )
+    dset_attr_neg = preprocess_dataset(dset_attr_neg, shuffle=False,
+                                       repeat_forever=False, batch_size=FLAGS.batch_size)
+    from dro.utils.viz import show_batch
+    image_batch, label_batch = next(iter(dset_attr_pos))
+    show_batch(image_batch.numpy(), label_batch.numpy(),
+               fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
+                   FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
+               )
 
-    # TODO(jpgard): filter the datasets here.
-    print("majority group dataset:")
-    import matplotlib.pyplot as plt
-    for x, y in dset_attr_pos.take(1):
-        print("x: ", x.numpy())
-        print("y: ", y.numpy())
-        plt.imshow(x.numpy())
-        plt.show()
-
-    print("minority group dataset:")
-    for x, y in dset_attr_neg.take(1):
-        print("x: ", x.numpy())
-        print("y: ", y.numpy())
-        plt.imshow(x.numpy())
-        plt.show()
+    image_batch, label_batch = next(iter(dset_attr_neg))
+    show_batch(image_batch.numpy(), label_batch.numpy(),
+               fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
+                   FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
+               )
 
     import ipdb;
     ipdb.set_trace()

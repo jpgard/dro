@@ -20,6 +20,7 @@ import os.path as osp
 import re
 import time
 
+import numpy as np
 import pandas as pd
 import tensorflow as tf
 from dro.utils.training_utils import process_path, preprocess_dataset
@@ -236,13 +237,10 @@ def main(argv):
         'base': vgg_model_base,
         'adv-regularized': adv_model.base_model
     }
-    import ipdb; ipdb.set_trace()
+    print("[INFO] perturbing inputs and evaluating the model")
     for id, dset in zip(["1", "0"], [dset_attr_pos, dset_attr_neg]):
         perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
             dset, models_to_eval, reference_model)
-
-        for name, metric in metrics.items():
-            print('%s model accuracy: %f' % (name, metric.result().numpy()))
 
         batch_index = 0
         batch_image = perturbed_images[batch_index]

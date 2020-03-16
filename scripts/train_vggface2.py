@@ -260,9 +260,6 @@ def main(argv):
         perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
             test_ds_adv, models_to_eval, reference_model)
 
-        for name, metric in metrics.items():
-            print('%s model accuracy: %f' % (name, metric.result().numpy()))
-
         batch_index = 0
         batch_image = perturbed_images[batch_index]
         batch_label = labels[batch_index]

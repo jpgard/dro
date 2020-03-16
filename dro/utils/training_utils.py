@@ -222,7 +222,8 @@ def make_model_uid(flags, is_adversarial=False):
     return model_uid
 
 
-def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
+def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model,
+                         print_results=True):
     print("[INFO] perturbing images...")
     perturbed_images, labels, predictions = [], [], []
     metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
@@ -242,6 +243,9 @@ def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
             metrics[name](y_true, y_pred)
             predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
     print("[INFO] perturbation complete")
+    if print_results:
+        for name, metric in metrics.items():
+            print('%s model accuracy: %f' % (name, metric.result().numpy()))
     return perturbed_images, labels, predictions, metrics
 
 

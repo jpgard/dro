@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 import tensorflow
 import tensorflow as tf
+import neural_structured_learning as nsl
+
 
 from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
@@ -216,7 +218,6 @@ def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
     metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
                for name in models_to_eval.keys()
                }
-
     for batch in test_ds_adv:
         perturbed_batch = reference_model.perturb_on_batch(batch)
         # Clipping makes perturbed examples have the same range as regular ones.
@@ -232,3 +233,12 @@ def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
             predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
 
     return perturbed_images, labels, predictions
+
+
+def make_compiled_reference_model(model_base, adv_config, model_compile_args):
+    reference_model = nsl.keras.AdversarialRegularization(
+        model_base,
+        label_keys=[LABEL_INPUT_NAME],
+        adv_config=adv_config)
+    reference_model.compile(**model_compile_args)
+    return reference_model

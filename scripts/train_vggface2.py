@@ -232,20 +232,19 @@ def main(argv):
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
 
         # # Show a set of adversarial examples
-        # First, create a reference model, which will be used to generate perturbations
+        # First, create a reference model, which will be used to generate
+        # perturbations. Note that this should be a TRAINED base model.
         print("[INFO] generating adversarial samples to compare the models")
-        reference_model = nsl.keras.AdversarialRegularization(
-            vgg_model_base,
-            label_keys=[LABEL_INPUT_NAME],
-            adv_config=adv_config)
-        reference_model.compile(**model_compile_args)
+        from dro.utils.training_utils import perturb_and_evaluate, \
+            make_compiled_reference_model
+        reference_model = make_compiled_reference_model(vgg_model_base, adv_config,
+                                                        model_compile_args)
 
         models_to_eval = {
             'base': vgg_model_base,
             'adv-regularized': adv_model.base_model
         }
 
-        from dro.utils.training_utils import perturb_and_evaluate
         perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
             test_ds_adv, models_to_eval, reference_model)
 

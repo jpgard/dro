@@ -30,6 +30,10 @@ import matplotlib.pyplot as plt
 
 tf.compat.v1.enable_eager_execution()
 
+# Suppress the annoying tensorflow 1.x deprecation warnings
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
+
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string("anno_fp", None, "path to annotations file for evaluation.")
@@ -54,6 +58,17 @@ flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.mark_flag_as_required("label_name")
 
+# the adversarial training parameters
+flags.DEFINE_float('adv_multiplier', 0.2,
+                   " The weight of adversarial loss in the training objective, relative "
+                   "to the labeled loss. e.g. if this is 0.2, The model minimizes "
+                   "(mean_crossentropy_loss + 0.2 * adversarial_regularization) ")
+flags.DEFINE_float('adv_step_size', 0.2, "The magnitude of adversarial perturbation.")
+flags.DEFINE_string('adv_grad_norm', 'infinity',
+                    "The norm to measure the magnitude of adversarial perturbation.")
+
+
+
 # Mapping between names of the features in the different datasets
 LFW_TO_VGG_LABEL_MAPPING = {
     "Mouth_Open": "Mouth_Open"
@@ -64,6 +79,7 @@ lfw_filename_regex = re.compile("(\w+_\w+)_(\d{4})\.jpg")
 
 
 def extract_person_from_filename(x):
+    """Helper function to extract the person name from a LFW filename."""
     res = re.match(lfw_filename_regex, osp.basename(x))
     try:
         return res.group(1)
@@ -72,6 +88,7 @@ def extract_person_from_filename(x):
 
 
 def extract_imagenum_from_filename(x):
+    """Helper function to extract the image number from a LFW filename."""
     res = re.match(lfw_filename_regex, osp.basename(x))
     try:
         return res.group(2)
@@ -80,6 +97,8 @@ def extract_imagenum_from_filename(x):
 
 
 def get_annotated_data_df():
+    """Fetch and preprocess the dataframe of LFW annotations and their corresponding
+    filenames."""
     # get the annotated files
     anno_df = pd.read_csv(FLAGS.anno_fp, delimiter="\t")
     anno_df['imagenum_str'] = anno_df['imagenum'].apply(lambda x: f'{x:04}')
@@ -119,6 +138,7 @@ def build_dataset_from_dataframe(df):
     dset = dset.map(preprocess_path)
     return dset
 
+
 def apply_thresh(df, colname):
     return df[abs(df[colname]) >= FLAGS.confidence_threshold]
 
@@ -126,7 +146,8 @@ def apply_thresh(df, colname):
 def main(argv):
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df()
-    dset_df = annotated_files.reset_index()[['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
+    dset_df = annotated_files.reset_index()[
+        ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
     # Show histograms of the distributions
     dset_df[FLAGS.label_name].hist(bins=25)
     plt.title(FLAGS.label_name)
@@ -168,21 +189,11 @@ def main(argv):
                fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
                    FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
                )
+    from dro.utils.training_utils import convert_to_dictionaries
 
-    import ipdb;
-    ipdb.set_trace()
-
-    # for testing
-    iterator = dset_attr_neg.make_one_shot_iterator()
-    sample = iterator.get_next()
-
-    dset = preprocess_dataset(dset, shuffle=False, repeat_forever=False,
-                              batch_size=None)
-
-    # TODO(jpgard): convert the (separate) datasets for the demographic/attribute
-    #  groups into dicts foruse in adversarial model.
-
-    # TODO: load models and create adversarial examples from them.
+    # Convert the datasets into dicts for use in adversarial model.
+    dset_attr_neg = dset_attr_neg.map(convert_to_dictionaries)
+    dset_attr_pos = dset_attr_pos.map(convert_to_dictionaries)
 
     # load the models
     from dro.utils.training_utils import get_train_metrics
@@ -197,10 +208,9 @@ def main(argv):
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     vgg_model_base.compile(**model_compile_args)
     from dro.utils.training_utils import make_ckpt_filepath
-    vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS,
-                                                            is_adversarial=False))
+    vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=False))
 
-    # Adversarial model training
+    # Adversarial model
     adv_config = nsl.configs.make_adv_reg_config(
         multiplier=FLAGS.adv_multiplier,
         adv_step_size=FLAGS.adv_step_size,
@@ -212,6 +222,7 @@ def main(argv):
         label_keys=[LABEL_INPUT_NAME],
         adv_config=adv_config
     )
+    adv_model.compile(**model_compile_args)
     adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
 
     from dro.utils.training_utils import perturb_and_evaluate, \
@@ -225,9 +236,32 @@ def main(argv):
         'base': vgg_model_base,
         'adv-regularized': adv_model.base_model
     }
+    import ipdb; ipdb.set_trace()
+    for id, dset in zip(["1", "0"], [dset_attr_pos, dset_attr_neg]):
+        perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
+            dset, models_to_eval, reference_model)
 
-    perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
-        test_ds_adv, models_to_eval, reference_model)
+        for name, metric in metrics.items():
+            print('%s model accuracy: %f' % (name, metric.result().numpy()))
+
+        batch_index = 0
+        batch_image = perturbed_images[batch_index]
+        batch_label = labels[batch_index]
+        batch_pred = predictions[batch_index]
+
+        n_col = 4
+        n_row = (FLAGS.batch_size + n_col - 1) / n_col
+
+        print('accuracy in batch %d:' % batch_index)
+        for name, pred in batch_pred.items():
+            print('%s model: %d / %d' % (
+                name, np.sum(batch_label == pred), FLAGS.batch_size))
+
+        adv_image_fp = "./debug/adv-examples-{}-{}-{}.png".format(
+            make_model_uid(FLAGS), FLAGS.slice_attribute_name, id)
+        show_adversarial_resuts(batch_image, batch_label,
+                                batch_pred, adv_image_fp=adv_image_fp, n_row=n_row,
+                                n_col=n_col)
 
 
 if __name__ == "__main__":

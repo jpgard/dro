@@ -149,13 +149,13 @@ def main(argv):
     annotated_files = get_annotated_data_df()
     dset_df = annotated_files.reset_index()[
         ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
-    # Show histograms of the distributions
-    dset_df[FLAGS.label_name].hist(bins=25)
-    plt.title(FLAGS.label_name)
-    plt.show()
-    dset_df[FLAGS.slice_attribute_name].hist(bins=25)
-    plt.title(FLAGS.slice_attribute_name)
-    plt.show()
+    # # Show histograms of the distributions
+    # dset_df[FLAGS.label_name].hist(bins=25)
+    # plt.title(FLAGS.label_name)
+    # plt.show()
+    # dset_df[FLAGS.slice_attribute_name].hist(bins=25)
+    # plt.title(FLAGS.slice_attribute_name)
+    # plt.show()
     # Apply thresholding. We want observations which have absolute value greater than some
     # threshold (predictions close to zero have low confidence). Need to inspect
     # the distributions a bit to decide a good threshold for each feature.
@@ -239,27 +239,18 @@ def main(argv):
     }
     print("[INFO] perturbing inputs and evaluating the model")
     for id, dset in zip(["1", "0"], [dset_attr_pos, dset_attr_neg]):
+        # Perturb the images
         perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
             dset, models_to_eval, reference_model)
-
-        batch_index = 0
-        batch_image = perturbed_images[batch_index]
-        batch_label = labels[batch_index]
-        batch_pred = predictions[batch_index]
-
-        n_col = 4
-        n_row = (FLAGS.batch_size + n_col - 1) / n_col
-
-        print('accuracy in batch %d:' % batch_index)
-        for name, pred in batch_pred.items():
-            print('%s model: %d / %d' % (
-                name, np.sum(batch_label == pred), FLAGS.batch_size))
-
-        adv_image_fp = "./debug/adv-examples-{}-{}-{}.png".format(
+        # Write the results for 10 batches to a file.
+        adv_image_basename = "./debug/adv-examples-{}-{}-{}".format(
             make_model_uid(FLAGS), FLAGS.slice_attribute_name, id)
-        show_adversarial_resuts(batch_image, batch_label,
-                                batch_pred, adv_image_fp=adv_image_fp, n_row=n_row,
-                                n_col=n_col)
+        show_adversarial_resuts(n_batches=10,
+                                perturbed_images=perturbed_images,
+                                labels=labels,
+                                predictions=predictions,
+                                fp_basename=adv_image_basename,
+                                batch_size=FLAGS.batch_size)
 
 
 if __name__ == "__main__":

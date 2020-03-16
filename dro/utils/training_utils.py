@@ -180,7 +180,7 @@ def make_logdir(flags, uid):
 def make_ckpt_filepath(flags, is_adversarial:bool):
     uid = make_model_uid(flags, is_adversarial=is_adversarial)
     logdir = make_logdir(flags, uid)
-    return os.path.join(logdir, uid + ".ckpt")
+    return os.path.join(logdir, uid + ".h5")
 
 
 def make_callbacks(flags, is_adversarial: bool):
@@ -198,7 +198,7 @@ def make_callbacks(flags, is_adversarial: bool):
     ckpt_callback = ModelCheckpoint(ckpt_fp,
                                     monitor='val_loss',
                                     save_best_only=True,
-                                    save_weights_only=True,
+                                    save_weights_only=False,
                                     save_freq='epoch',
                                     verbose=1,
                                     mode='auto')

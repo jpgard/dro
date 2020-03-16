@@ -253,3 +253,6 @@ def make_compiled_reference_model(model_base, adv_config, model_compile_args):
     return reference_model
 
 
+def convert_to_dictionaries(image, label):
+    """Convert a set of x,y tuples to a dict for use in adversarial training."""
+    return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}

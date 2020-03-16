@@ -28,12 +28,11 @@ from absl import app
 from absl import flags
 import tensorflow as tf
 import neural_structured_learning as nsl
-import matplotlib.pyplot as plt
 
-from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME
+from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
-    write_test_metrics_to_csv, get_train_metrics
+    write_test_metrics_to_csv, get_train_metrics, convert_to_dictionaries
 from dro.utils.viz import show_batch
 
 tf.compat.v1.enable_eager_execution()
@@ -83,11 +82,6 @@ flags.DEFINE_string('adv_grad_norm', 'infinity',
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-
-def convert_to_dictionaries(image, label):
-    """Convert a set of x,y tuples to a dict for use in adversarial training."""
-    return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
 
 
 def get_n_from_file_pattern(file_pattern):

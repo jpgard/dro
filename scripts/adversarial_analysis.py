@@ -238,13 +238,13 @@ def main(argv):
         'adv-regularized': adv_model.base_model
     }
     print("[INFO] perturbing inputs and evaluating the model")
-    for id, dset in zip(["1", "0"], [dset_attr_pos, dset_attr_neg]):
+    for dset_id, dset in zip(["1", "0"], [dset_attr_pos, dset_attr_neg]):
         # Perturb the images
         perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
             dset, models_to_eval, reference_model)
         # Write the results for 10 batches to a file.
         adv_image_basename = "./debug/adv-examples-{}-{}-{}".format(
-            make_model_uid(FLAGS), FLAGS.slice_attribute_name, id)
+            make_model_uid(FLAGS), FLAGS.slice_attribute_name, dset_id)
         show_adversarial_resuts(n_batches=10,
                                 perturbed_images=perturbed_images,
                                 labels=labels,

@@ -46,7 +46,7 @@ flags.DEFINE_integer("epochs", 250, "the number of training epochs")
 flags.DEFINE_string("train_dir", None, "directory containing the training images")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
 flags.DEFINE_string("ckpt_dir", "./training-logs", "directory to save/load checkpoints "
-                                                  "from")
+                                                   "from")
 flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.DEFINE_bool("train_adversarial", True, "whether to train an adversarial model.")
@@ -240,7 +240,6 @@ def main(argv):
         adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
 
     if FLAGS.perturbation_analysis:
-
         # First, create a reference model from the non-adversarially-trained model,
         # which will be used to generate perturbations.
 
@@ -260,23 +259,15 @@ def main(argv):
         perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
             test_ds_adv, models_to_eval, reference_model)
 
-        batch_index = 0
-        batch_image = perturbed_images[batch_index]
-        batch_label = labels[batch_index]
-        batch_pred = predictions[batch_index]
+        adv_image_basename = "./debug/adv-examples-{}-{}".format(
+            make_model_uid(FLAGS), FLAGS.slice_attribute_name)
 
-        n_col = 4
-        n_row = (FLAGS.batch_size + n_col - 1) / n_col
-
-        print('accuracy in batch %d:' % batch_index)
-        for name, pred in batch_pred.items():
-            print('%s model: %d / %d' % (
-                name, np.sum(batch_label == pred), FLAGS.batch_size))
-
-        adv_image_fp = "./debug/adv-examples-{}.png".format(make_model_uid(FLAGS))
-        show_adversarial_resuts(batch_image, batch_label,
-                                batch_pred, adv_image_fp=adv_image_fp, n_row=n_row,
-                                n_col=n_col)
+        show_adversarial_resuts(n_batches=10,
+                                perturbed_images=perturbed_images,
+                                labels=labels,
+                                predictions=predictions,
+                                fp_basename=adv_image_basename,
+                                batch_size=FLAGS.batch_size)
 
 
 if __name__ == "__main__":

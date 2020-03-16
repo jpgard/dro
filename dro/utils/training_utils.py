@@ -6,10 +6,14 @@ import pandas as pd
 import numpy as np
 import tensorflow
 import tensorflow as tf
+import neural_structured_learning as nsl
+
 
 from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
+
+from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 TEST_MODE = "test"
@@ -170,11 +174,19 @@ def make_csv_callback(flags, is_adversarial: bool):
     csv_fp = make_csv_name(callback_uid, mode=TRAIN_MODE)
     return CSVLogger(csv_fp)
 
+def make_logdir(flags, uid):
+    return os.path.join(flags.ckpt_dir, uid)
+
+def make_ckpt_filepath(flags, is_adversarial:bool):
+    uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    logdir = make_logdir(flags, uid)
+    return os.path.join(logdir, uid + ".h5")
+
 
 def make_callbacks(flags, is_adversarial: bool):
     """Create the callbacks for training, including properly naming files."""
     callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
-    logdir = './training-logs/{}'.format(callback_uid)
+    logdir = make_logdir(flags, callback_uid)
     tensorboard_callback = TensorBoard(
         log_dir=logdir,
         batch_size=flags.batch_size,
@@ -182,12 +194,13 @@ def make_callbacks(flags, is_adversarial: bool):
         write_grads=True,
         update_freq='epoch')
     csv_callback = make_csv_callback(flags, is_adversarial)
-    ckpt_fp = os.path.join(logdir, callback_uid + ".ckpt")
+    ckpt_fp = make_ckpt_filepath(flags, is_adversarial=is_adversarial)
     ckpt_callback = ModelCheckpoint(ckpt_fp,
-                                    monitor='val_loss', verbose=0,
+                                    monitor='val_loss',
                                     save_best_only=True,
                                     save_weights_only=False,
                                     save_freq='epoch',
+                                    verbose=1,
                                     mode='auto')
     return [tensorboard_callback, csv_callback, ckpt_callback]
 
@@ -207,3 +220,44 @@ def make_model_uid(flags, is_adversarial=False):
             model_uid=model_uid, mul=flags.adv_multiplier,
             step=flags.adv_step_size, norm=flags.adv_grad_norm)
     return model_uid
+
+
+def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model,
+                         print_results=True):
+    print("[INFO] perturbing images...")
+    perturbed_images, labels, predictions = [], [], []
+    metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
+               for name in models_to_eval.keys()
+               }
+    for batch in test_ds_adv:
+        perturbed_batch = reference_model.perturb_on_batch(batch)
+        # Clipping makes perturbed examples have the same range as regular ones.
+        perturbed_batch[IMAGE_INPUT_NAME] = tf.clip_by_value(
+            perturbed_batch[IMAGE_INPUT_NAME], 0.0, 1.0)
+        y_true = tf.argmax(perturbed_batch.pop(LABEL_INPUT_NAME), axis=-1)
+        perturbed_images.append(perturbed_batch[IMAGE_INPUT_NAME].numpy())
+        labels.append(y_true.numpy())
+        predictions.append({})
+        for name, model in models_to_eval.items():
+            y_pred = model(perturbed_batch)
+            metrics[name](y_true, y_pred)
+            predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
+    print("[INFO] perturbation complete")
+    if print_results:
+        for name, metric in metrics.items():
+            print('%s model accuracy: %f' % (name, metric.result().numpy()))
+    return perturbed_images, labels, predictions, metrics
+
+
+def make_compiled_reference_model(model_base, adv_config, model_compile_args):
+    reference_model = nsl.keras.AdversarialRegularization(
+        model_base,
+        label_keys=[LABEL_INPUT_NAME],
+        adv_config=adv_config)
+    reference_model.compile(**model_compile_args)
+    return reference_model
+
+
+def convert_to_dictionaries(image, label):
+    """Convert a set of x,y tuples to a dict for use in adversarial training."""
+    return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}

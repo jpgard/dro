@@ -10,10 +10,12 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 export LABEL="Mouth_Open"
+export DIR="/Users/jpgard/Documents/research/vggface2/annotated_partitioned_by_label/"
 python3 scripts/train_vggface2.py \
     --label_name $LABEL \
-    --test_dir /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/test/${LABEL} \
-    --train_dir /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/train/${LABEL}
+    --test_dir ${DIR}/test/${LABEL} \
+    --train_dir ${DIR}/train/${LABEL}
+
 
 """
 
@@ -26,11 +28,11 @@ from absl import app
 from absl import flags
 import tensorflow as tf
 import neural_structured_learning as nsl
-import matplotlib.pyplot as plt
 
+from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
-    write_test_metrics_to_csv, get_train_metrics
+    write_test_metrics_to_csv, get_train_metrics, convert_to_dictionaries
 from dro.utils.viz import show_batch
 
 tf.compat.v1.enable_eager_execution()
@@ -43,11 +45,15 @@ flags.DEFINE_integer("batch_size", 16, "batch size")
 flags.DEFINE_integer("epochs", 250, "the number of training epochs")
 flags.DEFINE_string("train_dir", None, "directory containing the training images")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
+flags.DEFINE_string("ckpt_dir", "./training-logs", "directory to save/load checkpoints "
+                                                   "from")
 flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.DEFINE_bool("train_adversarial", True, "whether to train an adversarial model.")
 flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
                                       "model.")
+flags.DEFINE_bool("perturbation_analysis", True, "whether to conduct a perturbation "
+                                                 "analysis after completing training.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
 flags.DEFINE_string("label_name", None,
                     "name of the prediction label (e.g. sunglasses, mouth_open)",
@@ -76,14 +82,6 @@ flags.DEFINE_string('adv_grad_norm', 'infinity',
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-IMAGE_INPUT_NAME = 'image'
-LABEL_INPUT_NAME = 'label'
-
-
-def convert_to_dictionaries(image, label):
-    """Convert a set of x,y tuples to a dict for use in adversarial training."""
-    return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
 
 
 def get_n_from_file_pattern(file_pattern):
@@ -175,6 +173,7 @@ def main(argv):
     train_args = {"steps_per_epoch": steps_per_train_epoch,
                   "epochs": FLAGS.epochs,
                   "validation_steps": steps_per_val_epoch}
+    from dro.utils.training_utils import make_ckpt_filepath
 
     # Base model training
     if FLAGS.train_base:
@@ -189,36 +188,41 @@ def main(argv):
         test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
         write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
 
+    else:  # load the model instead of training it
+        vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS,
+                                                                is_adversarial=False))
+
     # Adversarial model training
+    adv_config = nsl.configs.make_adv_reg_config(
+        multiplier=FLAGS.adv_multiplier,
+        adv_step_size=FLAGS.adv_step_size,
+        adv_grad_norm=FLAGS.adv_grad_norm
+    )
+    base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
+    adv_model = nsl.keras.AdversarialRegularization(
+        base_adv_model,
+        label_keys=[LABEL_INPUT_NAME],
+        adv_config=adv_config
+    )
+
+    adv_model.compile(**model_compile_args)
+
+    train_ds_adv = train_ds.map(convert_to_dictionaries)
+    val_ds_adv = val_ds.map(convert_to_dictionaries)
+
+    # The test dataset can be initialized from test_input_ds; preprocess_dataset()
+    # will re-initialize it as a fresh generator from the same elements.
+
+    test_ds_adv = preprocess_dataset(
+        test_input_ds,
+        repeat_forever=False,
+        shuffle=False,
+        batch_size=FLAGS.batch_size,
+        prefetch_buffer_size=AUTOTUNE)
+    test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
+
     if FLAGS.train_adversarial:
         print("[INFO] training adversarial model")
-
-        adv_config = nsl.configs.make_adv_reg_config(
-            multiplier=FLAGS.adv_multiplier,
-            adv_step_size=FLAGS.adv_step_size,
-            adv_grad_norm=FLAGS.adv_grad_norm
-        )
-        base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
-        adv_model = nsl.keras.AdversarialRegularization(
-            base_adv_model,
-            label_keys=[LABEL_INPUT_NAME],
-            adv_config=adv_config
-        )
-        train_ds_adv = train_ds.map(convert_to_dictionaries)
-        val_ds_adv = val_ds.map(convert_to_dictionaries)
-
-        # The test dataset can be initialized from test_input_ds; preprocess_dataset()
-        # will re-initialize it as a fresh generator from the same elements.
-
-        test_ds_adv = preprocess_dataset(
-            test_input_ds,
-            repeat_forever=False,
-            shuffle=False,
-            batch_size=FLAGS.batch_size,
-            prefetch_buffer_size=AUTOTUNE)
-        test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
-
-        adv_model.compile(**model_compile_args)
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
         adv_model.fit_generator(train_ds_adv, callbacks=callbacks_adv,
                                 validation_data=val_ds_adv,
@@ -232,67 +236,38 @@ def main(argv):
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
 
-        # # Show a set of adversarial examples
-        # First, create a reference model, which will be used to generate perturbations
-        print("[INFO] generating adversarial samples to compare the models")
-        reference_model = nsl.keras.AdversarialRegularization(
-            vgg_model_base,
-            label_keys=[LABEL_INPUT_NAME],
-            adv_config=adv_config)
-        reference_model.compile(**model_compile_args)
+    else:  # load the model
+        adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
 
-        perturbed_images, labels, predictions = [], [], []
+    if FLAGS.perturbation_analysis:
+        # First, create a reference model from the non-adversarially-trained model,
+        # which will be used to generate perturbations.
+
+        print("[INFO] generating adversarial samples to compare the models")
+        from dro.utils.training_utils import perturb_and_evaluate, \
+            make_compiled_reference_model
+        from dro.utils.training_utils import make_model_uid
+        from dro.utils.viz import show_adversarial_resuts
+        reference_model = make_compiled_reference_model(vgg_model_base, adv_config,
+                                                        model_compile_args)
 
         models_to_eval = {
             'base': vgg_model_base,
             'adv-regularized': adv_model.base_model
         }
-        metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
-                   for name in models_to_eval.keys()
-                   }
 
-        for batch in test_ds_adv:
-            perturbed_batch = reference_model.perturb_on_batch(batch)
-            # Clipping makes perturbed examples have the same range as regular ones.
-            perturbed_batch[IMAGE_INPUT_NAME] = tf.clip_by_value(
-                perturbed_batch[IMAGE_INPUT_NAME], 0.0, 1.0)
-            y_true = tf.argmax(perturbed_batch.pop(LABEL_INPUT_NAME), axis=-1)
-            perturbed_images.append(perturbed_batch[IMAGE_INPUT_NAME].numpy())
-            labels.append(y_true.numpy())
-            predictions.append({})
-            for name, model in models_to_eval.items():
-                y_pred = model(perturbed_batch)
-                metrics[name](y_true, y_pred)
-                predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
+        perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
+            test_ds_adv, models_to_eval, reference_model)
 
-        for name, metric in metrics.items():
-            print('%s model accuracy: %f' % (name, metric.result().numpy()))
+        adv_image_basename = "./debug/adv-examples-{}-{}".format(
+            make_model_uid(FLAGS), FLAGS.slice_attribute_name)
 
-        batch_index = 0
-        batch_image = perturbed_images[batch_index]
-        batch_label = labels[batch_index]
-        batch_pred = predictions[batch_index]
-
-        n_col = 4
-        n_row = (FLAGS.batch_size + n_col - 1) / n_col
-
-        print('accuracy in batch %d:' % batch_index)
-        for name, pred in batch_pred.items():
-            print('%s model: %d / %d' % (
-            name, np.sum(batch_label == pred), FLAGS.batch_size))
-
-        plt.figure(figsize=(15, 15))
-        for i, (image, y) in enumerate(zip(batch_image, batch_label)):
-            y_base = batch_pred['base'][i]
-            y_adv = batch_pred['adv-regularized'][i]
-            plt.subplot(n_row, n_col, i + 1)
-            plt.title('true: %d, base: %d, adv: %d' % (y, y_base, y_adv))
-            plt.imshow(tf.keras.preprocessing.image.array_to_img(image))
-            plt.axis('off')
-        from dro.utils.training_utils import make_model_uid
-        adv_image_fp = "./debug/adv-examples-{}.png".format(make_model_uid(FLAGS))
-        print("[INFO] writing adversarial examples to {}".format(adv_image_fp))
-        plt.savefig(adv_image_fp)
+        show_adversarial_resuts(n_batches=10,
+                                perturbed_images=perturbed_images,
+                                labels=labels,
+                                predictions=predictions,
+                                fp_basename=adv_image_basename,
+                                batch_size=FLAGS.batch_size)
 
 
 if __name__ == "__main__":

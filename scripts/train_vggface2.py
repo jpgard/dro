@@ -188,6 +188,12 @@ def main(argv):
         test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
         write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
 
+    else:  # load the model instead of training it
+        from dro.utils.training_utils import make_ckpt_filename, make_model_uid
+        base_uid = make_model_uid(FLAGS, is_adversarial=False)
+        logdir = './training-logs/{}'.format(base_uid)
+        vgg_model_base.load_weights(filepath=make_ckpt_filename(logdir, base_uid))
+
     # Adversarial model training
     if FLAGS.train_adversarial:
         print("[INFO] training adversarial model")

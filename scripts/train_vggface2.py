@@ -10,10 +10,11 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 export LABEL="Mouth_Open"
+export DIR="/Users/jpgard/Documents/research/vggface2/annotated_partitioned_by_label/"
 python3 scripts/train_vggface2.py \
     --label_name $LABEL \
-    --test_dir /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/test/${LABEL} \
-    --train_dir /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/train/${LABEL}
+    --test_dir ${DIR}/test/${LABEL} \
+    --train_dir ${DIR}/train/${LABEL}
 
 """
 
@@ -262,7 +263,7 @@ def main(argv):
         print('accuracy in batch %d:' % batch_index)
         for name, pred in batch_pred.items():
             print('%s model: %d / %d' % (
-            name, np.sum(batch_label == pred), FLAGS.batch_size))
+                name, np.sum(batch_label == pred), FLAGS.batch_size))
 
         plt.figure(figsize=(15, 15))
         for i, (image, y) in enumerate(zip(batch_image, batch_label)):

@@ -3,7 +3,7 @@
 the users face, not other elements in the image (clothing, background), as much as
 possible.
 
-export GPU_ID="2"
+export GPU_ID="6"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
@@ -11,6 +11,11 @@ python3 scripts/detect_faces.py \
 --img_dir /Users/jpgard/Documents/research/vggface2/train/ \
 --out_dir ./tmp/train_cropped \
 --filepattern "**[0-2]/*.jpg"
+
+python3 scripts/detect_faces.py \
+--img_dir /projects/grail/jpgard/vggface2/train/ \
+--out_dir /projects/grail/jpgard/vggface2/train_cropped \
+--filepattern "**[7-9]/*.jpg"
 """
 from absl import app
 from absl import flags
@@ -73,7 +78,6 @@ def main(argv):
     filepattern = str(FLAGS.img_dir + FLAGS.filepattern)
     image_ids = glob.glob(filepattern, recursive=True)
     assert len(image_ids) > 0, "no images detected; try checking img_dir and filepattern."
-    import ipdb;ipdb.set_trace()
     N = len(image_ids)
     for f in image_ids:
         try:

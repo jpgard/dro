@@ -18,6 +18,7 @@ python3 scripts/adversarial_analysis.py \
     --slice_attribute_name "Black" \
     --model_ext ".ckpt" \
     --base_model_ckpt /homes/gws/jpgard/dro/training-logs/Mouth_Openbs16e60lr0.01dropout0.8/Mouth_Openbs16e60lr0.01dropout0.8.h5
+
 """
 
 from absl import app, flags
@@ -56,6 +57,9 @@ flags.DEFINE_string("model_ext", None,
 flags.DEFINE_string("base_model_ckpt", None,
                     "optional manually-specified checkpoint to use to load the base "
                     "model.")
+flags.DEFINE_string("adv_model_ckpt", None,
+                    "optional manually-specified checkpoint to use to load the "
+                    "adversarial model.")
 flags.DEFINE_string("slice_attribute_name", None,
                     "attribute name to use from annotations.")
 flags.DEFINE_string("label_name", None,
@@ -178,8 +182,11 @@ def main(argv):
         adv_config=adv_config
     )
     adv_model.compile(**model_compile_args)
-    adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True,
-                                                       ext=FLAGS.model_ext))
+    if FLAGS.adv_model_ckpt:
+        adv_model.load_weights(FLAGS.adv_model_ckpt)
+    else:
+        adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True,
+                                                           ext=FLAGS.model_ext))
     # List to store the results of the experiment
     metrics_list = list()
 

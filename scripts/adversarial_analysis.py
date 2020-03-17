@@ -16,7 +16,7 @@ python3 scripts/adversarial_analysis.py \
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
     --slice_attribute_name "Black" \
-    --model_ext ".ckpt"
+    --model_ext ".ckpt" \
     --base_model_ckpt /homes/gws/jpgard/dro/training-logs/Mouth_Openbs16e60lr0.01dropout0.8/Mouth_Openbs16e60lr0.01dropout0.8.h5
 """
 
@@ -160,7 +160,7 @@ def main(argv):
         print("[INFO] loading from specified checkpoint {}".format(
             FLAGS.base_model_ckpt
         ))
-        vgg_model_base.load(filepath=FLAGS.base_model_ckpt)
+        vgg_model_base.load_weights(filepath=FLAGS.base_model_ckpt)
     else:  # Load from the default checkpoint path
         vgg_model_base.load_weights(filepath=make_ckpt_filepath(
             FLAGS, is_adversarial=False, ext=FLAGS.model_ext))

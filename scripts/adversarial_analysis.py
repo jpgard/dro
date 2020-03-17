@@ -196,7 +196,7 @@ def main(argv):
             # Add other identifiers to the metrics dict and save to metrics_list
             metrics['attr_val'] = attr_val
             metrics['attr_name'] = FLAGS.slice_attribute_name
-            metrics['uid'] = make_model_uid(flags)
+            metrics['uid'] = make_model_uid(FLAGS)
             metrics_list.append(metrics)
             # Write the results for 3 batches to a file for inspection.
             adv_image_basename = \
@@ -211,7 +211,7 @@ def main(argv):
                                     predictions=predictions,
                                     fp_basename=adv_image_basename,
                                     batch_size=FLAGS.batch_size)
-    metrics_fp = "./metrics/{}-adversarial-analysis.csv".format(make_model_uid(flags))
+    metrics_fp = "./metrics/{}-adversarial-analysis.csv".format(make_model_uid(FLAGS))
     print("[INFO] writing results to {}".format(metrics_fp))
     pd.DataFrame(metrics_list).to_csv(metrics_fp)
 

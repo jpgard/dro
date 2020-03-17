@@ -56,4 +56,4 @@ def show_adversarial_resuts(n_batches:int, perturbed_images, labels, predictions
         adv_image_fp = fp_basename + "batch" + str(batch_index) + ".png"
         print("[INFO] writing adversarial examples to {}".format(adv_image_fp))
         plt.savefig(adv_image_fp)
-        plt.clf()
+        plt.cla()

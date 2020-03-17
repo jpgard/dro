@@ -8,7 +8,6 @@ import tensorflow
 import tensorflow as tf
 import neural_structured_learning as nsl
 
-
 from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
@@ -131,6 +130,7 @@ def get_label(file_path):
 def make_csv_name(uid, mode):
     return "./metrics/{}-vggface2-{}.log".format(uid, mode)
 
+
 def cross_entropy_sigma(y_true, y_pred):
     """Custom metric to compute the standard deviation of the loss."""
     loss_object = tf.keras.losses.CategoricalCrossentropy()
@@ -174,10 +174,12 @@ def make_csv_callback(flags, is_adversarial: bool):
     csv_fp = make_csv_name(callback_uid, mode=TRAIN_MODE)
     return CSVLogger(csv_fp)
 
+
 def make_logdir(flags, uid):
     return os.path.join(flags.ckpt_dir, uid)
 
-def make_ckpt_filepath(flags, is_adversarial:bool):
+
+def make_ckpt_filepath(flags, is_adversarial: bool):
     uid = make_model_uid(flags, is_adversarial=is_adversarial)
     logdir = make_logdir(flags, uid)
     return os.path.join(logdir, uid + ".h5")
@@ -222,8 +224,20 @@ def make_model_uid(flags, is_adversarial=False):
     return model_uid
 
 
+def metrics_to_dict(metrics):
+    """Convert metrics to a dictionary of key:float pairs."""
+    results = dict()
+    for name, metric in metrics.items():
+        res = metric.result().numpy()
+        results[name] = res
+        print('%s model accuracy: %f' % (name, res))
+    return results
+
+
 def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model,
                          print_results=True):
+    """Perturbs the entire test set using adversarial training and computes metrics
+    over that set."""
     print("[INFO] perturbing images...")
     perturbed_images, labels, predictions = [], [], []
     metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
@@ -243,9 +257,7 @@ def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model,
             metrics[name](y_true, y_pred)
             predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
     print("[INFO] perturbation complete")
-    if print_results:
-        for name, metric in metrics.items():
-            print('%s model accuracy: %f' % (name, metric.result().numpy()))
+    metrics = metrics_to_dict(metrics)
     return perturbed_images, labels, predictions, metrics
 
 

@@ -17,6 +17,7 @@ from absl import app, flags
 import time
 
 import tensorflow as tf
+import pandas as pd
 
 from dro.utils.lfw import build_dataset_from_dataframe, apply_thresh, \
     get_annotated_data_df
@@ -125,6 +126,7 @@ def main(argv):
     # Convert the datasets into dicts for use in adversarial model.
     dset_attr_neg = dset_attr_neg.map(convert_to_dictionaries)
     dset_attr_pos = dset_attr_pos.map(convert_to_dictionaries)
+    attr_dsets = {"1": dset_attr_pos, "0": dset_attr_neg}
 
     # load the models
     train_metrics_dict = get_train_metrics()
@@ -154,27 +156,50 @@ def main(argv):
     adv_model.compile(**model_compile_args)
     adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
 
-    reference_model = make_compiled_reference_model(vgg_model_base, adv_config,
-                                                    model_compile_args)
+    # List to store the results of the experiment
+    metrics_list = list()
 
-    models_to_eval = {
-        'base': vgg_model_base,
-        'adv-regularized': adv_model.base_model
-    }
-    print("[INFO] perturbing inputs and evaluating the model")
-    for dset_id, dset in zip(["1", "0"], [dset_attr_pos, dset_attr_neg]):
-        # Perturb the images
-        perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
-            dset, models_to_eval, reference_model)
-        # Write the results for 10 batches to a file.
-        adv_image_basename = "./debug/adv-examples-{}-{}-{}".format(
-            make_model_uid(FLAGS), FLAGS.slice_attribute_name, dset_id)
-        show_adversarial_resuts(n_batches=10,
-                                perturbed_images=perturbed_images,
-                                labels=labels,
-                                predictions=predictions,
-                                fp_basename=adv_image_basename,
-                                batch_size=FLAGS.batch_size)
+    # for adv_step_size_to_eval in (0.01, 0.025, 0.05, 0.1, 0.2):
+    for adv_step_size_to_eval in (0.01, 0.025):
+        print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
+        reference_model = make_compiled_reference_model(
+            model_base=vgg_model_base,
+            adv_config=nsl.configs.make_adv_reg_config(
+                multiplier=FLAGS.adv_multiplier,
+                adv_step_size=adv_step_size_to_eval,
+                adv_grad_norm=FLAGS.adv_grad_norm
+            ),
+            model_compile_args=model_compile_args)
+
+        models_to_eval = {
+            'base': vgg_model_base,
+            'adv-regularized': adv_model.base_model
+        }
+        print("[INFO] perturbing inputs and evaluating the model")
+        for attr_val, dset in attr_dsets.items():
+            # Perturb the images and get the metrics
+            perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
+                dset, models_to_eval, reference_model)
+            # Add other identifiers to the metrics dict and save to metrics_list
+            metrics['attr_val'] = attr_val
+            metrics['attr_name'] = FLAGS.slice_attribute_name
+            metrics['uid'] = make_model_uid(flags)
+            metrics_list.append(metrics)
+            # Write the results for 3 batches to a file for inspection.
+            adv_image_basename = \
+                "./debug/adv-examples-{uid}-{attr}-{val}-step{ss}".format(
+                    uid=make_model_uid(FLAGS), attr=FLAGS.slice_attribute_name,
+                    val=attr_val,
+                    ss=adv_step_size_to_eval
+                )
+            show_adversarial_resuts(n_batches=3,
+                                    perturbed_images=perturbed_images,
+                                    labels=labels,
+                                    predictions=predictions,
+                                    fp_basename=adv_image_basename,
+                                    batch_size=FLAGS.batch_size)
+    pd.DataFrame(metrics_list).to_csv(
+        "./{}-adversarial-analysis.csv".format(make_model_uid(flags)))
 
 
 if __name__ == "__main__":

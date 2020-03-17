@@ -261,3 +261,9 @@ def make_compiled_reference_model(model_base, adv_config, model_compile_args):
 def convert_to_dictionaries(image, label):
     """Convert a set of x,y tuples to a dict for use in adversarial training."""
     return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
+
+
+def pred_to_binary(x, thresh=0.):
+    """Convert lfw predictions to binary (0.,1.) labels by thresholding based on
+    thresh."""
+    return int(x > thresh)

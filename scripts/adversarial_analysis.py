@@ -14,26 +14,29 @@ python3 scripts/adversarial_analysis.py \
 """
 
 from absl import app, flags
-from functools import partial
-import glob
-import os.path as osp
-import re
 import time
 
-import numpy as np
-import pandas as pd
 import tensorflow as tf
-from dro.utils.training_utils import process_path, preprocess_dataset
+
+from dro.utils.lfw import build_dataset_from_dataframe, apply_thresh, \
+    get_annotated_data_df
+from dro.utils.training_utils import preprocess_dataset, pred_to_binary
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
-from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME
-import matplotlib.pyplot as plt
+from dro.keys import LABEL_INPUT_NAME
+from dro.utils.viz import show_batch
+from dro.utils.training_utils import convert_to_dictionaries
+from dro.utils.training_utils import get_train_metrics
+from dro.utils.training_utils import make_ckpt_filepath
+from dro.utils.training_utils import perturb_and_evaluate, \
+    make_compiled_reference_model
+from dro.utils.training_utils import make_model_uid
+from dro.utils.viz import show_adversarial_resuts
 
 tf.compat.v1.enable_eager_execution()
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
 
 FLAGS = flags.FLAGS
 
@@ -69,84 +72,10 @@ flags.DEFINE_string('adv_grad_norm', 'infinity',
                     "The norm to measure the magnitude of adversarial perturbation.")
 
 
-
-# Mapping between names of the features in the different datasets
-LFW_TO_VGG_LABEL_MAPPING = {
-    "Mouth_Open": "Mouth_Open"
-}
-
-# Regex used to parse the LFW filenames
-lfw_filename_regex = re.compile("(\w+_\w+)_(\d{4})\.jpg")
-
-
-def extract_person_from_filename(x):
-    """Helper function to extract the person name from a LFW filename."""
-    res = re.match(lfw_filename_regex, osp.basename(x))
-    try:
-        return res.group(1)
-    except AttributeError:
-        return None
-
-
-def extract_imagenum_from_filename(x):
-    """Helper function to extract the image number from a LFW filename."""
-    res = re.match(lfw_filename_regex, osp.basename(x))
-    try:
-        return res.group(2)
-    except AttributeError:
-        return None
-
-
-def get_annotated_data_df():
-    """Fetch and preprocess the dataframe of LFW annotations and their corresponding
-    filenames."""
-    # get the annotated files
-    anno_df = pd.read_csv(FLAGS.anno_fp, delimiter="\t")
-    anno_df['imagenum_str'] = anno_df['imagenum'].apply(lambda x: f'{x:04}')
-    anno_df['person'] = anno_df['person'].apply(lambda x: x.replace(" ", "_"))
-    anno_df.set_index(['person', 'imagenum_str'], inplace=True)
-    anno_df["Mouth_Open"] = 1 - anno_df["Mouth Closed"]
-    # Read the files, dropping any images which cannot be parsed
-    files = glob.glob(FLAGS.test_dir + "/*/*.jpg", recursive=True)
-    files_df = pd.DataFrame(files, columns=['filename'])
-    files_df['person'] = files_df['filename'].apply(extract_person_from_filename)
-    files_df['imagenum_str'] = files_df['filename'].apply(extract_imagenum_from_filename)
-    files_df.dropna(inplace=True)
-    files_df.set_index(['person', 'imagenum_str'], inplace=True)
-    annotated_files = anno_df.join(files_df, how='inner')
-    return annotated_files
-
-
-def pred_to_binary(x, thresh=0.):
-    """Convert lfw predictions to binary (0.,1.) labels by thresholding based on
-    thresh."""
-    return int(x > thresh)
-
-
-def preprocess_path(x, y):
-    x = process_path(x, labels=False)
-    y = tf.one_hot(y, 2)
-    return x, y
-
-
-def build_dataset_from_dataframe(df):
-    # dset starts as tuples of (filename, label_as_float)
-    dset = tf.data.Dataset.from_tensor_slices(
-        (df['filename'].values,
-         df[FLAGS.label_name].values)
-    )
-    _process_path = partial(process_path, labels=False)
-    dset = dset.map(preprocess_path)
-    return dset
-
-
-def apply_thresh(df, colname):
-    return df[abs(df[colname]) >= FLAGS.confidence_threshold]
-
-
 def main(argv):
     # build a labeled dataset from the files
-    annotated_files = get_annotated_data_df()
+    annotated_files = get_annotated_data_df(anno_fp=FLAGS.anno_fp,
+                                            test_dir=FLAGS.test_dir)
     dset_df = annotated_files.reset_index()[
         ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
     # # Show histograms of the distributions
@@ -159,8 +88,9 @@ def main(argv):
     # Apply thresholding. We want observations which have absolute value greater than some
     # threshold (predictions close to zero have low confidence). Need to inspect
     # the distributions a bit to decide a good threshold for each feature.
-    dset_df = apply_thresh(dset_df, FLAGS.label_name)
-    dset_df = apply_thresh(dset_df, FLAGS.slice_attribute_name)
+    dset_df = apply_thresh(dset_df, FLAGS.label_name, FLAGS.confidence_threshold)
+    dset_df = apply_thresh(dset_df, FLAGS.slice_attribute_name,
+                           FLAGS.confidence_threshold)
 
     dset_df[FLAGS.label_name] = dset_df[FLAGS.label_name].apply(pred_to_binary)
     dset_df[FLAGS.slice_attribute_name] = dset_df[FLAGS.slice_attribute_name].apply(
@@ -169,16 +99,17 @@ def main(argv):
     # Break the input dataset into separate tf.Datasets based on the value of the slice
     # attribute.
     dset_attr_pos = build_dataset_from_dataframe(
-        dset_df[dset_df[FLAGS.slice_attribute_name] == 1]
+        dset_df[dset_df[FLAGS.slice_attribute_name] == 1],
+        label_name=FLAGS.label_name
     )
     dset_attr_pos = preprocess_dataset(dset_attr_pos, shuffle=False,
                                        repeat_forever=False, batch_size=FLAGS.batch_size)
     dset_attr_neg = build_dataset_from_dataframe(
-        dset_df[dset_df[FLAGS.slice_attribute_name] == 0]
+        dset_df[dset_df[FLAGS.slice_attribute_name] == 0],
+        label_name=FLAGS.label_name
     )
     dset_attr_neg = preprocess_dataset(dset_attr_neg, shuffle=False,
                                        repeat_forever=False, batch_size=FLAGS.batch_size)
-    from dro.utils.viz import show_batch
     image_batch, label_batch = next(iter(dset_attr_pos))
     show_batch(image_batch.numpy(), label_batch.numpy(),
                fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
@@ -190,14 +121,12 @@ def main(argv):
                fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
                    FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
                )
-    from dro.utils.training_utils import convert_to_dictionaries
 
     # Convert the datasets into dicts for use in adversarial model.
     dset_attr_neg = dset_attr_neg.map(convert_to_dictionaries)
     dset_attr_pos = dset_attr_pos.map(convert_to_dictionaries)
 
     # load the models
-    from dro.utils.training_utils import get_train_metrics
     train_metrics_dict = get_train_metrics()
     train_metrics_names = ["categorical_crossentropy", ] + list(train_metrics_dict.keys())
     train_metrics = list(train_metrics_dict.values())
@@ -208,7 +137,6 @@ def main(argv):
     }
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     vgg_model_base.compile(**model_compile_args)
-    from dro.utils.training_utils import make_ckpt_filepath
     vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=False))
 
     # Adversarial model
@@ -226,10 +154,6 @@ def main(argv):
     adv_model.compile(**model_compile_args)
     adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
 
-    from dro.utils.training_utils import perturb_and_evaluate, \
-        make_compiled_reference_model
-    from dro.utils.training_utils import make_model_uid
-    from dro.utils.viz import show_adversarial_resuts
     reference_model = make_compiled_reference_model(vgg_model_base, adv_config,
                                                     model_compile_args)
 

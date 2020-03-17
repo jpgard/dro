@@ -12,7 +12,7 @@ export DIR="/projects/grail/jpgard/lfw"
 python3 scripts/adversarial_analysis.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled-a \
-    --label_name $LABEL
+    --label_name $LABEL \
     --slice_attribute_name "Black"
 """
 
@@ -82,6 +82,7 @@ def main(argv):
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df(anno_fp=FLAGS.anno_fp,
                                             test_dir=FLAGS.test_dir)
+    assert len(annotated_files) > 0, "no files detected"
     dset_df = annotated_files.reset_index()[
         ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
     # # Show histograms of the distributions

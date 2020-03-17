@@ -11,9 +11,10 @@ export LABEL="Mouth_Open"
 export DIR="/projects/grail/jpgard/lfw"
 python3 scripts/adversarial_analysis.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
-    --test_dir ${DIR}/lfw-deepfunneled-a \
+    --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
-    --slice_attribute_name "Black"
+    --slice_attribute_name "Black" \
+    --model_ext ".ckpt"
 """
 
 from absl import app, flags
@@ -46,6 +47,9 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string("anno_fp", None, "path to annotations file for evaluation.")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
+flags.DEFINE_string("model_ext", None,
+                    "file extension to use for models; either .ckpt (older trained "
+                    "models frmo this repo) or .h5.")
 flags.DEFINE_string("slice_attribute_name", None,
                     "attribute name to use from annotations.")
 flags.DEFINE_string("label_name", None,
@@ -146,7 +150,8 @@ def main(argv):
     }
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     vgg_model_base.compile(**model_compile_args)
-    vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=False))
+    vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=False,
+                                                            ext=FLAGS.model_ext))
 
     # Adversarial model
     adv_config = nsl.configs.make_adv_reg_config(
@@ -161,7 +166,8 @@ def main(argv):
         adv_config=adv_config
     )
     adv_model.compile(**model_compile_args)
-    adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
+    adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True,
+                                                       ext=FLAGS.model_ext))
 
     # List to store the results of the experiment
     metrics_list = list()

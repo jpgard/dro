@@ -7,10 +7,12 @@ reported  by image
 subgroups.
 
 usage:
+export LABEL="Mouth_Open"
+export DIR="/projects/grail/jpgard/lfw/
 python3 scripts/adversarial_analysis.py \
---anno_fp /Users/jpgard/Documents/research/lfw/lfw_attributes_cleaned.txt \
---test_dir /Users/jpgard/Documents/research/lfw/lfw-deepfunneled-a \
---label_name Mouth_Open
+    --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
+    --test_dir ${DIR}/lfw-deepfunneled-a \
+    --label_name $LABEL
 """
 
 from absl import app, flags
@@ -198,8 +200,9 @@ def main(argv):
                                     predictions=predictions,
                                     fp_basename=adv_image_basename,
                                     batch_size=FLAGS.batch_size)
-    pd.DataFrame(metrics_list).to_csv(
-        "./{}-adversarial-analysis.csv".format(make_model_uid(flags)))
+    metrics_fp = "./metrics/{}-adversarial-analysis.csv".format(make_model_uid(flags))
+    print("[INFO] writing results to {}".format(metrics_fp))
+    pd.DataFrame(metrics_list).to_csv(metrics_fp)
 
 
 if __name__ == "__main__":

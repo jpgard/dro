@@ -8,7 +8,7 @@ subgroups.
 
 usage:
 export LABEL="Mouth_Open"
-export DIR="/projects/grail/jpgard/lfw/
+export DIR="/projects/grail/jpgard/lfw/"
 python3 scripts/adversarial_analysis.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled-a \
@@ -91,7 +91,8 @@ def main(argv):
     # Apply thresholding. We want observations which have absolute value greater than some
     # threshold (predictions close to zero have low confidence). Need to inspect
     # the distributions a bit to decide a good threshold for each feature.
-    dset_df = apply_thresh(dset_df, FLAGS.label_name, FLAGS.confidence_threshold)
+    dset_df = apply_thresh(dset_df, FLAGS.label_name,
+                           FLAGS.confidence_threshold)
     dset_df = apply_thresh(dset_df, FLAGS.slice_attribute_name,
                            FLAGS.confidence_threshold)
 

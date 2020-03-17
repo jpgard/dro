@@ -5,6 +5,7 @@ from os import path as osp
 
 import pandas as pd
 import tensorflow as tf
+import numpy as np
 
 from dro.utils.training_utils import process_path
 
@@ -45,9 +46,8 @@ def build_dataset_from_dataframe(df, label_name):
     # dset starts as tuples of (filename, label_as_float)
     dset = tf.data.Dataset.from_tensor_slices(
         (df['filename'].values,
-         df[label_name].values)
+         df[label_name].values.astype(np.int))
     )
-    _process_path = partial(process_path, labels=False)
     dset = dset.map(preprocess_path)
     return dset
 

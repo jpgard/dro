@@ -9,12 +9,14 @@ export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
-export LABEL="Mouth_Open"
-export DIR="/Users/jpgard/Documents/research/vggface2/annotated_partitioned_by_label/"
+export LABEL="Male"
+export DIR="/projects/grail/jpgard/vggface2/annotated_partitioned_by_label/"
 python3 scripts/train_vggface2.py \
     --label_name $LABEL \
     --test_dir ${DIR}/test/${LABEL} \
-    --train_dir ${DIR}/train/${LABEL}
+    --train_dir ${DIR}/train/${LABEL} \
+    --adv_step_size 0.05 --epochs 40
+
 
 
 """
@@ -62,14 +64,6 @@ flags.mark_flag_as_required("label_name")
 flags.DEFINE_bool("debug", False,
                   "whether to run in debug mode (super short iterations to check for "
                   "bugs)")
-
-# the wrm parameters
-flags.DEFINE_multi_float('wrm_eps', 1.3,
-                         'epsilon value to use for Wasserstein robust method; note that '
-                         'original default value is 1.3.')
-flags.DEFINE_integer('wrm_ord', 2, 'order of norm to use in Wasserstein robust method')
-flags.DEFINE_integer('wrm_steps', 15,
-                     'number of steps to use in Wasserstein robus method')
 
 # the adversarial training parameters
 flags.DEFINE_float('adv_multiplier', 0.2,

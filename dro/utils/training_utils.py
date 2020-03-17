@@ -179,7 +179,7 @@ def make_logdir(flags, uid):
     return os.path.join(flags.ckpt_dir, uid)
 
 
-def make_ckpt_filepath(flags, is_adversarial: bool, ext: str):
+def make_ckpt_filepath(flags, is_adversarial: bool, ext: str = ".h5"):
     assert ext.startswith("."), "provide a valid extension"
     uid = make_model_uid(flags, is_adversarial=is_adversarial)
     logdir = make_logdir(flags, uid)

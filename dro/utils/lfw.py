@@ -56,7 +56,7 @@ def apply_thresh(df, colname, thresh: float):
     return df[abs(df[colname]) >= thresh]
 
 
-def get_annotated_data_df(anno_fp, test_dir):
+def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):
     """Fetch and preprocess the dataframe of LFW annotations and their corresponding
     filenames."""
     # get the annotated files
@@ -66,7 +66,8 @@ def get_annotated_data_df(anno_fp, test_dir):
     anno_df.set_index(['person', 'imagenum_str'], inplace=True)
     anno_df["Mouth_Open"] = 1 - anno_df["Mouth Closed"]
     # Read the files, dropping any images which cannot be parsed
-    files = glob.glob(test_dir + "/*/*.jpg", recursive=True)
+    files = glob.glob(test_dir + filepattern, recursive=True)
+    assert len(files) > 0, "no files detected with pattern {}".format(test_dir + filepattern)
     files_df = pd.DataFrame(files, columns=['filename'])
     files_df['person'] = files_df['filename'].apply(extract_person_from_filename)
     files_df['imagenum_str'] = files_df['filename'].apply(extract_imagenum_from_filename)

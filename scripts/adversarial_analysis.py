@@ -172,8 +172,7 @@ def main(argv):
     # List to store the results of the experiment
     metrics_list = list()
 
-    # for adv_step_size_to_eval in (0.01, 0.025, 0.05, 0.1, 0.2):
-    for adv_step_size_to_eval in (0.01, 0.025):
+    for adv_step_size_to_eval in (0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
         print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
         reference_model = make_compiled_reference_model(
             model_base=vgg_model_base,

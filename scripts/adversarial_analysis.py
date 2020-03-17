@@ -17,6 +17,7 @@ python3 scripts/adversarial_analysis.py \
     --label_name $LABEL \
     --slice_attribute_name "Black" \
     --model_ext ".ckpt"
+    --base_model_ckpt /homes/gws/jpgard/dro/training-logs/Mouth_Openbs16e60lr0.01dropout0.8/Mouth_Openbs16e60lr0.01dropout0.8.h5
 """
 
 from absl import app, flags
@@ -51,7 +52,10 @@ flags.DEFINE_string("anno_fp", None, "path to annotations file for evaluation.")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
 flags.DEFINE_string("model_ext", None,
                     "file extension to use for models; either .ckpt (older trained "
-                    "models frmo this repo) or .h5.")
+                    "models from this repo) or .h5.")
+flags.DEFINE_string("base_model_ckpt", None,
+                    "optional manually-specified checkpoint to use to load the base "
+                    "model.")
 flags.DEFINE_string("slice_attribute_name", None,
                     "attribute name to use from annotations.")
 flags.DEFINE_string("label_name", None,
@@ -152,8 +156,14 @@ def main(argv):
     }
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     vgg_model_base.compile(**model_compile_args)
-    vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=False,
-                                                            ext=FLAGS.model_ext))
+    if FLAGS.base_model_ckpt:  # load from the manually-specified checkpoint
+        print("[INFO] loading from specified checkpoint {}".format(
+            FLAGS.base_model_ckpt
+        ))
+        vgg_model_base.load(filepath=FLAGS.base_model_ckpt)
+    else:  # Load from the default checkpoint path
+        vgg_model_base.load_weights(filepath=make_ckpt_filepath(
+            FLAGS, is_adversarial=False, ext=FLAGS.model_ext))
 
     # Adversarial model
     adv_config = nsl.configs.make_adv_reg_config(

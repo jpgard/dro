@@ -8,6 +8,8 @@ subgroups.
 
 usage:
 export LABEL="Mouth_Open"
+export LABEL="Sunglasses"
+export LABEL="Male"
 export DIR="/projects/grail/jpgard/lfw"
 python3 scripts/adversarial_analysis.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
@@ -168,11 +170,10 @@ def main(argv):
     adv_model.compile(**model_compile_args)
     adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True,
                                                        ext=FLAGS.model_ext))
-
     # List to store the results of the experiment
     metrics_list = list()
 
-    for adv_step_size_to_eval in (0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
+    for adv_step_size_to_eval in (0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
         print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
         reference_model = make_compiled_reference_model(
             model_base=vgg_model_base,
@@ -182,12 +183,10 @@ def main(argv):
                 adv_grad_norm=FLAGS.adv_grad_norm
             ),
             model_compile_args=model_compile_args)
-
         models_to_eval = {
             'base': vgg_model_base,
             'adv-regularized': adv_model.base_model
         }
-        print("[INFO] perturbing inputs and evaluating the model")
         for attr_val, dset in attr_dsets.items():
             # Perturb the images and get the metrics
             perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
@@ -196,6 +195,7 @@ def main(argv):
             metrics['attr_val'] = attr_val
             metrics['attr_name'] = FLAGS.slice_attribute_name
             metrics['uid'] = make_model_uid(FLAGS)
+            metrics['adv_step_size'] = adv_step_size_to_eval
             metrics_list.append(metrics)
             # Write the results for 3 batches to a file for inspection.
             adv_image_basename = \

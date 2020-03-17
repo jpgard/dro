@@ -8,11 +8,12 @@ subgroups.
 
 usage:
 export LABEL="Mouth_Open"
-export DIR="/projects/grail/jpgard/lfw/"
+export DIR="/projects/grail/jpgard/lfw"
 python3 scripts/adversarial_analysis.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled-a \
     --label_name $LABEL
+    --slice_attribute_name "Black"
 """
 
 from absl import app, flags
@@ -45,12 +46,14 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string("anno_fp", None, "path to annotations file for evaluation.")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
-flags.DEFINE_string("slice_attribute_name", "Black",
+flags.DEFINE_string("slice_attribute_name", None,
                     "attribute name to use from annotations.")
 flags.DEFINE_string("label_name", None,
                     "name of the prediction label (e.g. sunglasses, mouth_open) in the "
                     "LFW/test dataset",
                     )
+flags.mark_flag_as_required("label_name")
+flags.mark_flag_as_required("slice_attribute_name")
 flags.DEFINE_float("confidence_threshold", 0.5, "only predictions with absolute value "
                                                 ">= this threshold are used ("
                                                 "predictions are centered around zero) "

@@ -4,7 +4,7 @@ Script to fine-tune pretrained VGGFace2 model.
 usage:
 
 # set the gpu
-export GPU_ID="2"
+export GPU_ID="1"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
@@ -54,6 +54,12 @@ flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected 
 flags.DEFINE_bool("train_adversarial", True, "whether to train an adversarial model.")
 flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
                                       "model.")
+flags.DEFINE_string("base_model_ckpt", None,
+                    "optional manually-specified checkpoint to use to load the base "
+                    "model.")
+flags.DEFINE_string("adv_model_ckpt", None,
+                    "optional manually-specified checkpoint to use to load the "
+                    "adversarial model.")
 flags.DEFINE_bool("perturbation_analysis", True, "whether to conduct a perturbation "
                                                  "analysis after completing training.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
@@ -182,7 +188,11 @@ def main(argv):
         test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
         write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
 
-    else:  # load the model instead of training it
+    elif FLAGS.base_model_ckpt:
+        # load the model from specified checkpoint path instead of training it
+        vgg_model_base.load_weights(filepath=FLAGS.base_model_ckpt)
+        # load the model from default checkpoint path instead of training it
+    else:
         vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS,
                                                                 is_adversarial=False))
 
@@ -230,7 +240,9 @@ def main(argv):
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
 
-    else:  # load the model
+    elif FLAGS.adv_model_ckpt:  # load the model
+        adv_model.load_weights(FLAGS.adv_model_ckpt)
+    else:
         adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
 
     if FLAGS.perturbation_analysis:

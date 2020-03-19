@@ -16,8 +16,7 @@ python3 scripts/adversarial_analysis.py \
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
     --slice_attribute_name "Black" \
-    --model_ext ".ckpt" \
-    --base_model_ckpt /homes/gws/jpgard/dro/training-logs/Mouth_Openbs16e60lr0.01dropout0.8/Mouth_Openbs16e60lr0.01dropout0.8.h5
+    --adv_step_size 0.05
 
 """
 
@@ -51,9 +50,6 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string("anno_fp", None, "path to annotations file for evaluation.")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
-flags.DEFINE_string("model_ext", None,
-                    "file extension to use for models; either .ckpt (older trained "
-                    "models from this repo) or .h5.")
 flags.DEFINE_string("base_model_ckpt", None,
                     "optional manually-specified checkpoint to use to load the base "
                     "model.")
@@ -167,7 +163,7 @@ def main(argv):
         vgg_model_base.load_weights(filepath=FLAGS.base_model_ckpt)
     else:  # Load from the default checkpoint path
         vgg_model_base.load_weights(filepath=make_ckpt_filepath(
-            FLAGS, is_adversarial=False, ext=FLAGS.model_ext))
+            FLAGS, is_adversarial=False))
 
     # Adversarial model
     adv_config = nsl.configs.make_adv_reg_config(
@@ -185,8 +181,7 @@ def main(argv):
     if FLAGS.adv_model_ckpt:
         adv_model.load_weights(FLAGS.adv_model_ckpt)
     else:
-        adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True,
-                                                           ext=FLAGS.model_ext))
+        adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
     # List to store the results of the experiment
     metrics_list = list()
 

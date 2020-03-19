@@ -4,18 +4,20 @@ Script to fine-tune pretrained VGGFace2 model.
 usage:
 
 # set the gpu
-export GPU_ID="3"
+export GPU_ID="1"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
-export LABEL="Sunglasses"
+export LABEL="Mouth_Open"
 export DIR="/projects/grail/jpgard/vggface2/annotated_partitioned_by_label/"
+export SS=0.025
+export EPOCHS=40
 python3 scripts/train_vggface2.py \
     --label_name $LABEL \
     --test_dir ${DIR}/test/${LABEL} \
     --train_dir ${DIR}/train/${LABEL} \
-    --adv_step_size 0.05 --epochs 40
+    --adv_step_size $SS --epochs $EPOCHS --notrain_base
 
 
 
@@ -53,7 +55,8 @@ flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.DEFINE_bool("train_adversarial", True, "whether to train an adversarial model.")
 flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
-                                      "model.")
+                                      "model. Otherwise it will be loaded from the "
+                                      "default or provided checkpoint.")
 flags.DEFINE_string("base_model_ckpt", None,
                     "optional manually-specified checkpoint to use to load the base "
                     "model.")
@@ -67,6 +70,7 @@ flags.DEFINE_string("label_name", None,
                     "name of the prediction label (e.g. sunglasses, mouth_open)",
                     )
 flags.mark_flag_as_required("label_name")
+flags.mark_flag_as_required("train_dir")
 flags.DEFINE_bool("debug", False,
                   "whether to run in debug mode (super short iterations to check for "
                   "bugs)")

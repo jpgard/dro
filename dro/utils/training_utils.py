@@ -235,8 +235,7 @@ def metrics_to_dict(metrics):
     return results
 
 
-def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model,
-                         print_results=True):
+def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
     """Perturbs the entire test set using adversarial training and computes metrics
     over that set."""
     print("[INFO] perturbing images...")

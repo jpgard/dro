@@ -10,14 +10,28 @@ usage:
 export LABEL="Mouth_Open"
 export LABEL="Sunglasses"
 export LABEL="Male"
+export SS=0.05
+export EPOCHS=40
+
 export DIR="/projects/grail/jpgard/lfw"
 python3 scripts/adversarial_analysis.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
     --slice_attribute_name "Black" \
-    --adv_step_size 0.05
+    --adv_step_size 0.05 \
+    --epochs 40
 
+for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
+do
+    echo python3 scripts/adversarial_analysis.py \
+    --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
+    --test_dir ${DIR}/lfw-deepfunneled \
+    --label_name $LABEL \
+    --slice_attribute_name $SLICE_ATTR \
+    --adv_step_size $SS \
+    --epochs $EPOCHS
+done
 """
 
 from absl import app, flags
@@ -95,13 +109,6 @@ def main(argv):
     assert len(annotated_files) > 0, "no files detected"
     dset_df = annotated_files.reset_index()[
         ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
-    # # Show histograms of the distributions
-    # dset_df[FLAGS.label_name].hist(bins=25)
-    # plt.title(FLAGS.label_name)
-    # plt.show()
-    # dset_df[FLAGS.slice_attribute_name].hist(bins=25)
-    # plt.title(FLAGS.slice_attribute_name)
-    # plt.show()
     # Apply thresholding. We want observations which have absolute value greater than some
     # threshold (predictions close to zero have low confidence). Need to inspect
     # the distributions a bit to decide a good threshold for each feature.
@@ -223,8 +230,8 @@ def main(argv):
                                     predictions=predictions,
                                     fp_basename=adv_image_basename,
                                     batch_size=FLAGS.batch_size)
-    metrics_fp = "./metrics/{}-adversarial-analysis.csv".format(
-        make_model_uid(FLAGS, is_adversarial=True))
+    metrics_fp = "./metrics/{}-{}-adversarial-analysis.csv".format(
+        make_model_uid(FLAGS, is_adversarial=True), FLAGS.slice_attribute_name)
     print("[INFO] writing results to {}".format(metrics_fp))
     pd.DataFrame(metrics_list).to_csv(metrics_fp)
 

@@ -24,7 +24,7 @@ python3 scripts/adversarial_analysis.py \
 
 for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
 do
-    echo python3 scripts/adversarial_analysis.py \
+    python3 scripts/adversarial_analysis.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \

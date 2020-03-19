@@ -4,12 +4,12 @@ Script to fine-tune pretrained VGGFace2 model.
 usage:
 
 # set the gpu
-export GPU_ID="1"
+export GPU_ID="3"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
-export LABEL="Male"
+export LABEL="Sunglasses"
 export DIR="/projects/grail/jpgard/vggface2/annotated_partitioned_by_label/"
 python3 scripts/train_vggface2.py \
     --label_name $LABEL \
@@ -265,8 +265,7 @@ def main(argv):
         perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
             test_ds_adv, models_to_eval, reference_model)
 
-        adv_image_basename = "./debug/adv-examples-{}-{}".format(
-            make_model_uid(FLAGS), FLAGS.slice_attribute_name)
+        adv_image_basename = "./debug/adv-examples-{}".format(make_model_uid(FLAGS))
 
         show_adversarial_resuts(n_batches=10,
                                 perturbed_images=perturbed_images,

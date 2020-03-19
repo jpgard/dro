@@ -3,14 +3,14 @@
 the users face, not other elements in the image (clothing, background), as much as
 possible.
 
-export GPU_ID="6"
+export GPU_ID="4"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 python3 scripts/detect_faces.py \
---img_dir /Users/jpgard/Documents/research/vggface2/train/ \
---out_dir ./tmp/train_cropped \
---filepattern "**[0-2]/*.jpg"
+--img_dir /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/train/Sunglasses/ \
+--out_dir /projects/grail/jpgard/vggface2/annotated_cropped/train \
+
 
 python3 scripts/detect_faces.py \
 --img_dir /projects/grail/jpgard/vggface2/train/ \

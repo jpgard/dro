@@ -9,8 +9,7 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 python3 scripts/extract_vgg_embeddings.py \
-    --img_dir \
-    /Users/jpgard/Documents/research/vggface2/train_partitioned_by_label/mouth_open_tiny
+    --img_dir  /projects/grail/jpgard/vggface2/annotated_cropped/train
 """
 
 from absl import app

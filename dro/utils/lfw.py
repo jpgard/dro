@@ -9,13 +9,11 @@ import numpy as np
 
 from dro.utils.training_utils import process_path
 
-# Mapping between names of the features in the different datasets
-LFW_TO_VGG_LABEL_MAPPING = {
-    "Mouth_Open": "Mouth_Open"
-}
-
 # Regex used to parse the LFW filenames
 LFW_FILENAME_REGEX = re.compile("(\w+_\w+)_(\d{4})\.jpg")
+
+LABEL_COLNAME = "label"
+ATTR_COLNAME = "attr"
 
 
 def extract_person_from_filename(x):
@@ -58,7 +56,11 @@ def apply_thresh(df, colname, thresh: float):
 
 def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):
     """Fetch and preprocess the dataframe of LFW annotations and their corresponding
-    filenames."""
+    filenames.
+
+    Returns: A pd.DataFrame indexed by person_id and image_num, with columns for each
+    attribute.
+    """
     # get the annotated files
     anno_df = pd.read_csv(anno_fp, delimiter="\t")
     anno_df['imagenum_str'] = anno_df['imagenum'].apply(lambda x: f'{x:04}')

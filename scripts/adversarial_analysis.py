@@ -41,7 +41,7 @@ import tensorflow as tf
 import pandas as pd
 
 from dro.utils.lfw import build_dataset_from_dataframe, apply_thresh, \
-    get_annotated_data_df
+    get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME
 from dro.utils.training_utils import preprocess_dataset, pred_to_binary
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
@@ -107,30 +107,39 @@ def main(argv):
     annotated_files = get_annotated_data_df(anno_fp=FLAGS.anno_fp,
                                             test_dir=FLAGS.test_dir)
     assert len(annotated_files) > 0, "no files detected"
+
+    # Create a DataFrame with columns for (filename, label, slice_attribute); the columns
+    # need to be renamed to generic LABEL_COLNAME and ATTR_COLNAME in order to allow
+    # for cases where label and attribute names are the same (e.g. slicing 'Male'
+    # prediction by 'Male' attribute).
+
     dset_df = annotated_files.reset_index()[
-        ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]]
+        ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]].rename(
+        {FLAGS.label_name: LABEL_COLNAME, FLAGS.slice_attribute_name: ATTR_COLNAME}
+    )
+
     # Apply thresholding. We want observations which have absolute value greater than some
-    # threshold (predictions close to zero have low confidence). Need to inspect
-    # the distributions a bit to decide a good threshold for each feature.
-    dset_df = apply_thresh(dset_df, FLAGS.label_name,
+    # threshold (predictions close to zero have low confidence).
+
+    dset_df = apply_thresh(dset_df, LABEL_COLNAME,
                            FLAGS.confidence_threshold)
-    dset_df = apply_thresh(dset_df, FLAGS.slice_attribute_name,
+    dset_df = apply_thresh(dset_df, ATTR_COLNAME,
                            FLAGS.confidence_threshold)
 
-    dset_df[FLAGS.label_name] = dset_df[FLAGS.label_name].apply(pred_to_binary)
-    dset_df[FLAGS.slice_attribute_name] = dset_df[FLAGS.slice_attribute_name].apply(
+    dset_df[LABEL_COLNAME] = dset_df[LABEL_COLNAME].apply(pred_to_binary)
+    dset_df[ATTR_COLNAME] = dset_df[ATTR_COLNAME].apply(
         pred_to_binary)
 
     # Break the input dataset into separate tf.Datasets based on the value of the slice
     # attribute.
     dset_attr_pos = build_dataset_from_dataframe(
-        dset_df[dset_df[FLAGS.slice_attribute_name] == 1],
+        dset_df[dset_df[ATTR_COLNAME] == 1],
         label_name=FLAGS.label_name
     )
     dset_attr_pos = preprocess_dataset(dset_attr_pos, shuffle=False,
                                        repeat_forever=False, batch_size=FLAGS.batch_size)
     dset_attr_neg = build_dataset_from_dataframe(
-        dset_df[dset_df[FLAGS.slice_attribute_name] == 0],
+        dset_df[dset_df[ATTR_COLNAME] == 0],
         label_name=FLAGS.label_name
     )
     dset_attr_neg = preprocess_dataset(dset_attr_neg, shuffle=False,

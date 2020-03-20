@@ -18,9 +18,9 @@ python3 scripts/adversarial_analysis.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
-    --slice_attribute_name "Black" \
-    --adv_step_size 0.05 \
-    --epochs 40
+    --slice_attribute_name $SLICE_ATTR \
+    --adv_step_size $SS \
+    --epochs $EPOCHS
 
 for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
 do
@@ -115,7 +115,8 @@ def main(argv):
 
     dset_df = annotated_files.reset_index()[
         ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]].rename(
-        {FLAGS.label_name: LABEL_COLNAME, FLAGS.slice_attribute_name: ATTR_COLNAME}
+        columns={FLAGS.label_name: LABEL_COLNAME,
+                 FLAGS.slice_attribute_name: ATTR_COLNAME}
     )
 
     # Apply thresholding. We want observations which have absolute value greater than some

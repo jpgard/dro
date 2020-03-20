@@ -133,13 +133,13 @@ def main(argv):
     # attribute.
     dset_attr_pos = build_dataset_from_dataframe(
         dset_df[dset_df[ATTR_COLNAME] == 1],
-        label_name=FLAGS.label_name
+        label_name=LABEL_COLNAME
     )
     dset_attr_pos = preprocess_dataset(dset_attr_pos, shuffle=False,
                                        repeat_forever=False, batch_size=FLAGS.batch_size)
     dset_attr_neg = build_dataset_from_dataframe(
         dset_df[dset_df[ATTR_COLNAME] == 0],
-        label_name=FLAGS.label_name
+        label_name=LABEL_COLNAME
     )
     dset_attr_neg = preprocess_dataset(dset_attr_neg, shuffle=False,
                                        repeat_forever=False, batch_size=FLAGS.batch_size)

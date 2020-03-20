@@ -14,6 +14,7 @@ LFW_FILENAME_REGEX = re.compile("(\w+_\w+)_(\d{4})\.jpg")
 
 LABEL_COLNAME = "label"
 ATTR_COLNAME = "attr"
+FILENAME_COLNAME = "filename"
 
 
 def extract_person_from_filename(x):

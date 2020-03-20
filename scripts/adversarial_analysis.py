@@ -41,7 +41,7 @@ import tensorflow as tf
 import pandas as pd
 
 from dro.utils.lfw import build_dataset_from_dataframe, apply_thresh, \
-    get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME
+    get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME, FILENAME_COLNAME
 from dro.utils.training_utils import preprocess_dataset, pred_to_binary
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
@@ -114,10 +114,8 @@ def main(argv):
     # prediction by 'Male' attribute).
 
     dset_df = annotated_files.reset_index()[
-        ['filename', FLAGS.label_name, FLAGS.slice_attribute_name]].rename(
-        columns={FLAGS.label_name: LABEL_COLNAME,
-                 FLAGS.slice_attribute_name: ATTR_COLNAME}
-    )
+        [FILENAME_COLNAME, FLAGS.label_name, FLAGS.slice_attribute_name]]
+    dset_df.columns = [FILENAME_COLNAME, LABEL_COLNAME, ATTR_COLNAME]
 
     # Apply thresholding. We want observations which have absolute value greater than some
     # threshold (predictions close to zero have low confidence).

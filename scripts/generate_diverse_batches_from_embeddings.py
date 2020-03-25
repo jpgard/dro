@@ -105,6 +105,7 @@ def main(argv):
     index_vals = embeddings.index.values
     batch_values = batch_indices_to_values(DPP.list_of_samples, index_vals)
     batch_values = np.array(batch_values)
+    print("[INFO] writing output to {}".format(FLAGS.batches_fp))
     np.savez_compressed(FLAGS.batches_fp, batch_values)
     return
 

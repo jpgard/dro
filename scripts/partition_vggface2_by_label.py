@@ -29,7 +29,8 @@ from dro.utils.vggface import make_annotations_df, get_key_from_fp, get_person_i
 FLAGS = flags.FLAGS
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
 flags.DEFINE_string("out_dir", None, "directory to output")
-flags.DEFINE_string("anno_dir", None, "path to the target annotation file.")
+flags.DEFINE_string("anno_dir", None,
+                    "path to the directory containing the vggface annotation files.")
 flags.DEFINE_float("train_frac", 0.9, "proportion of persons (not image!) to allocate to "
                                       "training; the rest is for testing. All images "
                                       "for a given "

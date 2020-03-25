@@ -37,6 +37,7 @@ from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
     write_test_metrics_to_csv, get_train_metrics
+from dro.datasets import ImageDataset
 
 
 tf.compat.v1.enable_eager_execution()
@@ -75,6 +76,8 @@ flags.DEFINE_string("precomputed_batches_fp", None,
                     "Optional filepath to a set of precomputed batches; if provided, "
                     "these will be used for training instead of randomly-shuffled "
                     "batches of training data.")
+flags.DEFINE_string("anno_dir", None,
+                    "path to the directory containing the vggface annotation files.")
 flags.mark_flag_as_required("label_name")
 flags.mark_flag_as_required("train_dir")
 flags.DEFINE_bool("debug", False,
@@ -111,15 +114,16 @@ def main(argv):
     n_val = int(n_train_val * FLAGS.val_frac)
     n_train = n_train_val - n_val
 
+    train_ds = ImageDataset()
+    test_ds = ImageDataset()
     if FLAGS.precomputed_batches_fp:
+        from dro.utils.vggface import make_annotations_df
+        attributes_df = make_annotations_df()
         import ipdb;ipdb.set_trace()
     else:
         # Create the datasets and process files to create (x,y) tuples.
-        from dro.datasets import ImageDataset
-        train_ds = ImageDataset()
         train_ds.from_files(train_file_pattern, shuffle=True)
         val_ds = train_ds.validation_split(n_val)
-        test_ds = ImageDataset()
         test_ds.from_files(test_file_pattern, shuffle=False)
         # Preprocess the datasets
         train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)

@@ -36,9 +36,8 @@ import neural_structured_learning as nsl
 from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
-    write_test_metrics_to_csv, get_train_metrics, convert_to_dictionaries
-from dro.datasets import preprocess_dataset, process_path
-from dro.utils.viz import show_batch
+    write_test_metrics_to_csv, get_train_metrics
+
 
 tf.compat.v1.enable_eager_execution()
 
@@ -106,8 +105,7 @@ def main(argv):
     n_val = int(n_train_val * FLAGS.val_frac)
     n_train = n_train_val - n_val
 
-    # Create the datasets and process files to create (x,y) tuples. Set
-    # `num_parallel_calls` so multiple images are loaded/processed in parallel.
+    # Create the datasets and process files to create (x,y) tuples.
 
     from dro.datasets import ImageDataset
     train_ds = ImageDataset()
@@ -142,12 +140,12 @@ def main(argv):
         steps_per_val_epoch = 1
 
     # Save a sample batch to png for debugging
-    if False:
-        train_ds.write_sample_batch("./debug/sample_batch_label-train-{}-{}.png".format(
-            FLAGS.label_name, int(time.time())))
-        test_ds.write_sample_batch(
-            fp="./debug/sample_batch_label-test-{}-{}.png".format(FLAGS.label_name,
-                                                                  int(time.time())))
+
+    train_ds.write_sample_batch("./debug/sample_batch_label-train-{}-{}.png".format(
+        FLAGS.label_name, int(time.time())))
+    test_ds.write_sample_batch(
+        fp="./debug/sample_batch_label-test-{}-{}.png".format(FLAGS.label_name,
+                                                              int(time.time())))
     # image_batch, label_batch = next(iter(train_ds))
     # show_batch(image_batch.numpy(), label_batch.numpy(),
     #            fp=

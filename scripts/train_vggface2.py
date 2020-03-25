@@ -113,17 +113,10 @@ def main(argv):
     val_ds = train_ds.validation_split(n_val)
     test_ds = ImageDataset()
     test_ds.from_files(test_file_pattern, shuffle=False)
-    # preprocess the datasets
-    # TODO(jpgard): should be fine to remove 'AUTOTUNE'; this is just a constant
-    #  see https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/data/experimental
-    train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size,
-                        prefetch_buffer_size=AUTOTUNE)
-    val_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size,
-                      prefetch_buffer_size=AUTOTUNE)
-    test_ds.preprocess(repeat_forever=False,
-                       shuffle=False,
-                       batch_size=FLAGS.batch_size,
-                       prefetch_buffer_size=AUTOTUNE)
+    # Preprocess the datasets
+    train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
+    val_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
+    test_ds.preprocess(repeat_forever=False, shuffle=False, batch_size=FLAGS.batch_size)
 
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     print("[INFO] {n_train} training observations; {n_val} validation observations"
@@ -139,23 +132,9 @@ def main(argv):
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    # Save a sample batch to png for debugging
+    # TODO(jpgard): Save a sample batch to png for debugging via
+    #  ImageDataset.write_sample_batch(); currently this functionality is broken.
 
-    train_ds.write_sample_batch("./debug/sample_batch_label-train-{}-{}.png".format(
-        FLAGS.label_name, int(time.time())))
-    test_ds.write_sample_batch(
-        fp="./debug/sample_batch_label-test-{}-{}.png".format(FLAGS.label_name,
-                                                              int(time.time())))
-    # image_batch, label_batch = next(iter(train_ds))
-    # show_batch(image_batch.numpy(), label_batch.numpy(),
-    #            fp=
-    #            )
-
-    # image_batch_test, label_batch_test = next(iter(test_ds))
-    # show_batch(image_batch_test.numpy(), label_batch_test.numpy(),
-    #            fp="./debug/sample_batch_label-test-{}-{}.png".format(FLAGS.label_name,
-    #                                                                  int(time.time()))
-    #            )
     # The metrics to optimize during training
     train_metrics_dict = get_train_metrics()
     # .evaluate() automatically prepends the loss(es), so it will always include at
@@ -219,10 +198,8 @@ def main(argv):
 
     test_ds_adv = ImageDataset()
     test_ds_adv.from_files(test_file_pattern, shuffle=False)
-    test_ds_adv.preprocess(repeat_forever=False,
-                           shuffle=False,
-                           batch_size=FLAGS.batch_size,
-                           prefetch_buffer_size=AUTOTUNE)
+    test_ds_adv.preprocess(repeat_forever=False, shuffle=False,
+                           batch_size=FLAGS.batch_size)
     test_ds_adv.convert_to_dictionaries()
 
     if FLAGS.train_adversarial:

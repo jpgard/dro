@@ -2,34 +2,16 @@
 Classes for working with datasets.
 """
 from abc import ABC, abstractmethod
+import os
+from functools import partial
 
 import tensorflow as tf
 
 from dro.keys import SHUFFLE_RANDOM_SEED
-from dro.utils.training_utils import AUTOTUNE
+from dro.utils.viz import show_batch
+from dro.utils.training_utils import convert_to_dictionaries
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
-
-
-class ImageDataset(ABC):
-    def __init__(self):
-        self.n_train = None
-        self.n_val = None
-        self.n_test = None
-        self.dataset = None
-
-    def from_files(self, file_pattern: str, shuffle: bool,
-                   random_seed=SHUFFLE_RANDOM_SEED):
-        self.dataset = tf.data.Dataset.list_files(
-            file_pattern, shuffle=shuffle, seed=random_seed) \
-            .map(process_path, num_parallel_calls=AUTOTUNE)
-        return
-
-    def preprocess(self, ds, cache=True, shuffle_buffer_size=1000,
-                   repeat_forever=False, batch_size: int = None,
-                   prefetch_buffer_size=AUTOTUNE, shuffle=True,
-                   epochs: int = None):
-        pass
 
 
 def preprocess_dataset(
@@ -63,6 +45,13 @@ def preprocess_dataset(
     # is training.
     ds = ds.prefetch(buffer_size=prefetch_buffer_size)
     return ds
+
+
+def get_label(file_path):
+    # convert the path to a list of path components
+    label = tf.strings.substr(file_path, -21, 1)
+    # The second to last is the class-directory
+    return tf.strings.to_number(label, out_type=tf.int32)
 
 
 def process_path(file_path, crop=True, labels=True):
@@ -110,8 +99,49 @@ def decode_img(img, normalize_by_channel=False, crop=True):
     return img
 
 
-def get_label(file_path):
-    # convert the path to a list of path components
-    label = tf.strings.substr(file_path, -21, 1)
-    # The second to last is the class-directory
-    return tf.strings.to_number(label, out_type=tf.int32)
+class ImageDataset(ABC):
+    def __init__(self):
+        self.n_train = None
+        self.n_val = None
+        self.n_test = None
+        self.dataset = None
+
+    def from_files(self, file_pattern: str, shuffle: bool,
+                   random_seed=SHUFFLE_RANDOM_SEED, labels: bool = True):
+        """Create a dataset from the filepattern and preprocess into (x,y) tuples,
+        or just x if labels==False."""
+        self.dataset = tf.data.Dataset.list_files(file_pattern, shuffle=shuffle,
+                                                  seed=random_seed)
+        # import ipdb;
+        # ipdb.set_trace()
+        _process_path = partial(process_path, labels=labels)
+        self.dataset = self.dataset.map(process_path, num_parallel_calls=AUTOTUNE)
+        return
+
+    def validation_split(self, n_val):
+        """Create a validation split by extracting elements from the current dataset.
+
+        Elements in validation dataset will not appear in self.dataset after this
+        operation, unless the dataset already contained duplicates or was repeated
+        using tf.data.Dataset.repeat() prior to calling this function.
+
+        :param n_val: number of validation samples to extract.
+        :return: a new instance of ImageDataset with the validation set.
+        """
+        val_ds = ImageDataset()
+        val_ds.dataset = self.dataset.take(n_val)
+        return val_ds
+
+    def preprocess(self, **kwargs):
+        self.dataset = preprocess_dataset(self.dataset, **kwargs)
+
+    def write_sample_batch(self, fp: str):
+        """Write a sample batch of the current dataset to fp."""
+        image_batch, label_batch = next(iter(self.dataset))
+        show_batch(image_batch=image_batch.numpy(),
+                   label_batch=label_batch.numpy(),
+                   fp=fp)
+
+    def convert_to_dictionaries(self):
+        """Convert the dataset to a set of key, value pairs as a dictionary."""
+        self.dataset = self.dataset.map(convert_to_dictionaries)

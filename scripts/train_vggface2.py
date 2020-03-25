@@ -103,17 +103,31 @@ def main(argv):
     n_train_val = get_n_from_file_pattern(train_file_pattern)
     n_test = get_n_from_file_pattern(test_file_pattern)
 
-    # Create the datasets and process files to create (x,y) tuples. Set
-    # `num_parallel_calls` so multiple images are loaded/processed in parallel.
-    train_val_input_ds = tf.data.Dataset.list_files(
-        train_file_pattern, shuffle=True, seed=2974) \
-        .map(process_path, num_parallel_calls=AUTOTUNE)
-    test_input_ds = tf.data.Dataset.list_files(test_file_pattern, shuffle=False) \
-        .map(process_path, num_parallel_calls=AUTOTUNE)
-
-    vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     n_val = int(n_train_val * FLAGS.val_frac)
     n_train = n_train_val - n_val
+
+    # Create the datasets and process files to create (x,y) tuples. Set
+    # `num_parallel_calls` so multiple images are loaded/processed in parallel.
+
+    from dro.datasets import ImageDataset
+    train_ds = ImageDataset()
+    train_ds.from_files(train_file_pattern, shuffle=True)
+    val_ds = train_ds.validation_split(n_val)
+    test_ds = ImageDataset()
+    test_ds.from_files(test_file_pattern, shuffle=False)
+    # preprocess the datasets
+    # TODO(jpgard): should be fine to remove 'AUTOTUNE'; this is just a constant
+    #  see https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/data/experimental
+    train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size,
+                        prefetch_buffer_size=AUTOTUNE)
+    val_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size,
+                      prefetch_buffer_size=AUTOTUNE)
+    test_ds.preprocess(repeat_forever=False,
+                       shuffle=False,
+                       batch_size=FLAGS.batch_size,
+                       prefetch_buffer_size=AUTOTUNE)
+
+    vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     print("[INFO] {n_train} training observations; {n_val} validation observations"
           "{n_test} testing observations".format(n_train=n_train,
                                                  n_val=n_val,
@@ -127,37 +141,23 @@ def main(argv):
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    # Build the datasets. Take the validation samples from the training data prior to
-    # doing any preprocessing or repeating; this ensures validation and train sets do
-    # not overlap. Note that we create new variables (instead of reassigning the same
-    # variable) because the original, unprocessed versions are needed for re-processing
-    # prior to the adversarial training below.
-
-    val_ds_pre = train_val_input_ds.take(n_val)
-    val_ds = preprocess_dataset(val_ds_pre, repeat_forever=True,
-                                batch_size=FLAGS.batch_size,
-                                prefetch_buffer_size=AUTOTUNE)
-    test_ds = preprocess_dataset(test_input_ds, repeat_forever=False,
-                                 shuffle=False,
-                                 batch_size=FLAGS.batch_size,
-                                 prefetch_buffer_size=AUTOTUNE)
-
-    train_ds = preprocess_dataset(train_val_input_ds, repeat_forever=True,
-                                  batch_size=FLAGS.batch_size,
-                                  prefetch_buffer_size=AUTOTUNE)
-
     # Save a sample batch to png for debugging
-    image_batch, label_batch = next(iter(train_ds))
-    show_batch(image_batch.numpy(), label_batch.numpy(),
-               fp="./debug/sample_batch_label-train-{}-{}.png".format(FLAGS.label_name,
-                                                                      int(time.time()))
-               )
+    if False:
+        train_ds.write_sample_batch("./debug/sample_batch_label-train-{}-{}.png".format(
+            FLAGS.label_name, int(time.time())))
+        test_ds.write_sample_batch(
+            fp="./debug/sample_batch_label-test-{}-{}.png".format(FLAGS.label_name,
+                                                                  int(time.time())))
+    # image_batch, label_batch = next(iter(train_ds))
+    # show_batch(image_batch.numpy(), label_batch.numpy(),
+    #            fp=
+    #            )
 
-    image_batch_test, label_batch_test = next(iter(test_ds))
-    show_batch(image_batch_test.numpy(), label_batch_test.numpy(),
-               fp="./debug/sample_batch_label-test-{}-{}.png".format(FLAGS.label_name,
-                                                                     int(time.time()))
-               )
+    # image_batch_test, label_batch_test = next(iter(test_ds))
+    # show_batch(image_batch_test.numpy(), label_batch_test.numpy(),
+    #            fp="./debug/sample_batch_label-test-{}-{}.png".format(FLAGS.label_name,
+    #                                                                  int(time.time()))
+    #            )
     # The metrics to optimize during training
     train_metrics_dict = get_train_metrics()
     # .evaluate() automatically prepends the loss(es), so it will always include at
@@ -184,11 +184,11 @@ def main(argv):
     if FLAGS.train_base:
         print("[INFO] training base model")
         callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
-        vgg_model_base.fit_generator(train_ds, callbacks=callbacks_base,
-                                     validation_data=val_ds, **train_args)
+        vgg_model_base.fit_generator(train_ds.dataset, callbacks=callbacks_base,
+                                     validation_data=val_ds.dataset, **train_args)
 
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        test_metrics = vgg_model_base.evaluate_generator(test_ds)
+        test_metrics = vgg_model_base.evaluate_generator(test_ds.dataset)
         assert len(train_metrics_names) == len(test_metrics)
         test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
         write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
@@ -216,27 +216,24 @@ def main(argv):
 
     adv_model.compile(**model_compile_args)
 
-    train_ds_adv = train_ds.map(convert_to_dictionaries)
-    val_ds_adv = val_ds.map(convert_to_dictionaries)
+    train_ds.convert_to_dictionaries()
+    val_ds.convert_to_dictionaries()
 
-    # The test dataset can be initialized from test_input_ds; preprocess_dataset()
-    # will re-initialize it as a fresh generator from the same elements.
-
-    test_ds_adv = preprocess_dataset(
-        test_input_ds,
-        repeat_forever=False,
-        shuffle=False,
-        batch_size=FLAGS.batch_size,
-        prefetch_buffer_size=AUTOTUNE)
-    test_ds_adv = test_ds_adv.map(convert_to_dictionaries)
+    test_ds_adv = ImageDataset()
+    test_ds_adv.from_files(test_file_pattern, shuffle=False)
+    test_ds_adv.preprocess(repeat_forever=False,
+                           shuffle=False,
+                           batch_size=FLAGS.batch_size,
+                           prefetch_buffer_size=AUTOTUNE)
+    test_ds_adv.convert_to_dictionaries()
 
     if FLAGS.train_adversarial:
         print("[INFO] training adversarial model")
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
-        adv_model.fit_generator(train_ds_adv, callbacks=callbacks_adv,
-                                validation_data=val_ds_adv,
+        adv_model.fit_generator(train_ds.dataset, callbacks=callbacks_adv,
+                                validation_data=val_ds.dataset,
                                 **train_args)
-        test_metrics_adv = adv_model.evaluate_generator(test_ds_adv)
+        test_metrics_adv = adv_model.evaluate_generator(test_ds_adv.dataset)
         # The evaluate_generator() function adds the total_loss and adversarial_loss,
         # so here we include those.
         test_metrics_adv_names = \
@@ -268,7 +265,7 @@ def main(argv):
         }
 
         perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
-            test_ds_adv, models_to_eval, reference_model)
+            test_ds_adv.dataset, models_to_eval, reference_model)
 
         adv_image_basename = "./debug/adv-examples-{}".format(make_model_uid(FLAGS))
 

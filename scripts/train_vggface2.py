@@ -71,6 +71,10 @@ flags.DEFINE_string("label_name", None,
                     )
 flags.DEFINE_string("experiment_uid", None, "Optional string identifier to be used to "
                                             "uniquely identify this experiment.")
+flags.DEFINE_string("precomputed_batches_fp", None,
+                    "Optional filepath to a set of precomputed batches; if provided, "
+                    "these will be used for training instead of randomly-shuffled "
+                    "batches of training data.")
 flags.mark_flag_as_required("label_name")
 flags.mark_flag_as_required("train_dir")
 flags.DEFINE_bool("debug", False,
@@ -107,18 +111,20 @@ def main(argv):
     n_val = int(n_train_val * FLAGS.val_frac)
     n_train = n_train_val - n_val
 
-    # Create the datasets and process files to create (x,y) tuples.
-
-    from dro.datasets import ImageDataset
-    train_ds = ImageDataset()
-    train_ds.from_files(train_file_pattern, shuffle=True)
-    val_ds = train_ds.validation_split(n_val)
-    test_ds = ImageDataset()
-    test_ds.from_files(test_file_pattern, shuffle=False)
-    # Preprocess the datasets
-    train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
-    val_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
-    test_ds.preprocess(repeat_forever=False, shuffle=False, batch_size=FLAGS.batch_size)
+    if FLAGS.precomputed_batches_fp:
+        import ipdb;ipdb.set_trace()
+    else:
+        # Create the datasets and process files to create (x,y) tuples.
+        from dro.datasets import ImageDataset
+        train_ds = ImageDataset()
+        train_ds.from_files(train_file_pattern, shuffle=True)
+        val_ds = train_ds.validation_split(n_val)
+        test_ds = ImageDataset()
+        test_ds.from_files(test_file_pattern, shuffle=False)
+        # Preprocess the datasets
+        train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
+        val_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
+        test_ds.preprocess(repeat_forever=False, shuffle=False, batch_size=FLAGS.batch_size)
 
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     print("[INFO] {n_train} training observations; {n_val} validation observations"

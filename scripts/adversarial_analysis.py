@@ -40,10 +40,9 @@ import time
 import tensorflow as tf
 import pandas as pd
 
-from dro.utils.lfw import build_dataset_from_dataframe, apply_thresh, \
+from dro.utils.lfw import  apply_thresh, \
     get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME, FILENAME_COLNAME
 from dro.utils.training_utils import pred_to_binary
-from dro.datasets import preprocess_dataset
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
 from dro.keys import LABEL_INPUT_NAME
@@ -92,6 +91,8 @@ flags.DEFINE_string("ckpt_dir", "./training-logs", "directory to save/load check
 flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
 flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
 flags.mark_flag_as_required("label_name")
+flags.DEFINE_string("experiment_uid", None, "Optional string identifier to be used to "
+                                            "uniquely identify this experiment.")
 
 # the adversarial training parameters
 flags.DEFINE_float('adv_multiplier', 0.2,
@@ -132,33 +133,40 @@ def main(argv):
 
     # Break the input dataset into separate tf.Datasets based on the value of the slice
     # attribute.
-    dset_attr_pos = build_dataset_from_dataframe(
-        dset_df[dset_df[ATTR_COLNAME] == 1],
-        label_name=LABEL_COLNAME
-    )
-    dset_attr_pos = preprocess_dataset(dset_attr_pos, shuffle=False,
-                                       repeat_forever=False, batch_size=FLAGS.batch_size)
-    dset_attr_neg = build_dataset_from_dataframe(
-        dset_df[dset_df[ATTR_COLNAME] == 0],
-        label_name=LABEL_COLNAME
-    )
-    dset_attr_neg = preprocess_dataset(dset_attr_neg, shuffle=False,
-                                       repeat_forever=False, batch_size=FLAGS.batch_size)
-    image_batch, label_batch = next(iter(dset_attr_pos))
-    show_batch(image_batch.numpy(), label_batch.numpy(),
-               fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
-                   FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
-               )
+    # TODO(jpgard): migrate this script to ImageDataSet() class
+    from dro.datasets import ImageDataset
+    # Create and preprocess the dataset of examples where ATTR_COLNAME == 1
+    preprocessing_kwargs = {"shuffle": False, "repeat_forever": False, "batch_size":
+        FLAGS.batch_size}
+    dset_attr_pos = ImageDataset()
+    dset_attr_pos.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 1],
+                                 label_name=LABEL_COLNAME)
+    dset_attr_pos.preprocess(**preprocessing_kwargs)
 
-    image_batch, label_batch = next(iter(dset_attr_neg))
-    show_batch(image_batch.numpy(), label_batch.numpy(),
-               fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
-                   FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
-               )
+    # Create and process the dataset of examples where ATTR_COLNAME == 1
+    dset_attr_neg = ImageDataset()
+    dset_attr_neg.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 0],
+                                 label_name=LABEL_COLNAME)
+    dset_attr_neg.preprocess(**preprocessing_kwargs)
+
+    # TODO(jpgard): need to get the show_batch() function to work; this is important to
+    #  debugging results, manual validation, and results for pubs.
+
+    # image_batch, label_batch = next(iter(dset_attr_pos.dataset))
+    # show_batch(image_batch.numpy(), label_batch.numpy(),
+    #            fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
+    #                FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
+    #            )
+    #
+    # image_batch, label_batch = next(iter(dset_attr_neg.dataset))
+    # show_batch(image_batch.numpy(), label_batch.numpy(),
+    #            fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
+    #                FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
+    #            )
 
     # Convert the datasets into dicts for use in adversarial model.
-    dset_attr_neg = dset_attr_neg.map(convert_to_dictionaries)
-    dset_attr_pos = dset_attr_pos.map(convert_to_dictionaries)
+    dset_attr_neg.convert_to_dictionaries()
+    dset_attr_pos.convert_to_dictionaries()
     attr_dsets = {"1": dset_attr_pos, "0": dset_attr_neg}
 
     # load the models
@@ -218,7 +226,7 @@ def main(argv):
         for attr_val, dset in attr_dsets.items():
             # Perturb the images and get the metrics
             perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
-                dset, models_to_eval, reference_model)
+                dset.dataset, models_to_eval, reference_model)
             # Add other identifiers to the metrics dict and save to metrics_list
             metrics['attr_val'] = attr_val
             metrics['attr_name'] = FLAGS.slice_attribute_name
@@ -233,12 +241,16 @@ def main(argv):
                     val=attr_val,
                     ss=adv_step_size_to_eval
                 )
-            show_adversarial_resuts(n_batches=3,
-                                    perturbed_images=perturbed_images,
-                                    labels=labels,
-                                    predictions=predictions,
-                                    fp_basename=adv_image_basename,
-                                    batch_size=FLAGS.batch_size)
+
+            # TODO(jpgard): get show_adversarial_results() working; this is also
+            #  critical to debugging, validation, and results for pub.
+            # show_adversarial_resuts(n_batches=3,
+            #                         perturbed_images=perturbed_images,
+            #                         labels=labels,
+            #                         predictions=predictions,
+            #                         fp_basename=adv_image_basename,
+            #                         batch_size=FLAGS.batch_size)
+
     metrics_fp = "./metrics/{}-{}-adversarial-analysis.csv".format(
         make_model_uid(FLAGS, is_adversarial=True), FLAGS.slice_attribute_name)
     print("[INFO] writing results to {}".format(metrics_fp))

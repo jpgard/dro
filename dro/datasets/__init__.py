@@ -6,6 +6,8 @@ import os
 from functools import partial
 
 import tensorflow as tf
+import pandas as pd
+import numpy as np
 
 from dro.keys import SHUFFLE_RANDOM_SEED
 from dro.utils.viz import show_batch
@@ -99,6 +101,13 @@ def decode_img(img, normalize_by_channel=False, crop=True):
     return img
 
 
+def preprocess_path_label_tuple(x, y):
+    """Create an (image, one_hot_label) tuple from a (path, label) tuple."""
+    x = process_path(x, labels=False)
+    y = tf.one_hot(y, 2)
+    return x, y
+
+
 class ImageDataset(ABC):
     def __init__(self):
         self.n_train = None
@@ -115,6 +124,17 @@ class ImageDataset(ABC):
         _process_path = partial(process_path, labels=labels)
         self.dataset = self.dataset.map(process_path, num_parallel_calls=AUTOTUNE)
         return
+
+    def from_dataframe(self, df: pd.DataFrame, label_name: str):
+        """Create a dataset from a pd.DataFrame."""
+        # dset starts as tuples of (filename, label_as_float)
+        dset = tf.data.Dataset.from_tensor_slices(
+            (df['filename'].values,
+             df[label_name].values.astype(np.int))
+        )
+        self.dataset = dset.map(preprocess_path_label_tuple)
+        return
+
 
     def validation_split(self, n_val):
         """Create a validation split by extracting elements from the current dataset.

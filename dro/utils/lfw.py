@@ -35,22 +35,6 @@ def extract_imagenum_from_filename(x):
         return None
 
 
-def preprocess_path(x, y):
-    x = process_path(x, labels=False)
-    y = tf.one_hot(y, 2)
-    return x, y
-
-
-def build_dataset_from_dataframe(df, label_name):
-    # dset starts as tuples of (filename, label_as_float)
-    dset = tf.data.Dataset.from_tensor_slices(
-        (df['filename'].values,
-         df[label_name].values.astype(np.int))
-    )
-    dset = dset.map(preprocess_path)
-    return dset
-
-
 def apply_thresh(df, colname, thresh: float):
     return df[abs(df[colname]) >= thresh]
 

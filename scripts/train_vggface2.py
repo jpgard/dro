@@ -69,6 +69,8 @@ flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
 flags.DEFINE_string("label_name", None,
                     "name of the prediction label (e.g. sunglasses, mouth_open)",
                     )
+flags.DEFINE_string("experiment_uid", None, "Optional string identifier to be used to "
+                                            "uniquely identify this experiment.")
 flags.mark_flag_as_required("label_name")
 flags.mark_flag_as_required("train_dir")
 flags.DEFINE_bool("debug", False,

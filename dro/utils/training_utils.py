@@ -135,6 +135,8 @@ def make_model_uid(flags, is_adversarial=False):
             adv=get_adversarial_mode(True),
             model_uid=model_uid, mul=flags.adv_multiplier,
             step=flags.adv_step_size, norm=flags.adv_grad_norm)
+    if flags.experiment_uid:
+        model_uid += flags.experiment_uid
     return model_uid
 
 

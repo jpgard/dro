@@ -23,7 +23,7 @@ import tensorflow as tf
 from sklearn.metrics.pairwise import cosine_similarity
 
 from keras_vggface.vggface import VGGFace
-from dro.utils.training_utils import process_path, preprocess_dataset
+from dro.datasets import preprocess_dataset, process_path
 
 tf.compat.v1.enable_eager_execution()
 

@@ -42,7 +42,8 @@ import pandas as pd
 
 from dro.utils.lfw import build_dataset_from_dataframe, apply_thresh, \
     get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME, FILENAME_COLNAME
-from dro.utils.training_utils import preprocess_dataset, pred_to_binary
+from dro.utils.training_utils import pred_to_binary
+from dro.datasets import preprocess_dataset
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
 from dro.keys import LABEL_INPUT_NAME

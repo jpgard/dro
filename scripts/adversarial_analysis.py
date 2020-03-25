@@ -151,17 +151,16 @@ def main(argv):
     # TODO(jpgard): need to get the show_batch() function to work; this is important to
     #  debugging results, manual validation, and results for pubs.
 
-    # image_batch, label_batch = next(iter(dset_attr_pos.dataset))
-    # show_batch(image_batch.numpy(), label_batch.numpy(),
-    #            fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
-    #                FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
-    #            )
-    #
-    # image_batch, label_batch = next(iter(dset_attr_neg.dataset))
-    # show_batch(image_batch.numpy(), label_batch.numpy(),
-    #            fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
-    #                FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
-    #            )
+    image_batch, label_batch = next(iter(dset_attr_pos.dataset))
+    show_batch(image_batch.numpy(), label_batch.numpy(),
+               fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
+                   FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
+               )
+    image_batch, label_batch = next(iter(dset_attr_neg.dataset))
+    show_batch(image_batch.numpy(), label_batch.numpy(),
+               fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
+                   FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
+               )
 
     # Convert the datasets into dicts for use in adversarial model.
     dset_attr_neg.convert_to_dictionaries()

@@ -35,8 +35,9 @@ import neural_structured_learning as nsl
 
 from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
-from dro.utils.training_utils import preprocess_dataset, process_path, make_callbacks, \
+from dro.utils.training_utils import make_callbacks, \
     write_test_metrics_to_csv, get_train_metrics, convert_to_dictionaries
+from dro.datasets import preprocess_dataset, process_path
 from dro.utils.viz import show_batch
 
 tf.compat.v1.enable_eager_execution()

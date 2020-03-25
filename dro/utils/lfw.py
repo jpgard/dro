@@ -7,7 +7,7 @@ import pandas as pd
 import tensorflow as tf
 import numpy as np
 
-from dro.utils.training_utils import process_path
+from dro.datasets import process_path
 
 # Regex used to parse the LFW filenames
 LFW_FILENAME_REGEX = re.compile("(\w+_\w+)_(\d{4})\.jpg")

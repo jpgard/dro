@@ -15,7 +15,11 @@ def image_uid_from_fp(f):
 
 
 def make_annotations_df(anno_dir):
-    """Build a single DataFrame with all annotations."""
+    """Build a single DataFrame with all annotations.
+
+    :returns: a pd.DataFrame with index FILENAME_COLNAME and one column per annotation
+    file representing the labels associated with that file.
+    """
     annotations = []
     for f in os.listdir(anno_dir):
         if (not f.startswith(".")) and f.endswith(".txt"):

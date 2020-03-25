@@ -40,20 +40,20 @@ import time
 import tensorflow as tf
 import pandas as pd
 
-from dro.utils.lfw import  apply_thresh, \
+from dro.utils.lfw import apply_thresh, \
     get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME, FILENAME_COLNAME
 from dro.utils.training_utils import pred_to_binary
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
 from dro.keys import LABEL_INPUT_NAME
 from dro.utils.viz import show_batch
-from dro.utils.training_utils import convert_to_dictionaries
 from dro.utils.training_utils import get_train_metrics
 from dro.utils.training_utils import make_ckpt_filepath
 from dro.utils.training_utils import perturb_and_evaluate, \
     make_compiled_reference_model
 from dro.utils.training_utils import make_model_uid
 from dro.utils.viz import show_adversarial_resuts
+from dro.datasets import ImageDataset
 
 tf.compat.v1.enable_eager_execution()
 
@@ -133,8 +133,7 @@ def main(argv):
 
     # Break the input dataset into separate tf.Datasets based on the value of the slice
     # attribute.
-    # TODO(jpgard): migrate this script to ImageDataSet() class
-    from dro.datasets import ImageDataset
+
     # Create and preprocess the dataset of examples where ATTR_COLNAME == 1
     preprocessing_kwargs = {"shuffle": False, "repeat_forever": False, "batch_size":
         FLAGS.batch_size}

@@ -148,9 +148,6 @@ def main(argv):
                                  label_name=LABEL_COLNAME)
     dset_attr_neg.preprocess(**preprocessing_kwargs)
 
-    # TODO(jpgard): need to get the show_batch() function to work; this is important to
-    #  debugging results, manual validation, and results for pubs.
-
     image_batch, label_batch = next(iter(dset_attr_pos.dataset))
     show_batch(image_batch.numpy(), label_batch.numpy(),
                fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(

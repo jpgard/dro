@@ -20,7 +20,7 @@ python3 scripts/adversarial_analysis.py \
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
     --adv_step_size $SS \
-    --epochs $EPOCHS
+    --epochs $EPOCHS --experiment_uid TMP
 
 for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
 do
@@ -242,14 +242,12 @@ def main(argv):
                     ss=adv_step_size_to_eval
                 )
 
-            # TODO(jpgard): get show_adversarial_results() working; this is also
-            #  critical to debugging, validation, and results for pub.
-            # show_adversarial_resuts(n_batches=3,
-            #                         perturbed_images=perturbed_images,
-            #                         labels=labels,
-            #                         predictions=predictions,
-            #                         fp_basename=adv_image_basename,
-            #                         batch_size=FLAGS.batch_size)
+            show_adversarial_resuts(n_batches=3,
+                                    perturbed_images=perturbed_images,
+                                    labels=labels,
+                                    predictions=predictions,
+                                    fp_basename=adv_image_basename,
+                                    batch_size=FLAGS.batch_size)
 
     metrics_fp = "./metrics/{}-{}-adversarial-analysis.csv".format(
         make_model_uid(FLAGS, is_adversarial=True), FLAGS.slice_attribute_name)

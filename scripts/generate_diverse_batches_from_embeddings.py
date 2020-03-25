@@ -10,7 +10,8 @@ python3 scripts/generate_diverse_batches_from_embeddings.py \
 --embeddings_fp $DIR/embedding.csv \
 --eigen_vals_fp $DIR/eigen_vals.npz \
 --eigen_vecs_fp $DIR/eigen_vecs.npz \
---batches_fp $DIR/batches.npz
+--batches_fp $DIR/batches.npz \
+--use_precomputed_eigs --n_batches 100 --batch_size 16
 """
 
 import time
@@ -31,23 +32,26 @@ flags.DEFINE_integer("random_state", 95120, "Random seed to use in generating ba
 flags.DEFINE_bool("use_precomputed_eigs", False, "whether to use a set of precomputed "
                                                  "eigenvalues/vectors.")
 flags.DEFINE_string("eigen_vals_fp", None, "path to eigenvalues; if "
-                                            "use_recomputed_eigs is True, this is where "
-                                            "the eigenvalues will be loaded from.")
+                                           "use_recomputed_eigs is True, this is where "
+                                           "the eigenvalues will be loaded from.")
 flags.DEFINE_string("eigen_vecs_fp", None, "path to eigenvectors; if "
-                                            "use_recomputed_eigs is True, this is where "
-                                            "the eigenvectors will be loaded from.")
+                                           "use_recomputed_eigs is True, this is where "
+                                           "the eigenvectors will be loaded from.")
 flags.DEFINE_string("batches_fp", None, "Path to write batches array (should be .npz)")
 flags.DEFINE_integer("n_batches", 100, "Number of batches to generate.")
 flags.DEFINE_integer("batch_size", 16, "Size of batches to generate")
 flags.mark_flags_as_required(["embeddings_fp", "eigen_vals_fp", "eigen_vecs_fp"])
 
 
-def load_or_compute_eigs(similarities, use_precomputed_eigs: bool,
+def load_or_compute_eigs(similarities: np.ndarray, use_precomputed_eigs: bool,
                          eigen_vals_fp: str, eigen_vecs_fp: str):
     """
     Either load or compute eigenvalues/eigenvectors.
 
     :param similarities: symmetric, real-valued similarity matrix.
+    :param use_precomputed_eigs: indicator for whether to load precomputed eigs.
+    :param eigen_vecs_fp: filepath to either write or load the eigenvalues.
+    :param eigen_vecs_fp: filepath to either write or load the eigenvectors.
     """
     assert similarities.max() == 1, "Unexpected values > 1 in similarity matrix."
     if use_precomputed_eigs:
@@ -65,8 +69,8 @@ def load_or_compute_eigs(similarities, use_precomputed_eigs: bool,
         print("[INFO] computed eigendecomposition of similarity matrix in {} sec".format(
             int(time.time() - start)
         ))
-        np.savez_compressed(eigen_vals_fp, eigen_vals)
-        np.savez_compressed(eigen_vecs_fp, eigen_vecs)
+        np.savez_compressed(eigen_vals_fp, eigen_vals=eigen_vals)
+        np.savez_compressed(eigen_vecs_fp, eigen_vecs=eigen_vecs)
     return eigen_vals, eigen_vecs
 
 
@@ -103,6 +107,7 @@ def main(argv):
     batch_values = np.array(batch_values)
     np.savez_compressed(FLAGS.batches_fp, batch_values)
     return
+
 
 if __name__ == "__main__":
     app.run(main)

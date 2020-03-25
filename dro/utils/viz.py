@@ -17,8 +17,9 @@ def plot_faces(img_ary, nplot=7, figsize=(30, 10)):
 def show_batch(image_batch, label_batch=None, fp=None):
     plt.figure(figsize=(12, 12))
     batch_size = len(image_batch)
+    n_rowcol = int(sqrt(batch_size)) + 1
     for n in range(batch_size):
-        ax = plt.subplot(int(sqrt(batch_size)) + 1, int(sqrt(batch_size)) + 1, n + 1)
+        ax = plt.subplot(n_rowcol, n_rowcol, n + 1)
         plt.imshow(image_batch[n])
         if label_batch is not None:
             plt.title(str(label_batch[n]))

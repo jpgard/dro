@@ -112,8 +112,6 @@ class ImageDataset(ABC):
         or just x if labels==False."""
         self.dataset = tf.data.Dataset.list_files(file_pattern, shuffle=shuffle,
                                                   seed=random_seed)
-        # import ipdb;
-        # ipdb.set_trace()
         _process_path = partial(process_path, labels=labels)
         self.dataset = self.dataset.map(process_path, num_parallel_calls=AUTOTUNE)
         return

@@ -7,8 +7,9 @@ batch_size, and each element is an index into embeddings.csv.
 usage:
 export DIR="./embeddings"
 python3 scripts/generate_diverse_batches_from_embeddings.py \
---eigen_vals_fp $DIR/eigen_vals.npz
---eigen_vecs_fp $DIR/eigen_vecs.npz
+--embeddings_fp $DIR/embedding.csv \
+--eigen_vals_fp $DIR/eigen_vals.npz \
+--eigen_vecs_fp $DIR/eigen_vecs.npz \
 --batches_fp $DIR/batches.npz
 """
 
@@ -36,10 +37,10 @@ flags.DEFINE_string("eigen_vecs_fp", None, "path to eigenvectors; if "
                                             "use_recomputed_eigs is True, this is where "
                                             "the eigenvectors will be loaded from.")
 flags.DEFINE_string("batches_fp", None, "Path to write batches array (should be .npz)")
-flags.DEFINE_integer("n_batches", None, "Number of batches to generate.")
-flags.DEFINE_integer("batch_size", None, "Size of batches to generate")
-flags.mark_flags_as_required(["embeddings_fp", "n_batches", "batch_size",
-                              "eigen_vals_fp", "eigen_vecs_fp"])
+flags.DEFINE_integer("n_batches", 100, "Number of batches to generate.")
+flags.DEFINE_integer("batch_size", 16, "Size of batches to generate")
+flags.mark_flags_as_required(["embeddings_fp", "eigen_vals_fp", "eigen_vecs_fp"])
+
 
 def load_or_compute_eigs(similarities, use_precomputed_eigs: bool,
                          eigen_vals_fp: str, eigen_vecs_fp: str):
@@ -50,16 +51,30 @@ def load_or_compute_eigs(similarities, use_precomputed_eigs: bool,
     """
     assert similarities.max() == 1, "Unexpected values > 1 in similarity matrix."
     if use_precomputed_eigs:
+        print("[INFO] loading eigenvalues from {},{}".format(eigen_vals_fp,
+                                                             eigen_vecs_fp))
         eigen_vals = np.load(eigen_vals_fp)["eigen_vals"]
         eigen_vecs = np.load(eigen_vecs_fp)["eigen_vecs"]
     else:
         # Compute the eigendecomposition of the similarity matrix; this is
         # expensive and should be cached. Takes ~36mins for 26,000-dimensional matrix,
         # and the resulting file is ~5GB.
+        start = time.time()
+        print("[INFO] computing eigendecomposition of similarity matrix")
         eigen_vals, eigen_vecs = np.linalg.eigh(similarities)
+        print("[INFO] computed eigendecomposition of similarity matrix in {} sec".format(
+            int(time.time() - start)
+        ))
         np.savez_compressed(eigen_vals_fp, eigen_vals)
         np.savez_compressed(eigen_vecs_fp, eigen_vecs)
     return eigen_vals, eigen_vecs
+
+
+def batch_indices_to_values(list_of_samples: list, index_vals: list) -> list:
+    """Convert a nested list of batch indices to a list of values with the same
+    structure."""
+    batch_values = [[index_vals[x] for x in batch] for batch in list_of_samples]
+    return batch_values
 
 
 def main(argv):
@@ -84,7 +99,7 @@ def main(argv):
 
     # Transform batches of index numbers into batches of index values and write to file.
     index_vals = embeddings.index.values
-    batch_values = [index_vals[x] for batch in DPP.list_of_samples for x in batch]
+    batch_values = batch_indices_to_values(DPP.list_of_samples, index_vals)
     batch_values = np.array(batch_values)
     np.savez_compressed(FLAGS.batches_fp, batch_values)
     return

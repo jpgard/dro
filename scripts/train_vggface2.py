@@ -87,6 +87,9 @@ flags.mark_flag_as_required("train_dir")
 flags.DEFINE_bool("debug", False,
                   "whether to run in debug mode (super short iterations to check for "
                   "bugs)")
+flags.DEFINE_bool("use_dbs", False, "whether diverse batch sampling was used; if this is "
+                                "set to True, batches will be read from the "
+                                "precomputed_batches_fp.")
 
 # the adversarial training parameters
 flags.DEFINE_float('adv_multiplier', 0.2,
@@ -128,7 +131,7 @@ def main(argv):
 
     train_ds = ImageDataset()
     test_ds = ImageDataset()
-    if FLAGS.precomputed_batches_fp:
+    if FLAGS.use_dbs:
 
         attributes_df = make_annotations_df(FLAGS.anno_dir)
         attributes_df = attributes_df[FLAGS.label_name]

@@ -226,10 +226,11 @@ def main(argv):
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    train_ds.write_sample_batch("./debug/sample-batch-train-label{}.png".format(
-        FLAGS.label_name))
+    from dro.utils.training_utils import make_model_uid
+    train_ds.write_sample_batch("./debug/sample-batch-train-{}.png".format(
+        make_model_uid(flags)))
     test_ds.write_sample_batch("./debug/sample-batch-test-label{}.png".format(
-        FLAGS.label_name))
+        make_model_uid(flags)))
 
     # The metrics to optimize during training
     train_metrics_dict = get_train_metrics()

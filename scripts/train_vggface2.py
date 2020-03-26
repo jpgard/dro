@@ -196,13 +196,14 @@ def main(argv):
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    # TODO(jpgard): Save a sample batch to png for debugging via
-    #  ImageDataset.write_sample_batch(); currently this functionality is broken.
     import ipdb;
     ipdb.set_trace()
     # TODO(jpgard): check that the elements of sample batch exactly match the ordering
     #  of the items in the generated batches.
-    train_ds.write_sample_batch("./debug/tmp-train.png")
+    train_ds.write_sample_batch("./debug/sample-batch-train-label{}.png".format(
+        FLAGS.label_name))
+    test_ds.write_sample_batch("./debug/sample-batch-test-label{}.png".format(
+        FLAGS.label_name))
 
     # The metrics to optimize during training
     train_metrics_dict = get_train_metrics()

@@ -162,9 +162,10 @@ def main(argv):
         train_ds.from_filename_and_label_generator(train_generator.generator)
         val_ds = ImageDataset()
         val_ds.from_filename_and_label_generator(val_generator.generator)
-        train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size,
-                            shuffle=False)
-        val_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size, shuffle=False)
+        preprocess_args = {"repeat_forever": True, "batch_size": FLAGS.batch_size,
+                           "shuffle": False}
+        train_ds.preprocess(**preprocess_args)
+        val_ds.preprocess(**preprocess_args)
 
     else:
         n_train_val = get_n_from_file_pattern(train_file_pattern)
@@ -174,11 +175,13 @@ def main(argv):
         train_ds.from_files(train_file_pattern, shuffle=True)
         val_ds = train_ds.validation_split(n_val)
         # Preprocess the datasets to create (x,y) tuples.
-        train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
-        val_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
+        preprocess_args = {"repeat_forever": True, "batch_size": FLAGS.batch_size}
+        train_ds.preprocess(**preprocess_args)
+        val_ds.preprocess(**preprocess_args)
 
     # No matter whether precomputed train batches are used or not, the test data is
     # taken from a test directory.
+
     test_ds.from_files(test_file_pattern, shuffle=False)
     test_ds.preprocess(repeat_forever=False, shuffle=False, batch_size=FLAGS.batch_size)
 
@@ -196,10 +199,6 @@ def main(argv):
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    import ipdb;
-    ipdb.set_trace()
-    # TODO(jpgard): check that the elements of sample batch exactly match the ordering
-    #  of the items in the generated batches.
     train_ds.write_sample_batch("./debug/sample-batch-train-label{}.png".format(
         FLAGS.label_name))
     test_ds.write_sample_batch("./debug/sample-batch-test-label{}.png".format(

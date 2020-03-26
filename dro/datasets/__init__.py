@@ -135,6 +135,17 @@ class ImageDataset(ABC):
         self.dataset = dset.map(preprocess_path_label_tuple)
         return
 
+    def from_filename_and_label_generator(self, generator):
+        """
+        Create a dataset from a generator which produces (filename, y) tuples.
+
+        :param generator: callable which yields (filename, y) tuples.
+        """
+        dset = tf.data.Dataset.from_generator(generator,
+                                              output_types=(tf.string, tf.int32))
+        _process_path = partial(process_path, labels=False)
+        self.dataset = dset.map(lambda x, y: (_process_path(x), y))
+        return
 
     def validation_split(self, n_val):
         """Create a validation split by extracting elements from the current dataset.

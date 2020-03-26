@@ -143,8 +143,7 @@ class ImageDataset(ABC):
         """
         dset = tf.data.Dataset.from_generator(generator,
                                               output_types=(tf.string, tf.int32))
-        _process_path = partial(process_path, labels=False)
-        self.dataset = dset.map(lambda x, y: (_process_path(x), y))
+        self.dataset = dset.map(preprocess_path_label_tuple)
         return
 
     def validation_split(self, n_val):

@@ -39,7 +39,6 @@ from dro.utils.training_utils import make_callbacks, \
     write_test_metrics_to_csv, get_train_metrics
 from dro.datasets import ImageDataset
 
-
 tf.compat.v1.enable_eager_execution()
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -105,30 +104,83 @@ def steps_per_epoch(n):
     return n // FLAGS.batch_size
 
 
+def compute_n_train_n_val(n_train_val):
+    n_val = int(n_train_val * FLAGS.val_frac)
+    n_train = n_train_val - n_val
+    return n_train, n_val
+
+
 def main(argv):
     train_file_pattern = str(FLAGS.train_dir + '/*/*/*.jpg')
     test_file_pattern = str(FLAGS.test_dir + '/*/*/*.jpg')
-    n_train_val = get_n_from_file_pattern(train_file_pattern)
     n_test = get_n_from_file_pattern(test_file_pattern)
-
-    n_val = int(n_train_val * FLAGS.val_frac)
-    n_train = n_train_val - n_val
 
     train_ds = ImageDataset()
     test_ds = ImageDataset()
     if FLAGS.precomputed_batches_fp:
-        from dro.utils.vggface import make_annotations_df
-        attributes_df = make_annotations_df()
-        import ipdb;ipdb.set_trace()
+        from dro.utils.vggface import make_annotations_df, image_uid_from_fp
+        from dro.utils.testing import assert_shape_equal
+        import pandas as pd
+        from dro.datasets.dbs import LabeledBatchGenerator
+        import math
+        attributes_df = make_annotations_df(FLAGS.anno_dir)
+        attributes_df = attributes_df[FLAGS.label_name]
+        filename_labels_dict = dict(attributes_df)
+
+        batches = np.load(FLAGS.precomputed_batches_fp)['arr_0']
+        batches = pd.DataFrame(batches)
+
+        # Using the image uids in the filepaths, generate a dataframe with identical
+        # structure where the [i,j] element in batch_labels contains the label for the
+        # [i,j] element in batches.
+
+        batch_labels = batches \
+            .applymap(lambda x: image_uid_from_fp(x)[1:]) \
+            .replace(filename_labels_dict)
+        assert_shape_equal(batches, batch_labels)
+        assert batches.shape[1] == FLAGS.batch_size, \
+            "precomputed batches do not match specified batch size; generate a set of " \
+            "batches matching this batch size using generate_diverse_batches.py first."
+
+        # We compute the number of training and validation batches,  build the
+        # tf.data.Dataset; then preprocess and batch them.
+
+        n_batches = batches.shape[0]
+        n_train_batches = int(n_batches * (1 - FLAGS.val_frac))
+
+        train_filenames = batches.values[:n_train_batches, :].flatten()
+        train_labels = batch_labels.values[:n_train_batches, :].flatten()
+        n_train = len(train_filenames)
+
+        val_filenames = batches.values[n_train_batches:, :].flatten()
+        val_labels = batch_labels.values[n_train_batches:, :].flatten()
+        n_val = len(val_filenames)
+
+        train_generator = LabeledBatchGenerator(train_filenames, train_labels)
+        val_generator = LabeledBatchGenerator(val_filenames, val_labels)
+
+        train_ds.from_filename_and_label_generator(train_generator.generator)
+        val_ds = ImageDataset()
+        val_ds.from_filename_and_label_generator(val_generator.generator)
+        train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size,
+                            shuffle=False)
+        val_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size, shuffle=False)
+
     else:
-        # Create the datasets and process files to create (x,y) tuples.
+        n_train_val = get_n_from_file_pattern(train_file_pattern)
+        n_train, n_val = compute_n_train_n_val(n_train_val)
+
+        # Create the datasets.
         train_ds.from_files(train_file_pattern, shuffle=True)
         val_ds = train_ds.validation_split(n_val)
-        test_ds.from_files(test_file_pattern, shuffle=False)
-        # Preprocess the datasets
+        # Preprocess the datasets to create (x,y) tuples.
         train_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
         val_ds.preprocess(repeat_forever=True, batch_size=FLAGS.batch_size)
-        test_ds.preprocess(repeat_forever=False, shuffle=False, batch_size=FLAGS.batch_size)
+
+    # No matter whether precomputed train batches are used or not, the test data is
+    # taken from a test directory.
+    test_ds.from_files(test_file_pattern, shuffle=False)
+    test_ds.preprocess(repeat_forever=False, shuffle=False, batch_size=FLAGS.batch_size)
 
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     print("[INFO] {n_train} training observations; {n_val} validation observations"
@@ -146,6 +198,11 @@ def main(argv):
 
     # TODO(jpgard): Save a sample batch to png for debugging via
     #  ImageDataset.write_sample_batch(); currently this functionality is broken.
+    import ipdb;
+    ipdb.set_trace()
+    # TODO(jpgard): check that the elements of sample batch exactly match the ordering
+    #  of the items in the generated batches.
+    train_ds.write_sample_batch("./debug/tmp-train.png")
 
     # The metrics to optimize during training
     train_metrics_dict = get_train_metrics()

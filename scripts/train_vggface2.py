@@ -10,14 +10,17 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 export LABEL="Mouth_Open"
-export DIR="/projects/grail/jpgard/vggface2/annotated_partitioned_by_label/"
+export DIR="/projects/grail/jpgard/vggface2/annotated_partitioned_by_label"
 export SS=0.025
 export EPOCHS=40
 python3 scripts/train_vggface2.py \
     --label_name $LABEL \
     --test_dir ${DIR}/test/${LABEL} \
     --train_dir ${DIR}/train/${LABEL} \
-    --adv_step_size $SS --epochs $EPOCHS --notrain_base
+    --adv_step_size $SS --epochs $EPOCHS \
+    --use_dbs --precomputed_batches_fp ./embeddings/batches.npz \
+    --anno_dir /projects/grail/jpgard/vggface2/anno \
+    --experiment_uid DBS_TEST
 
 
 
@@ -38,11 +41,14 @@ import tensorflow as tf
 from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
-    write_test_metrics_to_csv, get_train_metrics
+    write_test_metrics_to_csv, get_train_metrics, make_model_uid
 from dro.datasets import ImageDataset
 from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp
 from dro.utils.testing import assert_shape_equal, assert_file_exists, assert_ndims
 from dro.datasets.dbs import LabeledBatchGenerator
+from dro.utils.training_utils import perturb_and_evaluate, make_compiled_reference_model
+from dro.utils.viz import show_adversarial_resuts
+from dro.utils.training_utils import make_ckpt_filepath
 
 tf.compat.v1.enable_eager_execution()
 
@@ -226,7 +232,6 @@ def main(argv):
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    from dro.utils.training_utils import make_model_uid
     train_ds.write_sample_batch("./debug/sample-batch-train-{}.png".format(
         make_model_uid(flags)))
     test_ds.write_sample_batch("./debug/sample-batch-test-label{}.png".format(
@@ -252,7 +257,6 @@ def main(argv):
     train_args = {"steps_per_epoch": steps_per_train_epoch,
                   "epochs": FLAGS.epochs,
                   "validation_steps": steps_per_val_epoch}
-    from dro.utils.training_utils import make_ckpt_filepath
 
     # Base model training
     if FLAGS.train_base:
@@ -324,10 +328,6 @@ def main(argv):
         # which will be used to generate perturbations.
 
         print("[INFO] generating adversarial samples to compare the models")
-        from dro.utils.training_utils import perturb_and_evaluate, \
-            make_compiled_reference_model
-        from dro.utils.training_utils import make_model_uid
-        from dro.utils.viz import show_adversarial_resuts
         reference_model = make_compiled_reference_model(vgg_model_base, adv_config,
                                                         model_compile_args)
 

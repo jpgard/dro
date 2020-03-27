@@ -17,7 +17,7 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
 def preprocess_dataset(
-        ds, cache=True, shuffle_buffer_size=1000,
+        ds, cache=False, shuffle_buffer_size=1000,
         repeat_forever=False, batch_size: int = None,
         prefetch_buffer_size=AUTOTUNE, shuffle=True,
         epochs: int = None):

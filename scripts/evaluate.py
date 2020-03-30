@@ -237,11 +237,6 @@ def main(argv):
                                                     is_adversarial=True,
                                                     data_type=CLEAN_DATA)
 
-        # TODO(jpgard): make the dictionaries have matching keys; this will require
-        #  (1) dropping some metrics from clean_input_metrics_base or adding to the
-        #  adversarial model, and (2) combining clean_input_metrics_base and
-        #  clean_input_metrics_adv into a single dict like adv_input_metrics.
-
         for adv_step_size_to_eval in (0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
             reference_model = make_compiled_reference_model(

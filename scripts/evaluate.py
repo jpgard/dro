@@ -277,9 +277,7 @@ def main(argv):
                 uid=make_model_uid(FLAGS, is_adversarial=True),
                 adv_step_size=adv_step_size_to_eval,
                 data=ADV_DATA)
-            import ipdb;
-            ipdb.set_trace()
-            # metrics_list.append(adv_input_metrics)
+
             metrics_list.extend([clean_input_metrics_adv, clean_input_metrics_base,
                                  adv_input_metrics_adv, adv_input_metrics_base])
             # Write the results for 3 batches to a file for inspection.

@@ -11,7 +11,7 @@ from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, Model
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
 
-from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME
+from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME, ACC, CE
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 TEST_MODE = "test"
@@ -62,13 +62,13 @@ def cross_entropy_max(y_true, y_pred):
 
 def get_train_metrics():
     """Fetch an OrderedDict of train metrics."""
-    train_metrics_dict = {'accuracy': 'accuracy',
+    train_metrics_dict = {ACC: ACC,
                           'auc': AUC(name='auc'),
                           'tp': TruePositives(name='tp'),
                           'fp': FalsePositives(name='fp'),
                           'tn': TrueNegatives(name='tn'),
                           'fn': FalseNegatives(name='fn'),
-                          'ce': tf.keras.losses.CategoricalCrossentropy(),
+                          CE: tf.keras.losses.CategoricalCrossentropy(),
                           'sigma_ce': cross_entropy_sigma,
                           'max_ce': cross_entropy_max
                           }
@@ -163,8 +163,12 @@ def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
     """
     print("[INFO] perturbing images...")
     perturbed_images, labels, predictions = [], [], []
-    metrics = {model_name: [tf.keras.metrics.SparseCategoricalAccuracy(name="acc"),
-                            tf.keras.metrics.SparseCategoricalCrossentropy(),
+
+    # TODO(jpgard): implement additional metrics as tf.keras.Metric subclasses; see
+    #  https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/keras/metrics/Metric
+
+    metrics = {model_name: [tf.keras.metrics.SparseCategoricalAccuracy(name=ACC),
+                            tf.keras.metrics.SparseCategoricalCrossentropy(name=CE),
                             ]
                for model_name in models_to_eval.keys()
                }

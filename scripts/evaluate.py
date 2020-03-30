@@ -163,9 +163,6 @@ def main(argv):
                    FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
                )
 
-    # Convert the datasets into dicts for use in adversarial model.
-    dset_attr_neg.convert_to_dictionaries()
-    dset_attr_pos.convert_to_dictionaries()
     attr_dsets = {"1": dset_attr_pos, "0": dset_attr_neg}
 
     # load the models
@@ -234,7 +231,7 @@ def main(argv):
         #  (1) dropping some metrics from clean_input_metrics_base or adding to the
         #  adversarial model, and (2) combining clean_input_metrics_base and
         #  clean_input_metrics_adv into a single dict like adv_input_metrics.
-
+        dset = dset.convert_to_dictionaries()
         for adv_step_size_to_eval in (0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
             reference_model = make_compiled_reference_model(

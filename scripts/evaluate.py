@@ -20,7 +20,7 @@ python3 scripts/evaluate.py \
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
     --adv_step_size $SS \
-    --epochs $EPOCHS --experiment_uid TMP
+    --epochs $EPOCHS
 
 for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
 do
@@ -30,7 +30,7 @@ do
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
     --adv_step_size $SS \
-    --epochs $EPOCHS --use_dbs --experiment_uid DBS_TEST
+    --epochs $EPOCHS
 done
 """
 
@@ -211,8 +211,9 @@ def main(argv):
     for attr_val, dset in attr_dsets.items():
 
         # Get the evaluation metrics for clean inputs.
-        def get_model_metrics(model, dataset, metric_names, is_adversarial):
-            metrics = model.evaluate_generator(dataset.dataset)
+        def get_model_metrics(model, dataset: tf.data.Dataset, metric_names: list,
+                              is_adversarial: bool):
+            metrics = model.evaluate_generator(dataset)
             assert len(metric_names) == len(metrics)
             metrics_dict = OrderedDict(zip(metric_names, metrics))
             metrics_dict = add_keys_to_dict(
@@ -223,7 +224,7 @@ def main(argv):
                 data='clean')
             return metrics_dict
 
-        clean_input_metrics_base = get_model_metrics(reference_model, dset.dataset,
+        clean_input_metrics_base = get_model_metrics(vgg_model_base, dset.dataset,
                                                      train_metrics_names,
                                                      is_adversarial=False)
         clean_input_metrics_adv = get_model_metrics(adv_model, dset.dataset,
@@ -280,8 +281,6 @@ def main(argv):
                                     predictions=predictions,
                                     fp_basename=adv_image_basename,
                                     batch_size=FLAGS.batch_size)
-
-
 
     metrics_fp = "./metrics/{}-{}-adversarial-analysis.csv".format(
         make_model_uid(FLAGS, is_adversarial=True), FLAGS.slice_attribute_name)

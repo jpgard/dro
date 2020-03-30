@@ -14,7 +14,7 @@ export SS=0.05
 export EPOCHS=40
 
 export DIR="/projects/grail/jpgard/lfw"
-python3 scripts/adversarial_analysis.py \
+python3 scripts/evaluate.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
@@ -24,7 +24,7 @@ python3 scripts/adversarial_analysis.py \
 
 for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
 do
-    python3 scripts/adversarial_analysis.py \
+    python3 scripts/evaluate.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \

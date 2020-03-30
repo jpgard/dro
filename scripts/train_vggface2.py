@@ -74,8 +74,6 @@ flags.DEFINE_string("base_model_ckpt", None,
 flags.DEFINE_string("adv_model_ckpt", None,
                     "optional manually-specified checkpoint to use to load the "
                     "adversarial model.")
-flags.DEFINE_bool("perturbation_analysis", True, "whether to conduct a perturbation "
-                                                 "analysis after completing training.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
 flags.DEFINE_string("label_name", None,
                     "name of the prediction label (e.g. sunglasses, mouth_open)",
@@ -323,30 +321,6 @@ def main(argv):
     else:
         adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
 
-    if FLAGS.perturbation_analysis:
-        # First, create a reference model from the non-adversarially-trained model,
-        # which will be used to generate perturbations.
-
-        print("[INFO] generating adversarial samples to compare the models")
-        reference_model = make_compiled_reference_model(vgg_model_base, adv_config,
-                                                        model_compile_args)
-
-        models_to_eval = {
-            'base': vgg_model_base,
-            'adv-regularized': adv_model.base_model
-        }
-
-        perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
-            test_ds_adv.dataset, models_to_eval, reference_model)
-
-        adv_image_basename = "./debug/adv-examples-{}".format(make_model_uid(FLAGS))
-
-        show_adversarial_resuts(n_batches=10,
-                                perturbed_images=perturbed_images,
-                                labels=labels,
-                                predictions=predictions,
-                                fp_basename=adv_image_basename,
-                                batch_size=FLAGS.batch_size)
 
 
 if __name__ == "__main__":

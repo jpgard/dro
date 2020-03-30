@@ -196,3 +196,10 @@ def pred_to_binary(x, thresh=0.):
     """Convert lfw predictions to binary (0.,1.) labels by thresholding based on
     thresh."""
     return int(x > thresh)
+
+
+def add_keys_to_dict(input_dict, **kwargs):
+    """Modify input_dict in place by adding the key-value pairs."""
+    for k, v in kwargs.items():
+        input_dict[k] = v
+    return input_dict

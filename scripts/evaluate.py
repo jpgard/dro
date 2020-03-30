@@ -46,9 +46,11 @@ from dro.utils.lfw import apply_thresh, \
 from dro.utils.training_utils import pred_to_binary, add_keys_to_dict
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
-from dro.keys import LABEL_INPUT_NAME, FILENAME_COLNAME
+from dro.keys import LABEL_INPUT_NAME, FILENAME_COLNAME, ADV_MODEL, BASE_MODEL, \
+    ADV_DATA, CLEAN_DATA
 from dro.utils.viz import show_batch
-from dro.utils.training_utils import get_train_metrics
+from dro.utils.training_utils import get_train_metrics, \
+    add_adversarial_metric_names_to_list
 from dro.utils.training_utils import make_ckpt_filepath
 from dro.utils.training_utils import perturb_and_evaluate, \
     make_compiled_reference_model
@@ -209,29 +211,37 @@ def main(argv):
 
         # Get the evaluation metrics for clean inputs.
         def get_model_metrics(model, dataset: tf.data.Dataset, metric_names: list,
-                              is_adversarial: bool):
-            metrics = model.evaluate_generator(dataset)
+                              is_adversarial: bool, data_type: str):
+            metrics = model.evaluate(dataset)
+            if is_adversarial:
+                metric_names = add_adversarial_metric_names_to_list(metric_names)
             assert len(metric_names) == len(metrics)
             metrics_dict = OrderedDict(zip(metric_names, metrics))
             metrics_dict = add_keys_to_dict(
                 metrics_dict, attr_val=attr_val,
                 attr_name=FLAGS.slice_attribute_name,
                 uid=make_model_uid(FLAGS, is_adversarial),
-                adv_step_size=adv_step_size_to_eval,
-                data='clean')
+                data=data_type)
             return metrics_dict
 
+        print("[INFO] evaluating base model on clean data")
         clean_input_metrics_base = get_model_metrics(vgg_model_base, dset.dataset,
                                                      train_metrics_names,
-                                                     is_adversarial=False)
+                                                     is_adversarial=False,
+                                                     data_type=CLEAN_DATA)
+        print("[INFO] evaluating adversarial model on clean data")
+        # Convert the dataset to dictionary for input to the adversarial model.
+        dset.convert_to_dictionaries()
         clean_input_metrics_adv = get_model_metrics(adv_model, dset.dataset,
                                                     train_metrics_names,
-                                                    is_adversarial=True)
+                                                    is_adversarial=True,
+                                                    data_type=CLEAN_DATA)
+
         # TODO(jpgard): make the dictionaries have matching keys; this will require
         #  (1) dropping some metrics from clean_input_metrics_base or adding to the
         #  adversarial model, and (2) combining clean_input_metrics_base and
         #  clean_input_metrics_adv into a single dict like adv_input_metrics.
-        dset = dset.convert_to_dictionaries()
+
         for adv_step_size_to_eval in (0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
             reference_model = make_compiled_reference_model(
@@ -243,26 +253,35 @@ def main(argv):
                 ),
                 model_compile_args=model_compile_args)
             models_to_eval = {
-                'base': vgg_model_base,
-                'adv-regularized': adv_model.base_model
+                BASE_MODEL: vgg_model_base,
+                ADV_MODEL: adv_model.base_model
             }
 
             # Perturb the images and get the metrics for adversarial inputs
-            perturbed_images, labels, predictions, adv_input_metrics = \
+            perturbed_images, labels, predictions, adv_input_metrics_dict = \
                 perturb_and_evaluate(
                     dset.dataset, models_to_eval, reference_model)
 
             # Add other identifiers to the metrics dict and save to metrics_list
 
-            adv_input_metrics = add_keys_to_dict(
-                adv_input_metrics, attr_val=attr_val,
+            adv_input_metrics_adv = add_keys_to_dict(
+                adv_input_metrics_dict[ADV_MODEL], attr_val=attr_val,
                 attr_name=FLAGS.slice_attribute_name,
                 uid=make_model_uid(FLAGS, is_adversarial=True),
                 adv_step_size=adv_step_size_to_eval,
-                data='adversarial')
-            metrics_list.append(adv_input_metrics)
+                data=ADV_DATA)
+
+            adv_input_metrics_base = add_keys_to_dict(
+                adv_input_metrics_dict[BASE_MODEL], attr_val=attr_val,
+                attr_name=FLAGS.slice_attribute_name,
+                uid=make_model_uid(FLAGS, is_adversarial=True),
+                adv_step_size=adv_step_size_to_eval,
+                data=ADV_DATA)
             import ipdb;
             ipdb.set_trace()
+            # metrics_list.append(adv_input_metrics)
+            metrics_list.extend([clean_input_metrics_adv, clean_input_metrics_base,
+                                 adv_input_metrics_adv, adv_input_metrics_base])
             # Write the results for 3 batches to a file for inspection.
             adv_image_basename = \
                 "./debug/adv-examples-{uid}-{attr}-{val}-step{ss}".format(

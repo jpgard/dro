@@ -14,3 +14,7 @@ IMAGE_INPUT_NAME = 'image'
 LABEL_INPUT_NAME = 'label'
 SHUFFLE_RANDOM_SEED = 2974
 FILENAME_COLNAME = "filename"
+ADV_MODEL = "adv"
+BASE_MODEL = "base"
+ADV_DATA = "perturbed"
+CLEAN_DATA = "clean"

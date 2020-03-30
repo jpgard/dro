@@ -1,4 +1,5 @@
 from itertools import islice
+from collections import defaultdict
 import os
 
 import pandas as pd
@@ -144,21 +145,28 @@ def make_model_uid(flags, is_adversarial=False):
 
 def metrics_to_dict(metrics):
     """Convert metrics to a dictionary of key:float pairs."""
-    results = dict()
-    for name, metric in metrics.items():
-        res = metric.result().numpy()
-        results[name] = res
-        print('%s model accuracy: %f' % (name, res))
+    results = defaultdict(dict)
+    for model_name, metrics_list in metrics.items():
+        for metric in metrics_list:
+            res = metric.result().numpy()
+            results[model_name][metric.name] = res
     return results
 
 
 def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
     """Perturbs the entire test set using adversarial training and computes metrics
-    over that set."""
+    over that set.
+
+    :returns: A tuple for four elements: a Tensor of the perturbed images; a List of
+    the labels; a List of the predictions for the models; and a nested dict of
+    per-model metrics.
+    """
     print("[INFO] perturbing images...")
     perturbed_images, labels, predictions = [], [], []
-    metrics = {name: tf.keras.metrics.SparseCategoricalAccuracy()
-               for name in models_to_eval.keys()
+    metrics = {model_name: [tf.keras.metrics.SparseCategoricalAccuracy(name="acc"),
+                            tf.keras.metrics.SparseCategoricalCrossentropy(),
+                            ]
+               for model_name in models_to_eval.keys()
                }
     for batch in test_ds_adv:
         perturbed_batch = reference_model.perturb_on_batch(batch)
@@ -169,10 +177,11 @@ def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
         perturbed_images.append(perturbed_batch[IMAGE_INPUT_NAME].numpy())
         labels.append(y_true.numpy())
         predictions.append({})
-        for name, model in models_to_eval.items():
+        for model_name, model in models_to_eval.items():
             y_pred = model(perturbed_batch)
-            metrics[name](y_true, y_pred)
-            predictions[-1][name] = tf.argmax(y_pred, axis=-1).numpy()
+            predictions[-1][model_name] = tf.argmax(y_pred, axis=-1).numpy()
+            for i in range(len(metrics[model_name])):
+                metrics[model_name][i](y_true, y_pred)
     print("[INFO] perturbation complete")
     metrics = metrics_to_dict(metrics)
     return perturbed_images, labels, predictions, metrics
@@ -203,3 +212,8 @@ def add_keys_to_dict(input_dict, **kwargs):
     for k, v in kwargs.items():
         input_dict[k] = v
     return input_dict
+
+
+def add_adversarial_metric_names_to_list(metrics_list):
+    """The adversarial training has different metrics -- add these to metrics_list."""
+    return ["total_combined_loss", ] + metrics_list + ["adversarial_loss", ]

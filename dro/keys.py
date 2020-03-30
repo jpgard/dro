@@ -13,3 +13,4 @@ CE_ADV_W_SIGMA = "cross-entropy_adversarial_wasserstein_sigma"
 IMAGE_INPUT_NAME = 'image'
 LABEL_INPUT_NAME = 'label'
 SHUFFLE_RANDOM_SEED = 2974
+FILENAME_COLNAME = "filename"

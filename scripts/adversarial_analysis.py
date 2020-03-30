@@ -30,7 +30,7 @@ do
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
     --adv_step_size $SS \
-    --epochs $EPOCHS
+    --epochs $EPOCHS --use_dbs --experiment_uid DBS_TEST
 done
 """
 
@@ -41,11 +41,11 @@ import tensorflow as tf
 import pandas as pd
 
 from dro.utils.lfw import apply_thresh, \
-    get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME, FILENAME_COLNAME
+    get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME
 from dro.utils.training_utils import pred_to_binary
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
-from dro.keys import LABEL_INPUT_NAME
+from dro.keys import LABEL_INPUT_NAME, FILENAME_COLNAME
 from dro.utils.viz import show_batch
 from dro.utils.training_utils import get_train_metrics
 from dro.utils.training_utils import make_ckpt_filepath
@@ -93,6 +93,9 @@ flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected 
 flags.mark_flag_as_required("label_name")
 flags.DEFINE_string("experiment_uid", None, "Optional string identifier to be used to "
                                             "uniquely identify this experiment.")
+flags.DEFINE_bool("use_dbs", False, "whether diverse batch sampling was used; if this is "
+                                "set to True, batches will be read from the "
+                                "precomputed_batches_fp.")
 
 # the adversarial training parameters
 flags.DEFINE_float('adv_multiplier', 0.2,

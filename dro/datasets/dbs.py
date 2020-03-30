@@ -5,6 +5,8 @@ import time
 
 import numpy as np
 
+from dro.utils.testing import assert_ndims
+
 
 def load_or_compute_eigs(similarities: np.ndarray, use_precomputed_eigs: bool,
                          eigen_vals_fp: str, eigen_vecs_fp: str):
@@ -42,3 +44,17 @@ def batch_indices_to_values(list_of_samples: list, index_vals: list) -> list:
     structure."""
     batch_values = [[index_vals[x] for x in batch] for batch in list_of_samples]
     return batch_values
+
+
+class LabeledBatchGenerator:
+    """A generator which yields (X,Y) elements from precomputed batches."""
+    def __init__(self, filenames: np.ndarray, labels: np.ndarray):
+        assert_ndims(filenames, 1)
+        assert_ndims(labels, 1)
+        self.filenames = filenames
+        self.labels = labels
+
+    def generator(self):
+        """Generate sets of (filename, label) tuples."""
+        for i in range(len(self.filenames)):
+            yield self.filenames[i], self.labels[i]

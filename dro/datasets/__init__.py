@@ -17,7 +17,7 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
 def preprocess_dataset(
-        ds, cache=True, shuffle_buffer_size=1000,
+        ds, cache=False, shuffle_buffer_size=1000,
         repeat_forever=False, batch_size: int = None,
         prefetch_buffer_size=AUTOTUNE, shuffle=True,
         epochs: int = None):
@@ -135,6 +135,16 @@ class ImageDataset(ABC):
         self.dataset = dset.map(preprocess_path_label_tuple)
         return
 
+    def from_filename_and_label_generator(self, generator):
+        """
+        Create a dataset from a generator which produces (filename, y) tuples.
+
+        :param generator: callable which yields (filename, y) tuples.
+        """
+        dset = tf.data.Dataset.from_generator(generator,
+                                              output_types=(tf.string, tf.int32))
+        self.dataset = dset.map(preprocess_path_label_tuple)
+        return
 
     def validation_split(self, n_val):
         """Create a validation split by extracting elements from the current dataset.

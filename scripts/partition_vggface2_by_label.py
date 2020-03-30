@@ -17,7 +17,6 @@ find /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/train -name 
 
 import shutil
 
-import pandas as pd
 import glob
 from absl import app
 from absl import flags
@@ -25,12 +24,13 @@ import re
 import os
 import random
 
-from sklearn.model_selection import train_test_split
+from dro.utils.vggface import make_annotations_df, get_key_from_fp, get_person_id_from_fp
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("img_dir", None, "directory containing the aligned celeba images")
 flags.DEFINE_string("out_dir", None, "directory to output")
-flags.DEFINE_string("anno_dir", None, "path to the target annotation file.")
+flags.DEFINE_string("anno_dir", None,
+                    "path to the directory containing the vggface annotation files.")
 flags.DEFINE_float("train_frac", 0.9, "proportion of persons (not image!) to allocate to "
                                       "training; the rest is for testing. All images "
                                       "for a given "
@@ -38,36 +38,6 @@ flags.DEFINE_float("train_frac", 0.9, "proportion of persons (not image!) to all
                                       "prevent leakage.")
 
 SEED = 29749
-
-
-def make_annotations_df(anno_dir):
-    """Build a single DataFrame with all annotations."""
-    annotations = []
-    for f in os.listdir(anno_dir):
-        if (not f.startswith(".")) and f.endswith(".txt"):
-            label = re.match("\d+-(.*)\.txt", f).group(1)
-            attributes_df = pd.read_csv(os.path.join(FLAGS.anno_dir, f),
-                                        delimiter="\t",
-                                        index_col=0)
-            attributes_df.columns = [label, ]
-            annotations.append(attributes_df)
-    return pd.concat(annotations, axis=1)
-
-
-def get_key_from_fp(fp):
-    """Get the key that uniquely identifies the image; user_id/image_id.jpg"""
-    try:
-        return re.match(".*/(.*/.*.jpg)", fp).group(1)
-    except:
-        return None
-
-
-def get_person_id_from_fp(fp):
-    """Get the key that uniquely identifies the user in the image."""
-    try:
-        return re.match(".*/(.*)/.*.jpg", fp).group(1)
-    except:
-        return None
 
 
 def process_file(img_file: str, label_name: str, label, source_dir, dest_dir,

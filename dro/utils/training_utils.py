@@ -161,7 +161,7 @@ def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
     the labels; a List of the predictions for the models; and a nested dict of
     per-model metrics.
     """
-    print("[INFO] perturbing images...")
+    print("[INFO] perturbing images and evaluating models on perturbed data...")
     perturbed_images, labels, predictions = [], [], []
 
     # TODO(jpgard): implement additional metrics as tf.keras.Metric subclasses; see
@@ -186,7 +186,7 @@ def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
             predictions[-1][model_name] = tf.argmax(y_pred, axis=-1).numpy()
             for i in range(len(metrics[model_name])):
                 metrics[model_name][i](y_true, y_pred)
-    print("[INFO] perturbation complete")
+    print("[INFO] perturbation evaluation complete.")
     metrics = metrics_to_dict(metrics)
     return perturbed_images, labels, predictions, metrics
 

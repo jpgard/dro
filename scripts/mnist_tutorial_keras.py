@@ -20,6 +20,17 @@ from cleverhans.utils import AccuracyReport
 from cleverhans.utils_keras import cnn_model
 from cleverhans.utils_keras import KerasModelWrapper
 
+from dro.keys import LABEL_INPUT_NAME
+from dro.training.models import vggface2_model
+from dro.utils.training_utils import make_callbacks, \
+    write_test_metrics_to_csv, get_train_metrics, make_model_uid, \
+    add_adversarial_metric_names_to_list
+from dro.datasets import ImageDataset
+from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp
+from dro.utils.testing import assert_shape_equal, assert_file_exists
+from dro.datasets.dbs import LabeledBatchGenerator
+from dro.utils.training_utils import make_ckpt_filepath
+
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
@@ -65,10 +76,10 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
   keras.backend.set_session(sess)
 
   # Get MNIST test data
-  mnist = MNIST(train_start=train_start, train_end=train_end,
+  dset = MNIST(train_start=train_start, train_end=train_end,
                 test_start=test_start, test_end=test_end)
-  x_train, y_train = mnist.get_set('train')
-  x_test, y_test = mnist.get_set('test')
+  x_train, y_train = dset.get_set('train')
+  x_test, y_test = dset.get_set('test')
 
   # Obtain Image Parameters
   img_rows, img_cols, nchannels = x_train.shape[1:4]

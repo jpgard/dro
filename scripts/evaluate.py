@@ -10,7 +10,7 @@ usage:
 export LABEL="Mouth_Open"
 export LABEL="Sunglasses"
 export LABEL="Male"
-export SS=0.05
+export SS=0.025
 export EPOCHS=40
 
 export DIR="/projects/grail/jpgard/lfw"
@@ -36,6 +36,7 @@ done
 
 from absl import app, flags
 from collections import OrderedDict
+import os
 import time
 
 import tensorflow as tf
@@ -67,6 +68,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_string("anno_fp", None, "path to annotations file for evaluation.")
 flags.DEFINE_string("test_dir", None, "directory containing the test images")
+flags.DEFINE_string("metrics_dir", "./metrics", "directory to write metrics to")
 flags.DEFINE_string("base_model_ckpt", None,
                     "optional manually-specified checkpoint to use to load the base "
                     "model.")
@@ -302,8 +304,9 @@ def main(argv):
                                     fp_basename=adv_image_basename,
                                     batch_size=FLAGS.batch_size)
 
-    metrics_fp = "./metrics/{}-{}-adversarial-analysis.csv".format(
+    metrics_csv = "{}-{}-adversarial-analysis.csv".format(
         make_model_uid(FLAGS, is_adversarial=True), FLAGS.slice_attribute_name)
+    metrics_fp = os.path.join(FLAGS.metrics_dir, metrics_csv)
     print("[INFO] writing results to {}".format(metrics_fp))
     pd.DataFrame(metrics_list).to_csv(metrics_fp)
 

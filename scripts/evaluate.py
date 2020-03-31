@@ -246,6 +246,8 @@ def main(argv):
             is_adversarial=True,
             data_type=CLEAN_DATA)
 
+        metrics_list.extend([clean_input_metrics_adv, clean_input_metrics_base])
+
         for adv_step_size_to_eval in (0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
             reference_model = make_compiled_reference_model(
@@ -286,8 +288,7 @@ def main(argv):
                 adv_step_size=adv_step_size_to_eval,
                 data=ADV_DATA)
 
-            metrics_list.extend([clean_input_metrics_adv, clean_input_metrics_base,
-                                 adv_input_metrics_adv, adv_input_metrics_base])
+            metrics_list.extend([adv_input_metrics_adv, adv_input_metrics_base])
             # Write the results for 3 batches to a file for inspection.
             adv_image_basename = \
                 "./debug/adv-examples-{uid}-{attr}-{val}-step{ss}".format(

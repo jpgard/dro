@@ -29,7 +29,6 @@ python3 scripts/train_vggface2.py \
 from collections import OrderedDict
 import glob
 import os
-import time
 import numpy as np
 
 from absl import app
@@ -41,13 +40,12 @@ import tensorflow as tf
 from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
-    write_test_metrics_to_csv, get_train_metrics, make_model_uid
+    write_test_metrics_to_csv, get_train_metrics, make_model_uid, \
+    add_adversarial_metric_names_to_list
 from dro.datasets import ImageDataset
 from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp
-from dro.utils.testing import assert_shape_equal, assert_file_exists, assert_ndims
+from dro.utils.testing import assert_shape_equal, assert_file_exists
 from dro.datasets.dbs import LabeledBatchGenerator
-from dro.utils.training_utils import perturb_and_evaluate, make_compiled_reference_model
-from dro.utils.viz import show_adversarial_resuts
 from dro.utils.training_utils import make_ckpt_filepath
 
 tf.compat.v1.enable_eager_execution()
@@ -310,8 +308,7 @@ def main(argv):
         test_metrics_adv = adv_model.evaluate_generator(test_ds_adv.dataset)
         # The evaluate_generator() function adds the total_loss and adversarial_loss,
         # so here we include those.
-        test_metrics_adv_names = \
-            ["total_combined_loss", ] + train_metrics_names + ["adversarial_loss", ]
+        test_metrics_adv_names = add_adversarial_metric_names_to_list(train_metrics_names)
         assert len(test_metrics_adv_names) == len(test_metrics_adv)
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)

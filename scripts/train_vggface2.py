@@ -29,7 +29,6 @@ python3 scripts/train_vggface2.py \
 from collections import OrderedDict
 import glob
 import os
-import time
 import numpy as np
 
 from absl import app
@@ -41,13 +40,12 @@ import tensorflow as tf
 from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
-    write_test_metrics_to_csv, get_train_metrics, make_model_uid
+    write_test_metrics_to_csv, get_train_metrics, make_model_uid, \
+    add_adversarial_metric_names_to_list
 from dro.datasets import ImageDataset
 from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp
-from dro.utils.testing import assert_shape_equal, assert_file_exists, assert_ndims
+from dro.utils.testing import assert_shape_equal, assert_file_exists
 from dro.datasets.dbs import LabeledBatchGenerator
-from dro.utils.training_utils import perturb_and_evaluate, make_compiled_reference_model
-from dro.utils.viz import show_adversarial_resuts
 from dro.utils.training_utils import make_ckpt_filepath
 
 tf.compat.v1.enable_eager_execution()
@@ -74,8 +72,6 @@ flags.DEFINE_string("base_model_ckpt", None,
 flags.DEFINE_string("adv_model_ckpt", None,
                     "optional manually-specified checkpoint to use to load the "
                     "adversarial model.")
-flags.DEFINE_bool("perturbation_analysis", True, "whether to conduct a perturbation "
-                                                 "analysis after completing training.")
 flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
 flags.DEFINE_string("label_name", None,
                     "name of the prediction label (e.g. sunglasses, mouth_open)",
@@ -312,8 +308,7 @@ def main(argv):
         test_metrics_adv = adv_model.evaluate_generator(test_ds_adv.dataset)
         # The evaluate_generator() function adds the total_loss and adversarial_loss,
         # so here we include those.
-        test_metrics_adv_names = \
-            ["total_combined_loss", ] + train_metrics_names + ["adversarial_loss", ]
+        test_metrics_adv_names = add_adversarial_metric_names_to_list(train_metrics_names)
         assert len(test_metrics_adv_names) == len(test_metrics_adv)
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
@@ -323,30 +318,6 @@ def main(argv):
     else:
         adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
 
-    if FLAGS.perturbation_analysis:
-        # First, create a reference model from the non-adversarially-trained model,
-        # which will be used to generate perturbations.
-
-        print("[INFO] generating adversarial samples to compare the models")
-        reference_model = make_compiled_reference_model(vgg_model_base, adv_config,
-                                                        model_compile_args)
-
-        models_to_eval = {
-            'base': vgg_model_base,
-            'adv-regularized': adv_model.base_model
-        }
-
-        perturbed_images, labels, predictions, metrics = perturb_and_evaluate(
-            test_ds_adv.dataset, models_to_eval, reference_model)
-
-        adv_image_basename = "./debug/adv-examples-{}".format(make_model_uid(FLAGS))
-
-        show_adversarial_resuts(n_batches=10,
-                                perturbed_images=perturbed_images,
-                                labels=labels,
-                                predictions=predictions,
-                                fp_basename=adv_image_basename,
-                                batch_size=FLAGS.batch_size)
 
 
 if __name__ == "__main__":

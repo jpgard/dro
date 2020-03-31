@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from math import sqrt
 from tensorflow.keras.preprocessing.image import array_to_img
 import numpy as np
+from dro.keys import ADV_MODEL, BASE_MODEL
 
 
 def plot_faces(img_ary, nplot=7, figsize=(30, 10)):
@@ -35,6 +36,7 @@ def show_adversarial_resuts(n_batches: int, perturbed_images, labels, prediction
                             fp_basename, batch_size):
     n_col = 4
     n_row = (batch_size + n_col - 1) / n_col
+    n_batches = min(n_batches, len(perturbed_images))
     for batch_index in range(n_batches):
         batch_image = perturbed_images[batch_index]
         batch_label = labels[batch_index]
@@ -48,8 +50,8 @@ def show_adversarial_resuts(n_batches: int, perturbed_images, labels, prediction
         plt.figure(figsize=(15, 15))
         plt.suptitle(acc_summary)
         for i, (image, y) in enumerate(zip(batch_image, batch_label)):
-            y_base = batch_pred['base'][i]
-            y_adv = batch_pred['adv-regularized'][i]
+            y_base = batch_pred[BASE_MODEL][i]
+            y_adv = batch_pred[ADV_MODEL][i]
             plt.subplot(n_row, n_col, i + 1)
             plt.title('true: %d, base: %d, adv: %d' % (y, y_base, y_adv))
             plt.imshow(array_to_img(image))

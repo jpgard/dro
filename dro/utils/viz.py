@@ -36,6 +36,7 @@ def show_adversarial_resuts(n_batches: int, perturbed_images, labels, prediction
                             fp_basename, batch_size):
     n_col = 4
     n_row = (batch_size + n_col - 1) / n_col
+    n_batches = min(n_batches, len(perturbed_images))
     for batch_index in range(n_batches):
         batch_image = perturbed_images[batch_index]
         batch_label = labels[batch_index]

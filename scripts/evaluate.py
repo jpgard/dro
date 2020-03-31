@@ -60,6 +60,8 @@ from dro.utils.training_utils import make_model_uid
 from dro.utils.viz import show_adversarial_resuts
 from dro.datasets import ImageDataset
 
+ADV_STEP_SIZE_GRID = (0.005, 0.01, 0.0125, 0.025, 0.05, 0.1, 0.125, 0.2, 0.25)
+
 tf.compat.v1.enable_eager_execution()
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
@@ -248,7 +250,7 @@ def main(argv):
 
         metrics_list.extend([clean_input_metrics_adv, clean_input_metrics_base])
 
-        for adv_step_size_to_eval in (0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
+        for adv_step_size_to_eval in ADV_STEP_SIZE_GRID:
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
             reference_model = make_compiled_reference_model(
                 model_base=vgg_model_base,

@@ -20,6 +20,9 @@ from cleverhans.utils import AccuracyReport
 from cleverhans.utils_keras import cnn_model
 from cleverhans.utils_keras import KerasModelWrapper
 
+# Suppress the annoying tensorflow 1.x deprecation warnings
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
 FLAGS = flags.FLAGS
 
 NB_EPOCHS = 6

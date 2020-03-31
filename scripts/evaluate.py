@@ -110,7 +110,7 @@ flags.DEFINE_string('adv_grad_norm', 'infinity',
                     "The norm to measure the magnitude of adversarial perturbation.")
 
 
-def main(argv):
+def make_pos_and_neg_attr_datasets():
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df(anno_fp=FLAGS.anno_fp,
                                             test_dir=FLAGS.test_dir)
@@ -164,9 +164,10 @@ def main(argv):
                fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
                    FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
                )
+    return {"1": dset_attr_pos, "0": dset_attr_neg}
 
-    attr_dsets = {"1": dset_attr_pos, "0": dset_attr_neg}
 
+def main(argv):
     # load the models
     train_metrics_dict = get_train_metrics()
     train_metrics_names = ["categorical_crossentropy", ] + list(train_metrics_dict.keys())
@@ -207,7 +208,7 @@ def main(argv):
     # List to store the results of the experiment
     metrics_list = list()
 
-    for attr_val, dset in attr_dsets.items():
+    for attr_val in ("0", "1"):
 
         # Get the evaluation metrics for clean inputs.
         def get_model_metrics(model, dataset: tf.data.Dataset, metric_names: list,
@@ -225,19 +226,25 @@ def main(argv):
             return metrics_dict
 
         print("[INFO] evaluating base model on clean data")
-        clean_input_metrics_base = get_model_metrics(vgg_model_base, dset.dataset,
-                                                     train_metrics_names,
-                                                     is_adversarial=False,
-                                                     data_type=CLEAN_DATA)
+        clean_input_metrics_base = get_model_metrics(
+            vgg_model_base,
+            make_pos_and_neg_attr_datasets()[attr_val].dataset,
+            train_metrics_names,
+            is_adversarial=False,
+            data_type=CLEAN_DATA)
         print("[INFO] evaluating adversarial model on clean data")
         # Convert the dataset to dictionary for input to the adversarial model.
+        dset = make_pos_and_neg_attr_datasets()[attr_val]
         dset.convert_to_dictionaries()
-        clean_input_metrics_adv = get_model_metrics(adv_model, dset.dataset,
-                                                    train_metrics_names,
-                                                    is_adversarial=True,
-                                                    data_type=CLEAN_DATA)
+        clean_input_metrics_adv = get_model_metrics(
+            adv_model,
+            dset.dataset,
+            train_metrics_names,
+            is_adversarial=True,
+            data_type=CLEAN_DATA)
 
-        for adv_step_size_to_eval in (0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
+        for adv_step_size_to_eval in (0.005, 0.01, ):
+        # for adv_step_size_to_eval in (0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25):
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
             reference_model = make_compiled_reference_model(
                 model_base=vgg_model_base,
@@ -253,9 +260,13 @@ def main(argv):
             }
 
             # Perturb the images and get the metrics for adversarial inputs
+            dset = make_pos_and_neg_attr_datasets()[attr_val]
+            dset.convert_to_dictionaries()
             perturbed_images, labels, predictions, adv_input_metrics_dict = \
                 perturb_and_evaluate(
-                    dset.dataset, models_to_eval, reference_model)
+                    dset.dataset,
+                    models_to_eval,
+                    reference_model)
 
             # Add other identifiers to the metrics dict and save to metrics_list
 

@@ -41,7 +41,7 @@ LEARNING_RATE = .001
 
 def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
                    test_end=10000, nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
-                   learning_rate=LEARNING_RATE, testing=False,
+                   learning_rate=LEARNING_RATE, testing=True,
                    label_smoothing=0.1):
     """
     MNIST CleverHans tutorial
@@ -234,8 +234,6 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
     print('Test accuracy on legitimate examples: %0.4f' % acc)
     print('Test accuracy on adversarial examples: %0.4f\n' % adv_acc)
 
-    import ipdb;
-    ipdb.set_trace()
 
     # Calculate training error
     if testing:
@@ -246,28 +244,39 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
 
     print("Repeating the process, using adversarial training")
     # Redefine Keras model
-    model_2 = cnn_model(img_rows=img_rows, img_cols=img_cols,
-                        channels=nchannels, nb_filters=64,
-                        nb_classes=nb_classes)
-    model_2(model_2.input)
-    wrap_2 = KerasModelWrapper(model_2)
-    fgsm_2 = FastGradientMethod(wrap_2, sess=sess)
+    if FLAGS.train_base:
+        model_2 = vggface2_model(dropout_rate=FLAGS.dropout_rate, activation='softmax')
+        model_2(model_2.input)
+        wrap_2 = KerasModelWrapper(model_2)
+        fgsm_2 = FastGradientMethod(wrap_2, sess=sess)
 
-    # Use a loss function based on legitimate and adversarial examples
-    adv_loss_2 = get_adversarial_loss(model_2, fgsm_2, fgsm_params)
-    adv_acc_metric_2 = get_adversarial_acc_metric(model_2, fgsm_2, fgsm_params)
-    model_2.compile(
-        optimizer=keras.optimizers.Adam(learning_rate),
-        loss=adv_loss_2,
-        metrics=['accuracy', adv_acc_metric_2]
-    )
+        # Use a loss function based on legitimate and adversarial examples
+        adv_loss_2 = get_adversarial_loss(model_2, fgsm_2, fgsm_params)
+        adv_acc_metric_2 = get_adversarial_acc_metric(model_2, fgsm_2, fgsm_params)
 
-    # Train an MNIST model
-    model_2.fit(x_train, y_train,
-                batch_size=batch_size,
-                epochs=nb_epochs,
-                validation_data=(x_test, y_test),
-                verbose=2)
+    if FLAGS.train_mnist:
+        model_2 = cnn_model(img_rows=img_rows, img_cols=img_cols,
+                            channels=nchannels, nb_filters=64,
+                            nb_classes=nb_classes)
+        model_2(model_2.input)
+        wrap_2 = KerasModelWrapper(model_2)
+        fgsm_2 = FastGradientMethod(wrap_2, sess=sess)
+
+        # Use a loss function based on legitimate and adversarial examples
+        adv_loss_2 = get_adversarial_loss(model_2, fgsm_2, fgsm_params)
+        adv_acc_metric_2 = get_adversarial_acc_metric(model_2, fgsm_2, fgsm_params)
+        model_2.compile(
+            optimizer=keras.optimizers.Adam(learning_rate),
+            loss=adv_loss_2,
+            metrics=['accuracy', adv_acc_metric_2]
+        )
+
+        # Train an MNIST model
+        model_2.fit(x_train, y_train,
+                    batch_size=batch_size,
+                    epochs=nb_epochs,
+                    validation_data=(x_test, y_test),
+                    verbose=2)
 
     # Evaluate the accuracy on legitimate and adversarial test examples
     _, acc, adv_acc = model_2.evaluate(x_test, y_test,

@@ -81,12 +81,6 @@ def define_eval_flags():
     flags.DEFINE_string("metrics_dir", "./metrics", "directory to write metrics to")
     flags.DEFINE_string("slice_attribute_name", None,
                         "attribute name to use from annotations.")
-    flags.DEFINE_string("label_name", None,
-                        "name of the prediction label (e.g. sunglasses, mouth_open) in "
-                        "the "
-                        "LFW/test dataset",
-                        )
-    flags.mark_flag_as_required("label_name")
     flags.mark_flag_as_required("slice_attribute_name")
     flags.DEFINE_float("confidence_threshold", 0.5,
                        "only predictions with absolute value "

@@ -79,12 +79,6 @@ def define_eval_flags():
     """Defines the flags used for evaluation."""
     flags.DEFINE_string("anno_fp", None, "path to annotations file for evaluation.")
     flags.DEFINE_string("metrics_dir", "./metrics", "directory to write metrics to")
-    flags.DEFINE_string("base_model_ckpt", None,
-                        "optional manually-specified checkpoint to use to load the base "
-                        "model.")
-    flags.DEFINE_string("adv_model_ckpt", None,
-                        "optional manually-specified checkpoint to use to load the "
-                        "adversarial model.")
     flags.DEFINE_string("slice_attribute_name", None,
                         "attribute name to use from annotations.")
     flags.DEFINE_string("label_name", None,

@@ -14,7 +14,7 @@ from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
 from keras_vggface.vggface import VGGFace
 
 
-def vggface2_model(dropout_rate, input_shape=(224, 224, 3)):
+def vggface2_model(dropout_rate, input_shape=(224, 224, 3), activation='sigmoid'):
     """Build a vggface2 model."""
     # Convolution Features
     vgg_model = VGGFace(include_top=False, input_shape=input_shape)
@@ -31,7 +31,7 @@ def vggface2_model(dropout_rate, input_shape=(224, 224, 3)):
     net = Activation('relu', name='fc7/relu')(net)
     net = Dropout(rate=dropout_rate)(net)
     net = Dense(2, name='fc8')(net)
-    out = Activation('sigmoid', name='fc8/sigmoid')(net)
+    out = Activation(activation, name='activation/{}'.format(activation))(net)
     custom_vgg_model = Model(vgg_model.input, out)
     return custom_vgg_model
 

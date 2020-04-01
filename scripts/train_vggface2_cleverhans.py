@@ -82,7 +82,6 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
     # TODO(jpgard): implement label smoothing as part of the ImageDataSet class.
     # y_train -= label_smoothing * (y_train - 1. / nb_classes)
 
-    #################### VGGFACE ####################
     from dro.utils.training_utils import get_n_from_file_pattern, compute_n_train_n_val, \
         steps_per_epoch
     from dro.utils.vggface import make_vgg_file_pattern
@@ -148,13 +147,13 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
 
         # Base model training
 
-        model_compile_args = {
+        model_compile_args_base = {
             "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
             "loss": tf.keras.losses.CategoricalCrossentropy(from_logits=False),
             "metrics": ['accuracy', adv_acc_metric]
         }
 
-        vgg_model_base.compile(**model_compile_args)
+        vgg_model_base.compile(**model_compile_args_base)
         vgg_model_base.summary()
 
         # Shared training arguments for the model fitting.
@@ -167,65 +166,6 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
         vgg_model_base.fit(train_ds.dataset, callbacks=callbacks_base,
                            validation_data=val_ds.dataset, **train_args)
 
-    #################### END VGGFACE ################
-    if FLAGS.train_mnist:
-        # Get MNIST test data
-        mnist = MNIST(train_start=train_start, train_end=train_end,
-                      test_start=test_start, test_end=test_end)
-        x_train, y_train = mnist.get_set('train')
-        x_test, y_test = mnist.get_set('test')
-
-        # Obtain Image Parameters
-        img_rows, img_cols, nchannels = x_train.shape[1:4]
-        nb_classes = y_train.shape[1]
-
-        # Label smoothing
-        y_train -= label_smoothing * (y_train - 1. / nb_classes)
-
-        # Define Keras model
-        model = cnn_model(img_rows=img_rows, img_cols=img_cols,
-                          channels=nchannels, nb_filters=64,
-                          nb_classes=nb_classes)
-        print("Defined Keras model.")
-
-        # To be able to call the model in the custom loss, we need to call it once
-        # before, see https://github.com/tensorflow/tensorflow/issues/23769
-        # import ipdb;ipdb.set_trace()
-        # TODO(jpgard): commented this since it did not change the error; it is
-        #  possible it
-        #  shoould be uncommented but it appears the bug that necessitated it has been
-        #  resolved, as the link shows.
-        # model(model.input)
-
-        # Initialize the Fast Gradient Sign Method (FGSM) attack object
-        wrap = KerasModelWrapper(model)
-        fgsm = FastGradientMethod(wrap, sess=sess)
-        fgsm_params = {'eps': 0.3,
-                       'clip_min': 0.,
-                       'clip_max': 1.}
-
-        adv_acc_metric = get_adversarial_acc_metric(model, fgsm, fgsm_params)
-
-        cleverhans_model_compile_args = {
-            "optimizer": keras.optimizers.Adam(learning_rate),
-            "loss": 'categorical_crossentropy',
-            "metrics": ['accuracy', adv_acc_metric]
-        }
-        model.compile(**cleverhans_model_compile_args)
-
-        # Take a small subset of the data for debugging
-        N_TRAIN = batch_size * 10
-        x_train = x_train[:N_TRAIN, ...]
-        y_train = y_train[:N_TRAIN, ...]
-        x_test = x_test[:N_TRAIN, ...]
-        y_test = y_test[:N_TRAIN, ...]
-
-        # Train an MNIST model
-        model.fit(x_train, y_train,
-                  batch_size=batch_size,
-                  epochs=nb_epochs,
-                  validation_data=(x_test, y_test),
-                  verbose=2)
 
     # Evaluate the accuracy on legitimate and adversarial test examples
     _, acc, adv_acc = vgg_model_base.evaluate(test_ds.dataset)
@@ -234,54 +174,42 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
     print('Test accuracy on legitimate examples: %0.4f' % acc)
     print('Test accuracy on adversarial examples: %0.4f\n' % adv_acc)
 
-
     # Calculate training error
     if testing:
-        _, train_acc, train_adv_acc = model.evaluate(train_ds.dataset,
-                                                     steps=steps_per_train_epoch)
+        _, train_acc, train_adv_acc = vgg_model_base.evaluate(train_ds.dataset,
+                                                              steps=steps_per_train_epoch)
         report.train_clean_train_clean_eval = train_acc
         report.train_clean_train_adv_eval = train_adv_acc
 
     print("Repeating the process, using adversarial training")
     # Redefine Keras model
     if FLAGS.train_base:
-        model_2 = vggface2_model(dropout_rate=FLAGS.dropout_rate, activation='softmax')
-        model_2(model_2.input)
-        wrap_2 = KerasModelWrapper(model_2)
-        fgsm_2 = FastGradientMethod(wrap_2, sess=sess)
+        vgg_model_adv = vggface2_model(dropout_rate=FLAGS.dropout_rate,
+                                       activation='softmax')
+        vgg_model_adv(vgg_model_adv.input)
+        wrap_adv = KerasModelWrapper(vgg_model_adv)
+        fgsm_adv = FastGradientMethod(wrap_adv, sess=sess)
 
         # Use a loss function based on legitimate and adversarial examples
-        adv_loss_2 = get_adversarial_loss(model_2, fgsm_2, fgsm_params)
-        adv_acc_metric_2 = get_adversarial_acc_metric(model_2, fgsm_2, fgsm_params)
+        adv_loss_adv = get_adversarial_loss(vgg_model_adv, fgsm_adv, fgsm_params)
+        adv_acc_metric_adv = get_adversarial_acc_metric(vgg_model_adv, fgsm_adv,
+                                                        fgsm_params)
 
-    if FLAGS.train_mnist:
-        model_2 = cnn_model(img_rows=img_rows, img_cols=img_cols,
-                            channels=nchannels, nb_filters=64,
-                            nb_classes=nb_classes)
-        model_2(model_2.input)
-        wrap_2 = KerasModelWrapper(model_2)
-        fgsm_2 = FastGradientMethod(wrap_2, sess=sess)
+        model_compile_args_adv = {
+            "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
+            "loss": adv_loss_adv,
+            "metrics": ['accuracy', adv_acc_metric_adv]
+        }
 
-        # Use a loss function based on legitimate and adversarial examples
-        adv_loss_2 = get_adversarial_loss(model_2, fgsm_2, fgsm_params)
-        adv_acc_metric_2 = get_adversarial_acc_metric(model_2, fgsm_2, fgsm_params)
-        model_2.compile(
-            optimizer=keras.optimizers.Adam(learning_rate),
-            loss=adv_loss_2,
-            metrics=['accuracy', adv_acc_metric_2]
-        )
+        vgg_model_adv.compile(**model_compile_args_adv)
+        print("[INFO] training adversarial model")
+        callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
+        vgg_model_adv.fit(train_ds.dataset, callbacks=callbacks_adv,
+                          validation_data=val_ds.dataset, **train_args)
 
-        # Train an MNIST model
-        model_2.fit(x_train, y_train,
-                    batch_size=batch_size,
-                    epochs=nb_epochs,
-                    validation_data=(x_test, y_test),
-                    verbose=2)
 
     # Evaluate the accuracy on legitimate and adversarial test examples
-    _, acc, adv_acc = model_2.evaluate(x_test, y_test,
-                                       batch_size=batch_size,
-                                       verbose=0)
+    _, acc, adv_acc = vgg_model_base.evaluate(test_ds.dataset)
     report.adv_train_clean_eval = acc
     report.adv_train_adv_eval = adv_acc
     print('Test accuracy on legitimate examples: %0.4f' % acc)
@@ -289,9 +217,8 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
 
     # Calculate training error
     if testing:
-        _, train_acc, train_adv_acc = model_2.evaluate(x_train, y_train,
-                                                       batch_size=batch_size,
-                                                       verbose=0)
+        _, train_acc, train_adv_acc = vgg_model_adv.evaluate(train_ds.dataset,
+                                                             steps=steps_per_train_epoch)
         report.train_adv_train_clean_eval = train_acc
         report.train_adv_train_adv_eval = train_adv_acc
 
@@ -306,9 +233,6 @@ def get_adversarial_acc_metric(model, fgsm, fgsm_params):
         x_adv = tf.stop_gradient(x_adv)
 
         # Accuracy on the adversarial examples
-        # TODO:  You must feed a value for placeholder tensor 'input_1' with dtype
-        #  float and shape [?,224,224,3]
-        # import ipdb;ipdb.set_trace()
         print(x_adv)
         print(model.input)
         preds_adv = model(x_adv)
@@ -340,9 +264,11 @@ def main(argv=None):
     from cleverhans_tutorials import check_installation
     check_installation(__file__)
 
-    mnist_tutorial(nb_epochs=FLAGS.nb_epochs,
-                   batch_size=FLAGS.batch_size,
-                   learning_rate=FLAGS.learning_rate)
+    report = mnist_tutorial(nb_epochs=FLAGS.nb_epochs,
+                            batch_size=FLAGS.batch_size,
+                            learning_rate=FLAGS.learning_rate)
+    import pprint
+    pprint.pprint(report.__dict__)
 
 
 if __name__ == '__main__':

@@ -20,16 +20,9 @@ from cleverhans.utils import AccuracyReport
 from cleverhans.utils_keras import cnn_model
 from cleverhans.utils_keras import KerasModelWrapper
 
-from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
-from dro.utils.training_utils import make_callbacks, \
-    write_test_metrics_to_csv, get_train_metrics, make_model_uid, \
-    add_adversarial_metric_names_to_list
+from dro.utils.training_utils import make_callbacks
 from dro.datasets import ImageDataset
-from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp
-from dro.utils.testing import assert_shape_equal, assert_file_exists
-from dro.datasets.dbs import LabeledBatchGenerator
-from dro.utils.training_utils import make_ckpt_filepath
 from dro.utils.flags import define_training_flags
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
@@ -187,6 +180,12 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
 
     # Label smoothing
     y_train -= label_smoothing * (y_train - 1. / nb_classes)
+
+    # Define Keras model
+    model = cnn_model(img_rows=img_rows, img_cols=img_cols,
+                      channels=nchannels, nb_filters=64,
+                      nb_classes=nb_classes)
+    print("Defined Keras model.")
 
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate),

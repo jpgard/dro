@@ -1,8 +1,28 @@
 """
-This tutorial shows how to generate adversarial examples using FGSM
-and train a model using adversarial training with Keras.
+Generate adversarial examples using FGSM
+and train a vggface model using adversarial training with Keras.
+
 The original paper can be found at:
 https://arxiv.org/abs/1412.6572
+
+# set the gpu
+export GPU_ID="1"
+export CUDA_DEVICE_ORDER="PCI_BUS_ID"
+export CUDA_VISIBLE_DEVICES=$GPU_ID
+
+# run the script
+export LABEL="Mouth_Open"
+export DIR="/projects/grail/jpgard/vggface2/annotated_partitioned_by_label"
+export SS=0.025
+export EPOCHS=40
+python3 scripts/train_vggface2_cleverhans.py \
+    --label_name $LABEL \
+    --test_dir ${DIR}/test/${LABEL} \
+    --train_dir ${DIR}/train/${LABEL} \
+    --adv_step_size $SS --epochs $EPOCHS \
+    --anno_dir /projects/grail/jpgard/vggface2/anno \
+    --experiment_uid CLEVERHANS_TEST
+
 """
 # pylint: disable=missing-docstring
 from __future__ import absolute_import
@@ -23,7 +43,7 @@ from cleverhans.utils_keras import KerasModelWrapper
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks
 from dro.datasets import ImageDataset
-from dro.utils.flags import define_training_flags
+from dro.utils.flags import define_training_flags, define_adv_training_flags
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -31,6 +51,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 FLAGS = flags.FLAGS
 
 define_training_flags()
+define_adv_training_flags()
 
 flags.DEFINE_bool("train_mnist", False, "whether to train the cleverhans mnist model.")
 
@@ -39,10 +60,7 @@ BATCH_SIZE = 128
 LEARNING_RATE = .001
 
 
-def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
-                   test_end=10000, nb_epochs=NB_EPOCHS, batch_size=BATCH_SIZE,
-                   learning_rate=LEARNING_RATE, testing=True,
-                   label_smoothing=0.1):
+def mnist_tutorial(testing=True, label_smoothing=0.1):
     """
     MNIST CleverHans tutorial
     :param train_start: index of first training set example

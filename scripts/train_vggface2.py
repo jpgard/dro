@@ -175,9 +175,9 @@ def main(argv):
         steps_per_val_epoch = 1
 
     train_ds.write_sample_batch("./debug/sample-batch-train-{}.png".format(
-        make_model_uid(flags)))
+        make_model_uid(FLAGS)))
     test_ds.write_sample_batch("./debug/sample-batch-test-label{}.png".format(
-        make_model_uid(flags)))
+        make_model_uid(FLAGS)))
 
     # The metrics to optimize during training
     train_metrics_dict = get_train_metrics()

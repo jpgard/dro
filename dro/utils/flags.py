@@ -78,7 +78,6 @@ def define_embeddings_flags():
 def define_eval_flags():
     """Defines the flags used for evaluation."""
     flags.DEFINE_string("anno_fp", None, "path to annotations file for evaluation.")
-    flags.DEFINE_string("test_dir", None, "directory containing the test images")
     flags.DEFINE_string("metrics_dir", "./metrics", "directory to write metrics to")
     flags.DEFINE_string("base_model_ckpt", None,
                         "optional manually-specified checkpoint to use to load the base "

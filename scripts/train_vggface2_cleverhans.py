@@ -167,15 +167,8 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
         vgg_model_base.fit(train_ds.dataset, callbacks=callbacks_base,
                            validation_data=val_ds.dataset, **train_args)
 
-        # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        test_metrics = vgg_model_base.evaluate(test_ds.dataset)
-        # assert len(train_metrics_names) == len(test_metrics)
-        # test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
-        # write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
-        import ipdb;
-        ipdb.set_trace()
     #################### END VGGFACE ################
-    if FLAGS.train_mnit:
+    if FLAGS.train_mnist:
         # Get MNIST test data
         mnist = MNIST(train_start=train_start, train_end=train_end,
                       test_start=test_start, test_end=test_end)
@@ -235,19 +228,19 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
                   verbose=2)
 
     # Evaluate the accuracy on legitimate and adversarial test examples
-    _, acc, adv_acc = model.evaluate(x_test, y_test,
-                                     batch_size=batch_size,
-                                     verbose=0)
+    _, acc, adv_acc = vgg_model_base.evaluate(test_ds.dataset)
     report.clean_train_clean_eval = acc
     report.clean_train_adv_eval = adv_acc
     print('Test accuracy on legitimate examples: %0.4f' % acc)
     print('Test accuracy on adversarial examples: %0.4f\n' % adv_acc)
 
+    import ipdb;
+    ipdb.set_trace()
+
     # Calculate training error
     if testing:
-        _, train_acc, train_adv_acc = model.evaluate(x_train, y_train,
-                                                     batch_size=batch_size,
-                                                     verbose=0)
+        _, train_acc, train_adv_acc = model.evaluate(train_ds.dataset,
+                                                     steps=steps_per_train_epoch)
         report.train_clean_train_clean_eval = train_acc
         report.train_clean_train_adv_eval = train_adv_acc
 

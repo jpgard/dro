@@ -114,9 +114,6 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
                                                  n_val=n_val,
                                                  n_test=n_test,
                                                  ))
-    from tensorflow.keras.utils import plot_model
-    plot_model(vgg_model_base, to_file="model_plot.png", show_shapes=True,
-               show_layer_names=True)
 
     if not FLAGS.debug:
         steps_per_train_epoch = steps_per_epoch(n_train, FLAGS.batch_size)
@@ -209,7 +206,7 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
 
 
     # Evaluate the accuracy on legitimate and adversarial test examples
-    _, acc, adv_acc = vgg_model_base.evaluate(test_ds.dataset)
+    _, acc, adv_acc = vgg_model_adv.evaluate(test_ds.dataset)
     report.adv_train_clean_eval = acc
     report.adv_train_adv_eval = adv_acc
     print('Test accuracy on legitimate examples: %0.4f' % acc)

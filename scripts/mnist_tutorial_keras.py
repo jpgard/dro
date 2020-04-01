@@ -153,10 +153,18 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    train_ds.write_sample_batch("./debug/sample-batch-train-{}.png".format(
-        make_model_uid(flags)))
-    test_ds.write_sample_batch("./debug/sample-batch-test-label{}.png".format(
-        make_model_uid(flags)))
+    # To be able to call the model in the custom loss, we need to call it once
+    # before, see https://github.com/tensorflow/tensorflow/issues/23769
+    vgg_model_base(vgg_model_base.input)
+
+    # Initialize the Fast Gradient Sign Method (FGSM) attack object
+    wrap = KerasModelWrapper(vgg_model_base)
+    fgsm = FastGradientMethod(wrap, sess=sess)
+    fgsm_params = {'eps': 0.3,
+                   'clip_min': 0.,
+                   'clip_max': 1.}
+
+    adv_acc_metric = get_adversarial_acc_metric(model, fgsm, fgsm_params)
 
     model_compile_args = {
         "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
@@ -175,11 +183,11 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
     if FLAGS.train_base:
         print("[INFO] training base model")
         callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
-        vgg_model_base.fit_generator(train_ds.dataset, callbacks=callbacks_base,
+        vgg_model_base.fit(train_ds.dataset, callbacks=callbacks_base,
                                      validation_data=val_ds.dataset, **train_args)
 
         # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
-        test_metrics = vgg_model_base.evaluate_generator(test_ds.dataset)
+        test_metrics = vgg_model_base.evaluate(test_ds.dataset)
         # assert len(train_metrics_names) == len(test_metrics)
         # test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
         # write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)

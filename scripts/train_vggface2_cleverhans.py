@@ -143,7 +143,10 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
                    'clip_max': 1.}
 
     adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, fgsm, fgsm_params)
-
+    # TODO(jpgard): why does this metric fail during training, when it works with their
+    #  Keras model?
+    import ipdb;
+    ipdb.set_trace()
     model_compile_args = {
         "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
         "loss": tf.keras.losses.CategoricalCrossentropy(from_logits=False),

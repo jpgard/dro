@@ -24,20 +24,16 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from keras_vggface.vggface import VGGFace
 from dro.datasets import preprocess_dataset, process_path
+from dro.utils.flags import define_embeddings_flags
 
 tf.compat.v1.enable_eager_execution()
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("img_dir", None, "directory containing the images")
-flags.DEFINE_string("out_dir", "./embeddings", "directory to dump the embeddings and "
-                                               "similarity to")
-flags.DEFINE_bool("similarity", False, "whether or not to write the similarity matrix; "
-                                      "this can be huge for large datasets and it may "
-                                      "be easier to just store the embeddings and "
-                                      "compute similarity later.")
-flags.DEFINE_integer("batch_size", 16, "batch size to use for inference")
+# Define the flags.
+define_embeddings_flags()
+
 # Suppress the annoying tensorflow 1.x deprecation warnings; these make console output
 # impossible to parse.
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)

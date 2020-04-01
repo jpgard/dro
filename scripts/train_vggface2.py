@@ -27,7 +27,6 @@ python3 scripts/train_vggface2.py \
 """
 
 from collections import OrderedDict
-import glob
 import os
 import numpy as np
 
@@ -41,12 +40,15 @@ from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
     write_test_metrics_to_csv, get_train_metrics, make_model_uid, \
-    add_adversarial_metric_names_to_list
+    add_adversarial_metric_names_to_list, get_n_from_file_pattern, compute_n_train_n_val, \
+    steps_per_epoch
 from dro.datasets import ImageDataset
-from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp
+from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp, \
+    make_vgg_file_pattern
 from dro.utils.testing import assert_shape_equal, assert_file_exists
 from dro.datasets.dbs import LabeledBatchGenerator
 from dro.utils.training_utils import make_ckpt_filepath
+from dro.utils.flags import define_training_flags, define_adv_training_flags
 
 tf.compat.v1.enable_eager_execution()
 
@@ -54,70 +56,14 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 FLAGS = flags.FLAGS
 
 # the vggface2/training parameters
-flags.DEFINE_integer("batch_size", 16, "batch size")
-flags.DEFINE_integer("epochs", 250, "the number of training epochs")
-flags.DEFINE_string("train_dir", None, "directory containing the training images")
-flags.DEFINE_string("test_dir", None, "directory containing the test images")
-flags.DEFINE_string("ckpt_dir", "./training-logs", "directory to save/load checkpoints "
-                                                   "from")
-flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
-flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
-flags.DEFINE_bool("train_adversarial", True, "whether to train an adversarial model.")
-flags.DEFINE_bool("train_base", True, "whether to train the base (non-adversarial) "
-                                      "model. Otherwise it will be loaded from the "
-                                      "default or provided checkpoint.")
-flags.DEFINE_string("base_model_ckpt", None,
-                    "optional manually-specified checkpoint to use to load the base "
-                    "model.")
-flags.DEFINE_string("adv_model_ckpt", None,
-                    "optional manually-specified checkpoint to use to load the "
-                    "adversarial model.")
-flags.DEFINE_float("val_frac", 0.1, "proportion of data to use for validation")
-flags.DEFINE_string("label_name", None,
-                    "name of the prediction label (e.g. sunglasses, mouth_open)",
-                    )
-flags.DEFINE_string("experiment_uid", None, "Optional string identifier to be used to "
-                                            "uniquely identify this experiment.")
-flags.DEFINE_string("precomputed_batches_fp", None,
-                    "Optional filepath to a set of precomputed batches; if provided, "
-                    "these will be used for training instead of randomly-shuffled "
-                    "batches of training data.")
-flags.DEFINE_string("anno_dir", None,
-                    "path to the directory containing the vggface annotation files.")
-flags.mark_flag_as_required("label_name")
-flags.mark_flag_as_required("train_dir")
-flags.DEFINE_bool("debug", False,
-                  "whether to run in debug mode (super short iterations to check for "
-                  "bugs)")
-flags.DEFINE_bool("use_dbs", False, "whether diverse batch sampling was used; if this is "
-                                "set to True, batches will be read from the "
-                                "precomputed_batches_fp.")
+define_training_flags()
 
 # the adversarial training parameters
-flags.DEFINE_float('adv_multiplier', 0.2,
-                   " The weight of adversarial loss in the training objective, relative "
-                   "to the labeled loss. e.g. if this is 0.2, The model minimizes "
-                   "(mean_crossentropy_loss + 0.2 * adversarial_regularization) ")
-flags.DEFINE_float('adv_step_size', 0.2, "The magnitude of adversarial perturbation.")
-flags.DEFINE_string('adv_grad_norm', 'infinity',
-                    "The norm to measure the magnitude of adversarial perturbation.")
+define_adv_training_flags()
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
-
-def get_n_from_file_pattern(file_pattern):
-    return len(glob.glob(file_pattern))
-
-
-def steps_per_epoch(n):
-    return n // FLAGS.batch_size
-
-
-def compute_n_train_n_val(n_train_val):
-    n_val = int(n_train_val * FLAGS.val_frac)
-    n_train = n_train_val - n_val
-    return n_train, n_val
 
 def replace_parent_img_dirs(fp, label, target_parent_dirs):
     """Replace all directories above the  /person_id/image_id level of fp with
@@ -127,8 +73,8 @@ def replace_parent_img_dirs(fp, label, target_parent_dirs):
 
 
 def main(argv):
-    train_file_pattern = str(FLAGS.train_dir + '/*/*/*.jpg')
-    test_file_pattern = str(FLAGS.test_dir + '/*/*/*.jpg')
+    train_file_pattern = make_vgg_file_pattern(FLAGS.train_dir)
+    test_file_pattern = make_vgg_file_pattern(FLAGS.test_dir)
     n_test = get_n_from_file_pattern(test_file_pattern)
 
     train_ds = ImageDataset()
@@ -198,7 +144,7 @@ def main(argv):
 
     else:
         n_train_val = get_n_from_file_pattern(train_file_pattern)
-        n_train, n_val = compute_n_train_n_val(n_train_val)
+        n_train, n_val = compute_n_train_n_val(n_train_val, FLAGS.val_frac)
 
         # Create the datasets.
         train_ds.from_files(train_file_pattern, shuffle=True)
@@ -221,8 +167,8 @@ def main(argv):
                                                  n_test=n_test,
                                                  ))
     if not FLAGS.debug:
-        steps_per_train_epoch = steps_per_epoch(n_train)
-        steps_per_val_epoch = steps_per_epoch(n_val)
+        steps_per_train_epoch = steps_per_epoch(n_train, FLAGS.batch_size)
+        steps_per_val_epoch = steps_per_epoch(n_val, FLAGS.batch_size)
     else:
         print("[INFO] running in debug mode")
         steps_per_train_epoch = 1

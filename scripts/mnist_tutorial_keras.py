@@ -306,7 +306,5 @@ def main(argv=None):
 if __name__ == '__main__':
     flags.DEFINE_integer('nb_epochs', NB_EPOCHS,
                          'Number of epochs to train model')
-    flags.DEFINE_integer('batch_size', BATCH_SIZE, 'Size of training batches')
-    flags.DEFINE_float('learning_rate', LEARNING_RATE,
-                       'Learning rate for training')
+
     tf.app.run()

@@ -38,7 +38,6 @@ def define_training_flags():
     flags.DEFINE_string("anno_dir", None,
                         "path to the directory containing the vggface annotation files.")
     flags.mark_flag_as_required("label_name")
-    flags.mark_flag_as_required("train_dir")
     flags.DEFINE_bool("debug", False,
                       "whether to run in debug mode (super short iterations to check for "
                       "bugs)")

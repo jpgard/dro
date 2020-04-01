@@ -79,37 +79,15 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
     sess = tf.Session(config=config)
     keras.backend.set_session(sess)
 
-    # Get MNIST test data
-    dset = MNIST(train_start=train_start, train_end=train_end,
-                 test_start=test_start, test_end=test_end)
-    x_train, y_train = dset.get_set('train')
-    x_test, y_test = dset.get_set('test')
 
     # Obtain Image Parameters
-    img_rows, img_cols, nchannels = x_train.shape[1:4]
-    nb_classes = y_train.shape[1]
+    # img_rows, img_cols, nchannels = x_train.shape[1:4]
+    # nb_classes = y_train.shape[1]
 
     # Label smoothing
-    y_train -= label_smoothing * (y_train - 1. / nb_classes)
+    # TODO(jpgard): implement label smoothing as part of the ImageDataSet class.
+    # y_train -= label_smoothing * (y_train - 1. / nb_classes)
 
-    # Define Keras model
-    model = cnn_model(img_rows=img_rows, img_cols=img_cols,
-                      channels=nchannels, nb_filters=64,
-                      nb_classes=nb_classes)
-    print("Defined Keras model.")
-
-    # To be able to call the model in the custom loss, we need to call it once
-    # before, see https://github.com/tensorflow/tensorflow/issues/23769
-    model(model.input)
-
-    # Initialize the Fast Gradient Sign Method (FGSM) attack object
-    wrap = KerasModelWrapper(model)
-    fgsm = FastGradientMethod(wrap, sess=sess)
-    fgsm_params = {'eps': 0.3,
-                   'clip_min': 0.,
-                   'clip_max': 1.}
-
-    adv_acc_metric = get_adversarial_acc_metric(model, fgsm, fgsm_params)
 
     #################### VGGFACE ####################
     from dro.utils.training_utils import get_n_from_file_pattern, compute_n_train_n_val, \
@@ -138,7 +116,7 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
     test_ds.from_files(test_file_pattern, shuffle=False)
     test_ds.preprocess(repeat_forever=False, shuffle=False, batch_size=FLAGS.batch_size)
 
-    vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
+    vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate, activation='softmax')
     print("[INFO] {n_train} training observations; {n_val} validation observations"
           "{n_test} testing observations".format(n_train=n_train,
                                                  n_val=n_val,

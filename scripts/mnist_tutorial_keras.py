@@ -106,6 +106,81 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
                  'clip_max': 1.}
 
   adv_acc_metric = get_adversarial_acc_metric(model, fgsm, fgsm_params)
+
+  #################### VGGFACE ####################
+  from dro.utils.training_utils import get_n_from_file_pattern, compute_n_train_n_val, \
+      steps_per_epoch
+  from dro.utils.vggface import make_vgg_file_pattern
+  train_file_pattern = make_vgg_file_pattern(FLAGS.train_dir)
+  test_file_pattern = make_vgg_file_pattern(FLAGS.test_dir)
+  n_test = get_n_from_file_pattern(test_file_pattern)
+  n_train_val = get_n_from_file_pattern(train_file_pattern)
+  n_train, n_val = compute_n_train_n_val(n_train_val, FLAGS.val_frac)
+
+  train_ds = ImageDataset()
+  test_ds = ImageDataset()
+
+  # Create the datasets.
+  train_ds.from_files(train_file_pattern, shuffle=True)
+  val_ds = train_ds.validation_split(n_val)
+  # Preprocess the datasets to create (x,y) tuples.
+  preprocess_args = {"repeat_forever": True, "batch_size": FLAGS.batch_size}
+  train_ds.preprocess(**preprocess_args)
+  val_ds.preprocess(**preprocess_args)
+
+  # No matter whether precomputed train batches are used or not, the test data is
+  # taken from a test directory.
+
+  test_ds.from_files(test_file_pattern, shuffle=False)
+  test_ds.preprocess(repeat_forever=False, shuffle=False, batch_size=FLAGS.batch_size)
+
+  vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
+  print("[INFO] {n_train} training observations; {n_val} validation observations"
+        "{n_test} testing observations".format(n_train=n_train,
+                                               n_val=n_val,
+                                               n_test=n_test,
+                                               ))
+
+  if not FLAGS.debug:
+      steps_per_train_epoch = steps_per_epoch(n_train, FLAGS.batch_size)
+      steps_per_val_epoch = steps_per_epoch(n_val, FLAGS.batch_size)
+  else:
+      print("[INFO] running in debug mode")
+      steps_per_train_epoch = 1
+      steps_per_val_epoch = 1
+
+  train_ds.write_sample_batch("./debug/sample-batch-train-{}.png".format(
+      make_model_uid(flags)))
+  test_ds.write_sample_batch("./debug/sample-batch-test-label{}.png".format(
+      make_model_uid(flags)))
+
+  model_compile_args = {
+      "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
+      "loss": tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+      "metrics": ['accuracy', adv_acc_metric]
+  }
+
+  vgg_model_base.compile(**model_compile_args)
+  vgg_model_base.summary()
+
+  # Shared training arguments for the model fitting.
+  train_args = {"steps_per_epoch": steps_per_train_epoch,
+                "epochs": FLAGS.epochs,
+                "validation_steps": steps_per_val_epoch}
+  # Base model training
+  if FLAGS.train_base:
+      print("[INFO] training base model")
+      callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
+      vgg_model_base.fit_generator(train_ds.dataset, callbacks=callbacks_base,
+                                   validation_data=val_ds.dataset, **train_args)
+
+      # Fetch preds and test labels; these are both numpy arrays of shape [n_test, 2]
+      test_metrics = vgg_model_base.evaluate_generator(test_ds.dataset)
+      # assert len(train_metrics_names) == len(test_metrics)
+      # test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
+      # write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
+  import ipdb;ipdb.set_trace()
+  #################### END VGGFACE ################
   model.compile(
       optimizer=keras.optimizers.Adam(learning_rate),
       loss='categorical_crossentropy',

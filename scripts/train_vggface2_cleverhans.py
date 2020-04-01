@@ -142,7 +142,7 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
                    'clip_min': 0.,
                    'clip_max': 1.}
 
-    adv_acc_metric = get_adversarial_acc_metric(model, fgsm, fgsm_params)
+    adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, fgsm, fgsm_params)
 
     model_compile_args = {
         "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),

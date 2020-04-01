@@ -60,7 +60,7 @@ from dro.utils.training_utils import make_model_uid
 from dro.utils.viz import show_adversarial_resuts
 from dro.datasets import ImageDataset
 
-ADV_STEP_SIZE_GRID = (0.005, 0.01, 0.0125, 0.025, 0.05, 0.1, 0.125, 0.2, 0.25)
+ADV_STEP_SIZE_GRID = (0.005, 0.01, 0.025, 0.05, 0.1, 0.125, 0.2, 0.25)
 
 tf.compat.v1.enable_eager_execution()
 

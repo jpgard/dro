@@ -172,6 +172,19 @@ def mnist_tutorial(train_start=0, train_end=60000, test_start=0,
     import ipdb;
     ipdb.set_trace()
     #################### END VGGFACE ################
+    # Get MNIST test data
+    mnist = MNIST(train_start=train_start, train_end=train_end,
+                  test_start=test_start, test_end=test_end)
+    x_train, y_train = mnist.get_set('train')
+    x_test, y_test = mnist.get_set('test')
+
+    # Obtain Image Parameters
+    img_rows, img_cols, nchannels = x_train.shape[1:4]
+    nb_classes = y_train.shape[1]
+
+    # Label smoothing
+    y_train -= label_smoothing * (y_train - 1. / nb_classes)
+
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate),
         loss='categorical_crossentropy',

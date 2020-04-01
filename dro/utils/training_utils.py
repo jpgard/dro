@@ -1,3 +1,4 @@
+import glob
 from itertools import islice
 from collections import defaultdict
 import os
@@ -221,3 +222,17 @@ def add_keys_to_dict(input_dict, **kwargs):
 def add_adversarial_metric_names_to_list(metrics_list):
     """The adversarial training has different metrics -- add these to metrics_list."""
     return ["total_combined_loss", ] + metrics_list + ["adversarial_loss", ]
+
+
+def get_n_from_file_pattern(file_pattern):
+    return len(glob.glob(file_pattern))
+
+
+def compute_n_train_n_val(n_train_val, val_frac):
+    n_val = int(n_train_val * val_frac)
+    n_train = n_train_val - n_val
+    return n_train, n_val
+
+
+def steps_per_epoch(n, batch_size):
+    return n // batch_size

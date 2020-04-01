@@ -279,9 +279,7 @@ def main(argv=None):
     from cleverhans_tutorials import check_installation
     check_installation(__file__)
 
-    report = mnist_tutorial(nb_epochs=FLAGS.nb_epochs,
-                            batch_size=FLAGS.batch_size,
-                            learning_rate=FLAGS.learning_rate)
+    report = mnist_tutorial()
     import pprint
     pprint.pprint(report.__dict__)
 

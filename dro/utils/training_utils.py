@@ -133,8 +133,8 @@ def make_model_uid(flags, is_adversarial=False):
                 dropout_rate=flags.dropout_rate
                 )
     if is_adversarial:
-        model_uid = "{model_uid}-{adv}-m{mul}-s{step}-n{norm}".format(
-            adv=get_adversarial_mode(True),
+        model_uid = "{model_uid}-{attack}-m{mul}-s{step}-n{norm}".format(
+            attack=flags.attack,
             model_uid=model_uid, mul=flags.adv_multiplier,
             step=flags.adv_step_size, norm=flags.adv_grad_norm)
     if flags.use_dbs:

@@ -67,7 +67,9 @@ def get_attack(wrap: KerasModelWrapper, sess: tf.Session):
 class Report:
     def __init__(self):
         self.results_list = list()
-        self.uid = make_model_uid(FLAGS)
+        # Set is_adversarial=True when generating the model_uid so that the adversarial
+        # parameters (attack type, epsilon, etc) will be recorded in the uid.
+        self.uid = make_model_uid(FLAGS, is_adversarial=True)
         self.metric = keys.ACC  # the name of the metric being recorded
 
     def add_result(self, val, model, data, phase):

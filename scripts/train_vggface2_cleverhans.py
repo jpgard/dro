@@ -20,8 +20,7 @@ python3 scripts/train_vggface2_cleverhans.py \
     --test_dir ${DIR}/test/${LABEL} \
     --train_dir ${DIR}/train/${LABEL} \
     --adv_step_size $SS --epochs $EPOCHS \
-    --anno_dir /projects/grail/jpgard/vggface2/anno \
-    --experiment_uid CLEVERHANS_TEST
+    --anno_dir /projects/grail/jpgard/vggface2/anno
 
 """
 # pylint: disable=missing-docstring
@@ -37,9 +36,6 @@ import pandas as pd
 
 from cleverhans.attacks import FastGradientMethod
 from cleverhans.compat import flags
-from cleverhans.dataset import MNIST
-from cleverhans.utils import AccuracyReport
-from cleverhans.utils_keras import cnn_model
 from cleverhans.utils_keras import KerasModelWrapper
 
 from dro.training.models import vggface2_model

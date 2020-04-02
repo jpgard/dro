@@ -48,3 +48,6 @@ def get_person_id_from_fp(fp):
         return re.match(".*/(.*)/.*.jpg", fp).group(1)
     except:
         return None
+
+def make_vgg_file_pattern(dirname):
+    return str(dirname + '/*/*/*.jpg')

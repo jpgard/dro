@@ -23,26 +23,14 @@ import numpy as np
 from dppy.finite_dpps import FiniteDPP
 
 from dro.datasets.dbs import load_or_compute_eigs, batch_indices_to_values
+from dro.utils.flags import define_dbs_flags
 
 FLAGS = flags.FLAGS
 
 # TODO(jpgard): just load all files from a shared directory. Also, the batches file
 #  should have a uid which includes the parameters in its name to uniquely identify it.
 
-flags.DEFINE_string("embeddings_fp", None, "path to the embeddings.csv file.")
-flags.DEFINE_integer("random_state", 95120, "Random seed to use in generating batches.")
-flags.DEFINE_bool("use_precomputed_eigs", False, "whether to use a set of precomputed "
-                                                 "eigenvalues/vectors.")
-flags.DEFINE_string("eigen_vals_fp", None, "path to eigenvalues; if "
-                                           "use_recomputed_eigs is True, this is where "
-                                           "the eigenvalues will be loaded from.")
-flags.DEFINE_string("eigen_vecs_fp", None, "path to eigenvectors; if "
-                                           "use_recomputed_eigs is True, this is where "
-                                           "the eigenvectors will be loaded from.")
-flags.DEFINE_string("batches_fp", None, "Path to write batches array (should be .npz)")
-flags.DEFINE_integer("n_batches", 100, "Number of batches to generate.")
-flags.DEFINE_integer("batch_size", 16, "Size of batches to generate")
-flags.mark_flags_as_required(["embeddings_fp", "eigen_vals_fp", "eigen_vecs_fp"])
+define_dbs_flags()
 
 
 def main(argv):

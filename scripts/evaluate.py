@@ -59,6 +59,8 @@ from dro.utils.training_utils import perturb_and_evaluate, \
 from dro.utils.training_utils import make_model_uid
 from dro.utils.viz import show_adversarial_resuts
 from dro.datasets import ImageDataset
+from dro.utils.flags import define_training_flags, define_eval_flags, \
+    define_adv_training_flags
 
 ADV_STEP_SIZE_GRID = (0.005, 0.01, 0.025, 0.05, 0.1, 0.125, 0.2, 0.25)
 
@@ -69,50 +71,14 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string("anno_fp", None, "path to annotations file for evaluation.")
-flags.DEFINE_string("test_dir", None, "directory containing the test images")
-flags.DEFINE_string("metrics_dir", "./metrics", "directory to write metrics to")
-flags.DEFINE_string("base_model_ckpt", None,
-                    "optional manually-specified checkpoint to use to load the base "
-                    "model.")
-flags.DEFINE_string("adv_model_ckpt", None,
-                    "optional manually-specified checkpoint to use to load the "
-                    "adversarial model.")
-flags.DEFINE_string("slice_attribute_name", None,
-                    "attribute name to use from annotations.")
-flags.DEFINE_string("label_name", None,
-                    "name of the prediction label (e.g. sunglasses, mouth_open) in the "
-                    "LFW/test dataset",
-                    )
-flags.mark_flag_as_required("label_name")
-flags.mark_flag_as_required("slice_attribute_name")
-flags.DEFINE_float("confidence_threshold", 0.5, "only predictions with absolute value "
-                                                ">= this threshold are used ("
-                                                "predictions are centered around zero) "
-                                                "in order to ensure high-quality labels.")
-
 # the vggface2/training parameters
-flags.DEFINE_integer("batch_size", 16, "batch size")
-flags.DEFINE_integer("epochs", 250, "the number of training epochs")
-flags.DEFINE_string("ckpt_dir", "./training-logs", "directory to save/load checkpoints "
-                                                   "from")
-flags.DEFINE_float("learning_rate", 0.01, "learning rate to use")
-flags.DEFINE_float("dropout_rate", 0.8, "dropout rate to use in fully-connected layers")
-flags.mark_flag_as_required("label_name")
-flags.DEFINE_string("experiment_uid", None, "Optional string identifier to be used to "
-                                            "uniquely identify this experiment.")
-flags.DEFINE_bool("use_dbs", False, "whether diverse batch sampling was used; if this is "
-                                    "set to True, batches will be read from the "
-                                    "precomputed_batches_fp.")
+define_training_flags()
 
 # the adversarial training parameters
-flags.DEFINE_float('adv_multiplier', 0.2,
-                   " The weight of adversarial loss in the training objective, relative "
-                   "to the labeled loss. e.g. if this is 0.2, The model minimizes "
-                   "(mean_crossentropy_loss + 0.2 * adversarial_regularization) ")
-flags.DEFINE_float('adv_step_size', 0.2, "The magnitude of adversarial perturbation.")
-flags.DEFINE_string('adv_grad_norm', 'infinity',
-                    "The norm to measure the magnitude of adversarial perturbation.")
+define_adv_training_flags()
+
+# the evaluation flags
+define_eval_flags()
 
 
 def make_pos_and_neg_attr_datasets():

@@ -57,6 +57,8 @@ def define_adv_training_flags():
     flags.DEFINE_float('adv_step_size', 0.2, "The magnitude of adversarial perturbation.")
     flags.DEFINE_string('adv_grad_norm', 'infinity',
                         "The norm to measure the magnitude of adversarial perturbation.")
+    flags.DEFINE_string('attack', 'FastGradientMethod', 'the cleverhans attack class '
+                                                        'name to use.')
     return
 
 

@@ -42,7 +42,7 @@ import os
 import tensorflow as tf
 import pandas as pd
 
-from dro.utils.evaluation import make_pos_and_neg_attr_datasets
+from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID
 from dro.utils.training_utils import add_keys_to_dict
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
@@ -52,13 +52,11 @@ from dro.utils.training_utils import get_train_metrics, \
     add_adversarial_metric_names_to_list
 from dro.utils.training_utils import make_ckpt_filepath
 from dro.utils.training_utils import perturb_and_evaluate, \
-    make_compiled_reference_model
+    make_compiled_reference_model, load_weights_from_flags
 from dro.utils.training_utils import make_model_uid
 from dro.utils.viz import show_adversarial_resuts
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags
-
-ADV_STEP_SIZE_GRID = (0.005, 0.01, 0.025, 0.05, 0.1, 0.125, 0.2, 0.25)
 
 tf.compat.v1.enable_eager_execution()
 
@@ -89,14 +87,8 @@ def main(argv):
     }
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     vgg_model_base.compile(**model_compile_args)
-    if FLAGS.base_model_ckpt:  # load from the manually-specified checkpoint
-        print("[INFO] loading from specified checkpoint {}".format(
-            FLAGS.base_model_ckpt
-        ))
-        vgg_model_base.load_weights(filepath=FLAGS.base_model_ckpt)
-    else:  # Load from the default checkpoint path
-        vgg_model_base.load_weights(filepath=make_ckpt_filepath(
-            FLAGS, is_adversarial=False))
+    load_weights_from_flags(vgg_model_base, FLAGS, model_ckpt=FLAGS.base_model_ckpt,
+                            is_adversarial=False)
 
     # Adversarial model
     adv_config = nsl.configs.make_adv_reg_config(
@@ -111,10 +103,9 @@ def main(argv):
         adv_config=adv_config
     )
     adv_model.compile(**model_compile_args)
-    if FLAGS.adv_model_ckpt:
-        adv_model.load_weights(FLAGS.adv_model_ckpt)
-    else:
-        adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
+    load_weights_from_flags(adv_model, FLAGS, model_ckpt=FLAGS.adv_model_ckpt,
+                            is_adversarial=True)
+
     # List to store the results of the experiment
     metrics_list = list()
 

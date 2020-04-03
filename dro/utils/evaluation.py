@@ -62,3 +62,6 @@ def make_pos_and_neg_attr_datasets(flags):
                    flags.slice_attribute_name, flags.label_name, int(time.time()))
                )
     return {"1": dset_attr_pos, "0": dset_attr_neg}
+
+
+ADV_STEP_SIZE_GRID = (0.005, 0.01, 0.025, 0.05, 0.1, 0.125, 0.2, 0.25)

@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import neural_structured_learning as nsl
+from tensorflow import keras
 
 from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
@@ -236,3 +237,17 @@ def compute_n_train_n_val(n_train_val, val_frac):
 
 def steps_per_epoch(n, batch_size):
     return n // batch_size
+
+
+def load_weights_from_flags(model: keras.Model, flags, model_ckpt, is_adversarial: bool):
+    """Load weights for a pretrained model, either from a manually-specified checkpoint 
+    or from the default path."""
+    if model_ckpt:  # load from the manually-specified checkpoint
+        print("[INFO] loading from specified checkpoint {}".format(
+            model_ckpt
+        ))
+        model.load_weights(filepath=model_ckpt)
+    else:  # Load from the default checkpoint path
+        model.load_weights(filepath=make_ckpt_filepath(
+            flags, is_adversarial=is_adversarial))
+    return

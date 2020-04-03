@@ -34,7 +34,6 @@ from tensorflow import keras
 import tensorflow.keras.backend as K
 import pandas as pd
 
-from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise
 from cleverhans.compat import flags
 from cleverhans.utils_keras import KerasModelWrapper
 
@@ -42,6 +41,8 @@ from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, make_model_uid
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags
+from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
+    get_adversarial_loss
 from dro import keys
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
@@ -53,11 +54,6 @@ define_training_flags()
 define_adv_training_flags()
 
 flags.DEFINE_bool("train_mnist", False, "whether to train the cleverhans mnist model.")
-
-
-def get_attack(wrap: KerasModelWrapper, sess: tf.Session):
-    """Creates an instance of the attack method specified in flags."""
-    return globals()[FLAGS.attack](wrap, sess=sess)
 
 
 class Report:
@@ -185,7 +181,7 @@ def mnist_tutorial(label_smoothing=0.1):
 
         # Initialize the attack object
         wrap = KerasModelWrapper(vgg_model_base)
-        attack = get_attack(wrap, sess)
+        attack = get_attack(FLAGS, wrap, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))
 
         adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, attack, attack_params)
@@ -232,11 +228,12 @@ def mnist_tutorial(label_smoothing=0.1):
                                        activation='softmax')
         vgg_model_adv(vgg_model_adv.input)
         wrap_adv = KerasModelWrapper(vgg_model_adv)
-        fgsm_adv = get_attack(wrap_adv, sess=sess)
+        attack = get_attack(FLAGS, wrap_adv, sess=sess)
 
         # Use a loss function based on legitimate and adversarial examples
-        adv_loss_adv = get_adversarial_loss(vgg_model_adv, fgsm_adv, attack_params)
-        adv_acc_metric_adv = get_adversarial_acc_metric(vgg_model_adv, fgsm_adv,
+        adv_loss_adv = get_adversarial_loss(vgg_model_adv, attack, attack_params,
+                                            FLAGS.adv_multiplier)
+        adv_acc_metric_adv = get_adversarial_acc_metric(vgg_model_adv, attack,
                                                         attack_params)
 
         model_compile_args_adv = {
@@ -271,41 +268,6 @@ def mnist_tutorial(label_smoothing=0.1):
         results.to_csv()
 
     return
-
-
-def get_adversarial_acc_metric(model, fgsm, fgsm_params):
-    def adv_acc(y, _):
-        # Generate adversarial examples
-        x_adv = fgsm.generate(model.input, **fgsm_params)
-        # Consider the attack to be constant
-        x_adv = tf.stop_gradient(x_adv)
-
-        # Accuracy on the adversarial examples
-        print(x_adv)
-        print(model.input)
-        preds_adv = model(x_adv)
-        return keras.metrics.categorical_accuracy(y, preds_adv)
-
-    return adv_acc
-
-
-def get_adversarial_loss(model, fgsm, fgsm_params):
-    def adv_loss(y, preds):
-        # Cross-entropy on the legitimate examples
-        cross_ent = keras.losses.categorical_crossentropy(y, preds)
-
-        # Generate adversarial examples
-        x_adv = fgsm.generate(model.input, **fgsm_params)
-        # Consider the attack to be constant
-        x_adv = tf.stop_gradient(x_adv)
-
-        # Cross-entropy on the adversarial examples
-        preds_adv = model(x_adv)
-        cross_ent_adv = keras.losses.categorical_crossentropy(y, preds_adv)
-
-        return cross_ent + FLAGS.adv_multiplier * cross_ent_adv
-
-    return adv_loss
 
 
 def main(argv=None):

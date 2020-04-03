@@ -34,7 +34,7 @@ from tensorflow import keras
 import tensorflow.keras.backend as K
 import pandas as pd
 
-from cleverhans.attacks import FastGradientMethod
+from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise
 from cleverhans.compat import flags
 from cleverhans.utils_keras import KerasModelWrapper
 

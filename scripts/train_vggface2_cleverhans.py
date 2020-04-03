@@ -38,12 +38,15 @@ from cleverhans.compat import flags
 from cleverhans.utils_keras import KerasModelWrapper
 
 from dro.training.models import vggface2_model
-from dro.utils.training_utils import make_callbacks, make_model_uid
+from dro.utils.training_utils import make_callbacks, make_model_uid, \
+    get_n_from_file_pattern, compute_n_train_n_val, \
+    steps_per_epoch
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags
 from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
     get_adversarial_loss
 from dro import keys
+from dro.utils.vggface import make_vgg_file_pattern
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -121,9 +124,6 @@ def mnist_tutorial(label_smoothing=0.1):
     # TODO(jpgard): implement label smoothing as part of the ImageDataSet class.
     # y_train -= label_smoothing * (y_train - 1. / nb_classes)
 
-    from dro.utils.training_utils import get_n_from_file_pattern, compute_n_train_n_val, \
-        steps_per_epoch
-    from dro.utils.vggface import make_vgg_file_pattern
     train_file_pattern = make_vgg_file_pattern(FLAGS.train_dir)
     test_file_pattern = make_vgg_file_pattern(FLAGS.test_dir)
     n_test = get_n_from_file_pattern(test_file_pattern)

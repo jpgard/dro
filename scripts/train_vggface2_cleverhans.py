@@ -38,12 +38,13 @@ from cleverhans.utils_keras import KerasModelWrapper
 
 from dro.training.models import vggface2_model
 from dro.utils.reports import Report
-from dro.utils.training_utils import make_callbacks, get_n_from_file_pattern, compute_n_train_n_val, \
+from dro.utils.training_utils import make_callbacks, get_n_from_file_pattern, \
+    compute_n_train_n_val, \
     steps_per_epoch
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags
 from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
-    get_adversarial_loss
+    get_adversarial_loss, get_attack_params, get_model_compile_args
 from dro import keys
 from dro.utils.vggface import make_vgg_file_pattern
 
@@ -133,9 +134,7 @@ def mnist_tutorial(label_smoothing=0.1):
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    attack_params = {'eps': FLAGS.adv_step_size,
-                     'clip_min': 0.,
-                     'clip_max': 1.}
+    attack_params = get_attack_params(FLAGS)
 
     # Set the learning phase to False, following the issue here:
     # https://github.com/tensorflow/cleverhans/issues/1052
@@ -147,22 +146,20 @@ def mnist_tutorial(label_smoothing=0.1):
         vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
                                         activation='softmax')
 
-        # To be able to call the model in the custom loss, we need to call it once
-        # before, see https://github.com/tensorflow/tensorflow/issues/23769
-        vgg_model_base(vgg_model_base.input)
+        # TODO(jpgard): re-run script with this commented; it should be safe to remove.
+        #  Remove it after confirming.
+        # # To be able to call the model in the custom loss, we need to call it once
+        # # before, see https://github.com/tensorflow/tensorflow/issues/23769
+        # vgg_model_base(vgg_model_base.input)
 
         # Initialize the attack object
-        wrap = KerasModelWrapper(vgg_model_base)
-        attack = get_attack(FLAGS, wrap, sess)
+        attack = get_attack(FLAGS, vgg_model_base, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))
 
         adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, attack, attack_params)
-
-        model_compile_args_base = {
-            "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
-            "loss": tf.keras.losses.CategoricalCrossentropy(from_logits=False),
-            "metrics": ['accuracy', adv_acc_metric]
-        }
+        model_compile_args_base = get_model_compile_args(
+            FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+            adv_acc_metric=adv_acc_metric, is_adversarial=False)
 
         vgg_model_base.compile(**model_compile_args_base)
         vgg_model_base.summary()
@@ -179,28 +176,41 @@ def mnist_tutorial(label_smoothing=0.1):
 
         # Evaluate the accuracy on legitimate and adversarial test examples
         _, acc, adv_acc = vgg_model_base.evaluate(test_ds.dataset)
-        results.add_result(acc, model=keys.BASE_MODEL, data=keys.CLEAN_DATA,
-                           phase=keys.TEST)
-        results.add_result(adv_acc, model=keys.BASE_MODEL, data=keys.ADV_DATA,
-                           phase=keys.TEST)
+        results.add_result({"metric": keys.ACC,
+                            "value": acc,
+                            "model": keys.BASE_MODEL,
+                            "data": keys.CLEAN_DATA,
+                            "phase": keys.TEST})
+        results.add_result({"metric": keys.ACC,
+                            "value": adv_acc,
+                            "model": keys.BASE_MODEL,
+                            "data": keys.ADV_DATA,
+                            "phase": keys.TEST})
+
+
         print('Test accuracy on legitimate examples: %0.4f' % acc)
         print('Test accuracy on perturbed examples: %0.4f\n' % adv_acc)
 
         # Calculate training error
         _, train_acc, train_adv_acc = vgg_model_base.evaluate(train_ds.dataset,
                                                               steps=steps_per_train_epoch)
-        results.add_result(train_acc, model=keys.BASE_MODEL, data=keys.CLEAN_DATA,
-                           phase=keys.TRAIN)
-        results.add_result(train_adv_acc, model=keys.BASE_MODEL, data=keys.ADV_DATA,
-                           phase=keys.TRAIN)
+        results.add_result({"metric": keys.ACC,
+                            "value": train_acc,
+                            "model": keys.BASE_MODEL,
+                            "data": keys.CLEAN_DATA,
+                            "phase": keys.TRAIN})
+        results.add_result({"metric": keys.ACC,
+                            "value": train_adv_acc,
+                            "model": keys.BASE_MODEL,
+                            "data": keys.ADV_DATA,
+                            "phase": keys.TRAIN})
 
     # Redefine Keras model
     if FLAGS.train_adversarial:
         vgg_model_adv = vggface2_model(dropout_rate=FLAGS.dropout_rate,
                                        activation='softmax')
         vgg_model_adv(vgg_model_adv.input)
-        wrap_adv = KerasModelWrapper(vgg_model_adv)
-        attack = get_attack(FLAGS, wrap_adv, sess=sess)
+        attack = get_attack(FLAGS, vgg_model_adv, sess=sess)
 
         # Use a loss function based on legitimate and adversarial examples
         adv_loss_adv = get_adversarial_loss(vgg_model_adv, attack, attack_params,
@@ -208,11 +218,8 @@ def mnist_tutorial(label_smoothing=0.1):
         adv_acc_metric_adv = get_adversarial_acc_metric(vgg_model_adv, attack,
                                                         attack_params)
 
-        model_compile_args_adv = {
-            "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
-            "loss": adv_loss_adv,
-            "metrics": ['accuracy', adv_acc_metric_adv]
-        }
+        model_compile_args_adv = get_model_compile_args(
+            FLAGS, loss=adv_loss_adv, adv_acc_metric=adv_acc_metric_adv)
 
         vgg_model_adv.compile(**model_compile_args_adv)
         print("[INFO] training adversarial model")
@@ -222,20 +229,33 @@ def mnist_tutorial(label_smoothing=0.1):
 
         # Evaluate the accuracy on legitimate and adversarial test examples
         _, acc, adv_acc = vgg_model_adv.evaluate(test_ds.dataset)
-        results.add_result(acc, model=keys.ADV_MODEL, data=keys.CLEAN_DATA,
-                           phase=keys.TEST)
-        results.add_result(adv_acc, model=keys.ADV_MODEL, data=keys.ADV_DATA,
-                           phase=keys.TEST)
+        results.add_result({"metric": keys.ACC,
+                            "value": acc,
+                            "model": keys.ADV_MODEL,
+                            "data": keys.CLEAN_DATA,
+                            "phase": keys.TEST})
+        results.add_result({"metric": keys.ACC,
+                            "value": adv_acc,
+                            "model": keys.ADV_MODEL,
+                            "data": keys.ADV_DATA,
+                            "phase": keys.TEST})
+
         print('Test acc. w/adversarial training on clean examples: %0.4f' % acc)
         print('Test acc. w/adversarial training on perturbed examples: %0.4f\n' % adv_acc)
 
         # Calculate training error
         _, train_acc, train_adv_acc = vgg_model_adv.evaluate(train_ds.dataset,
                                                              steps=steps_per_train_epoch)
-        results.add_result(train_acc, model=keys.ADV_MODEL, data=keys.CLEAN_DATA,
-                           phase=keys.TRAIN)
-        results.add_result(train_adv_acc, model=keys.ADV_MODEL, data=keys.ADV_DATA,
-                           phase=keys.TRAIN)
+        results.add_result({"metric": keys.ACC,
+                            "value": train_acc,
+                            "model": keys.ADV_MODEL,
+                            "data": keys.CLEAN_DATA,
+                            "phase": keys.TRAIN})
+        results.add_result({"metric": keys.ACC,
+                            "value": train_adv_acc,
+                            "model": keys.ADV_MODEL,
+                            "data": keys.ADV_DATA,
+                            "phase": keys.TRAIN})
 
         results.to_csv()
 

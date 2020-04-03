@@ -12,21 +12,21 @@ class Report:
         # parameters (attack type, epsilon, etc) will be recorded in the uid.
         self.uid = make_model_uid(FLAGS, is_adversarial=True)
         self.metric = keys.ACC  # the name of the metric being recorded
+        self.results = None
 
-    def add_result(self, val, model, data, phase):
+    def add_result(self, result: dict):
         """Record the results of an experiment."""
-        results_entry = (self.uid, self.metric, val, model, data, phase)
         # Check for duplicates; while this is not strictly a problem, it is almost
         # definitely a mistake if duplicate results are being added.
-        assert results_entry not in self.results_list, "duplicate results added to report"
-        self.results_list.append(results_entry)
+        if not self.results:  # case: this is first entry; initialize the dataframe
+            self.results = pd.DataFrame(result)
+        else:
+            self.results = self.results.append(result)
         return
 
     def to_csv(self):
-        df = pd.DataFrame(self.results_list, columns=["uid", "metric", "value",
-                                                      "model", "data", "phase"])
         fp = "./metrics/{}.csv".format(self.uid)
         print("[INFO] writing results to {}".format(fp))
-        print(df)
-        df.to_csv(fp, index=False)
+        print(self.results)
+        self.results.to_csv(fp, index=False)
         return

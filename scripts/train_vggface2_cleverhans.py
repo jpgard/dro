@@ -75,7 +75,7 @@ def mnist_tutorial(label_smoothing=0.1):
     """
 
     # Object used to keep track of (and return) key accuracies
-    results = Report()
+    results = Report(FLAGS)
 
     # Set TF random seed to improve reproducibility
     tf.set_random_seed(1234)
@@ -134,7 +134,7 @@ def mnist_tutorial(label_smoothing=0.1):
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    attack_params = get_attack_params(FLAGS)
+    attack_params = get_attack_params(FLAGS.adv_step_size)
 
     # Set the learning phase to False, following the issue here:
     # https://github.com/tensorflow/cleverhans/issues/1052
@@ -159,7 +159,7 @@ def mnist_tutorial(label_smoothing=0.1):
         adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, attack, attack_params)
         model_compile_args_base = get_model_compile_args(
             FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
-            adv_acc_metric=adv_acc_metric, is_adversarial=False)
+            adv_acc_metric=adv_acc_metric)
 
         vgg_model_base.compile(**model_compile_args_base)
         vgg_model_base.summary()

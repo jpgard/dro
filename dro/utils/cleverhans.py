@@ -6,14 +6,15 @@ from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noi
 from cleverhans.utils_keras import KerasModelWrapper
 
 
-def get_attack(flags, wrap: KerasModelWrapper, sess: tf.Session):
+def get_attack(flags, model: keras.Model, sess: tf.Session):
     """Load and instantiate the cleverhans object for the specified attack."""
     """Creates an instance of the attack method specified in flags."""
+    wrap = KerasModelWrapper(model)
     return globals()[flags.attack](wrap, sess=sess)
 
 
-def get_attack_params(flags):
-    attack_params = {'eps': flags.adv_step_size,
+def get_attack_params(epsilon):
+    attack_params = {'eps': epsilon,
                      'clip_min': 0.,
                      'clip_max': 1.}
     return attack_params

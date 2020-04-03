@@ -2,15 +2,18 @@ import pandas as pd
 
 from dro import keys
 from dro.utils.training_utils import make_model_uid
-from scripts.train_vggface2_cleverhans import FLAGS
+
+
+def _dict_to_row(d):
+    return pd.DataFrame.from_dict(d, orient="index").T
 
 
 class Report:
-    def __init__(self):
+    def __init__(self, flags):
         self.results_list = list()
         # Set is_adversarial=True when generating the model_uid so that the adversarial
         # parameters (attack type, epsilon, etc) will be recorded in the uid.
-        self.uid = make_model_uid(FLAGS, is_adversarial=True)
+        self.uid = make_model_uid(flags, is_adversarial=True)
         self.metric = keys.ACC  # the name of the metric being recorded
         self.results = None
 
@@ -18,10 +21,11 @@ class Report:
         """Record the results of an experiment."""
         # Check for duplicates; while this is not strictly a problem, it is almost
         # definitely a mistake if duplicate results are being added.
-        if not self.results:  # case: this is first entry; initialize the dataframe
-            self.results = pd.DataFrame(result)
+        result_row = _dict_to_row(result)
+        if self.results is None:  # case: this is first entry; initialize the dataframe
+            self.results = result_row
         else:
-            self.results = self.results.append(result)
+            self.results = pd.concat([self.results, result_row])
         return
 
     def to_csv(self):

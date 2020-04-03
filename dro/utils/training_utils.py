@@ -239,9 +239,14 @@ def steps_per_epoch(n, batch_size):
     return n // batch_size
 
 
-def load_weights_from_flags(model: keras.Model, flags, model_ckpt, is_adversarial: bool):
+def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: bool):
     """Load weights for a pretrained model, either from a manually-specified checkpoint 
     or from the default path."""
+    if is_adversarial:
+        model_ckpt = flags.adv_model_ckpt
+    else:
+        model_ckpt = flags.base_model_ckpt
+
     if model_ckpt:  # load from the manually-specified checkpoint
         print("[INFO] loading from specified checkpoint {}".format(
             model_ckpt

@@ -52,7 +52,7 @@ from dro.utils.training_utils import get_train_metrics, \
     add_adversarial_metric_names_to_list
 from dro.utils.training_utils import make_ckpt_filepath
 from dro.utils.training_utils import perturb_and_evaluate, \
-    make_compiled_reference_model, load_weights_from_flags
+    make_compiled_reference_model, load_model_weights_from_flags
 from dro.utils.training_utils import make_model_uid
 from dro.utils.viz import show_adversarial_resuts
 from dro.utils.flags import define_training_flags, define_eval_flags, \
@@ -87,8 +87,7 @@ def main(argv):
     }
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     vgg_model_base.compile(**model_compile_args)
-    load_weights_from_flags(vgg_model_base, FLAGS, model_ckpt=FLAGS.base_model_ckpt,
-                            is_adversarial=False)
+    load_model_weights_from_flags(vgg_model_base, FLAGS, is_adversarial=False)
 
     # Adversarial model
     adv_config = nsl.configs.make_adv_reg_config(
@@ -103,8 +102,7 @@ def main(argv):
         adv_config=adv_config
     )
     adv_model.compile(**model_compile_args)
-    load_weights_from_flags(adv_model, FLAGS, model_ckpt=FLAGS.adv_model_ckpt,
-                            is_adversarial=True)
+    load_model_weights_from_flags(adv_model, FLAGS, is_adversarial=True)
 
     # List to store the results of the experiment
     metrics_list = list()

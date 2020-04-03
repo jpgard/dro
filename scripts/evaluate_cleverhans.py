@@ -43,6 +43,9 @@ import time
 import tensorflow as tf
 import pandas as pd
 
+from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise
+from cleverhans.compat import flags
+from cleverhans.utils_keras import KerasModelWrapper
 from dro.utils.lfw import apply_thresh, \
     get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME
 from dro.utils.training_utils import pred_to_binary, add_keys_to_dict

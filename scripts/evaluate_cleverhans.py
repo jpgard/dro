@@ -36,24 +36,14 @@ done
 """
 
 from absl import app, flags
-import os
 
 import tensorflow as tf
 from tensorflow import keras
-import pandas as pd
 
 from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise
 from cleverhans.compat import flags
-from cleverhans.utils_keras import KerasModelWrapper
-from dro.utils.training_utils import pred_to_binary, add_keys_to_dict
 from dro.training.models import vggface2_model
-import neural_structured_learning as nsl
-from dro.keys import ADV_MODEL, BASE_MODEL, ADV_DATA, CLEAN_DATA
-
-from dro.utils.training_utils import perturb_and_evaluate, \
-    make_compiled_reference_model, load_model_weights_from_flags
-from dro.utils.training_utils import make_model_uid
-from dro.utils.viz import show_adversarial_resuts
+from dro.utils.training_utils import load_model_weights_from_flags
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags
 from dro.utils.reports import Report
@@ -185,12 +175,7 @@ def main(argv):
                                 "attr_val": attr_val,
                                 "epsilon": adv_step_size_to_eval
                                 })
-
-    metrics_csv = "{}-{}-adversarial-analysis.csv".format(
-        make_model_uid(FLAGS, is_adversarial=True), FLAGS.slice_attribute_name)
-    metrics_fp = os.path.join(FLAGS.metrics_dir, metrics_csv)
-    print("[INFO] writing results to {}".format(metrics_fp))
-    results.to_csv(metrics_fp)
+    results.to_csv()
 
 
 if __name__ == "__main__":

@@ -72,6 +72,7 @@ define_eval_flags()
 
 def make_compiled_model(sess, attack_params, is_adversarial: bool, activation="softmax"):
     model = vggface2_model(dropout_rate=FLAGS.dropout_rate, activation=activation)
+    model(model.input)
     # Initialize the attack object
     attack = get_attack(FLAGS, model, sess)
     print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))

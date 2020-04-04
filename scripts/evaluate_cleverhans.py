@@ -39,6 +39,7 @@ from absl import app, flags
 
 import tensorflow as tf
 from tensorflow import keras
+import tensorflow.keras.backend as K
 
 from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise
 from cleverhans.compat import flags
@@ -100,6 +101,11 @@ def main(argv):
     # Create TF session and set as Keras backend session
     sess = tf.Session(config=config)
     keras.backend.set_session(sess)
+
+    # Set the learning phase to False, following the issue here:
+    # https://github.com/tensorflow/cleverhans/issues/1052
+
+    K.set_learning_phase(False)
 
     for attr_val in ("0", "1"):
         # Build the models for evalaution on clean data

@@ -44,8 +44,11 @@ def get_adversarial_acc_metric(model: keras.Model, attack: Attack, fgsm_params: 
         # Accuracy on the adversarial examples
         print(x_adv)
         print(model.input)
-        preds_adv = model(x_adv)
-        return keras.metrics.categorical_accuracy(y, preds_adv)
+        # preds_adv = model(x_adv)
+        for i in range(len(model.layers)):
+            layer = model.layers[i]
+            x_adv = layer(x_adv)
+        return keras.metrics.categorical_accuracy(y, x_adv)
 
     return adv_acc
 

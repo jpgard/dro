@@ -119,7 +119,12 @@ def main(argv):
         # Build the models for evalaution on clean data
         attack_params = get_attack_params(FLAGS.adv_step_size)
         # load the models
-        # vgg_model_base = make_compiled_model(sess, attack_params, is_adversarial=False)
+        vgg_model_base = make_compiled_model(sess, attack_params, is_adversarial=False)
+
+
+
+        #####################################################################
+
         print("[INFO] reached dev block.")
         #### Try to load the model without using the adversarial loss metric.
         eval_dset = make_pos_and_neg_attr_datasets(FLAGS)[attr_val].dataset

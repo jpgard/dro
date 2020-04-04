@@ -31,6 +31,14 @@ def get_model_compile_args(flags, loss, adv_acc_metric):
     return compile_args
 
 
+@tf.function
+def extract_feat(feat_extractor, _input):
+    feat = _input
+    for layer in feat_extractor.layers:
+        feat = layer(feat)
+    return feat
+
+
 def get_adversarial_acc_metric(model: keras.Model, attack: Attack, fgsm_params: dict):
     """Get a callable which can be used to compute the adversarial accuracy during
     training."""
@@ -44,7 +52,8 @@ def get_adversarial_acc_metric(model: keras.Model, attack: Attack, fgsm_params: 
         # Accuracy on the adversarial examples
         print(x_adv)
         print(model.input)
-        preds_adv = model(x_adv)
+        # preds_adv = model(x_adv)
+        preds_adv = extract_feat(model, x_adv)
         return keras.metrics.categorical_accuracy(y, preds_adv)
 
     return adv_acc
@@ -66,7 +75,8 @@ def get_adversarial_loss(model: keras.Model, attack: Attack,
         x_adv = tf.stop_gradient(x_adv)
 
         # Cross-entropy on the adversarial examples
-        preds_adv = model(x_adv)
+        # preds_adv = model(x_adv)
+        preds_adv = extract_feat(model, x_adv)
         cross_ent_adv = keras.losses.categorical_crossentropy(y, preds_adv)
 
         return cross_ent + adv_multiplier * cross_ent_adv

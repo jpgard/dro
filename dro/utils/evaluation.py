@@ -8,6 +8,8 @@ from dro.utils.viz import show_batch
 
 
 def make_pos_and_neg_attr_datasets(flags):
+    """Create a dict of datasets where the keys correspond to the binary attribute,
+    and the values are tf.data.Datasets of the (image, label) tuples."""
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df(anno_fp=flags.anno_fp,
                                             test_dir=flags.test_dir)

@@ -123,7 +123,8 @@ def main(argv):
 
         print("[INFO] reached dev block.")
         #### Try to load the model without using the adversarial loss metric.
-        eval_dset = make_pos_and_neg_attr_datasets(FLAGS)[attr_val].dataset
+        eval_dset = make_pos_and_neg_attr_datasets(FLAGS, write_samples=False)[
+            attr_val].dataset
         eval_dset_x = eval_dset.map(lambda x, y: x)
         eval_dset_y = eval_dset.map(lambda x, y: y)
         vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,

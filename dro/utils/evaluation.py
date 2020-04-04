@@ -7,7 +7,7 @@ from dro.utils.training_utils import pred_to_binary
 from dro.utils.viz import show_batch
 
 
-def make_pos_and_neg_attr_datasets(flags):
+def make_pos_and_neg_attr_datasets(flags, write_samples=True):
     """Create a dict of datasets where the keys correspond to the binary attribute,
     and the values are tf.data.Datasets of the (image, label) tuples."""
     # build a labeled dataset from the files
@@ -53,16 +53,19 @@ def make_pos_and_neg_attr_datasets(flags):
                                  label_name=LABEL_COLNAME)
     dset_attr_neg.preprocess(**preprocessing_kwargs)
 
-    image_batch, label_batch = next(iter(dset_attr_pos.dataset))
-    show_batch(image_batch.numpy(), label_batch.numpy(),
-               fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
-                   flags.slice_attribute_name, flags.label_name, int(time.time()))
-               )
-    image_batch, label_batch = next(iter(dset_attr_neg.dataset))
-    show_batch(image_batch.numpy(), label_batch.numpy(),
-               fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
-                   flags.slice_attribute_name, flags.label_name, int(time.time()))
-               )
+    if write_samples:
+        print("[INFO] writing sample batches; this will fail if eager execution is "
+              "disabled")
+        image_batch, label_batch = next(iter(dset_attr_pos.dataset))
+        show_batch(image_batch.numpy(), label_batch.numpy(),
+                   fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
+                       flags.slice_attribute_name, flags.label_name, int(time.time()))
+                   )
+        image_batch, label_batch = next(iter(dset_attr_neg.dataset))
+        show_batch(image_batch.numpy(), label_batch.numpy(),
+                   fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
+                       flags.slice_attribute_name, flags.label_name, int(time.time()))
+                   )
     return {"1": dset_attr_pos, "0": dset_attr_neg}
 
 

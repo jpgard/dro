@@ -121,7 +121,20 @@ def main(argv):
         # load the models
         vgg_model_base = make_compiled_model(sess, attack_params, is_adversarial=False)
 
-
+        print("[INFO] evaluating base model on clean data")
+        _, acc, _ = vgg_model_base.evaluate(make_pos_and_neg_attr_datasets(FLAGS)[
+                                                attr_val].dataset)
+        results.add_result({"metric": keys.ACC,
+                            "value": acc,
+                            "model": keys.BASE_MODEL,
+                            "data": keys.CLEAN_DATA,
+                            "phase": keys.TEST,
+                            "attr": FLAGS.slice_attribute_name,
+                            "attr_val": attr_val,
+                            "epsilon": None
+                            })
+        import ipdb;
+        ipdb.set_trace()
 
         #####################################################################
 
@@ -149,18 +162,6 @@ def main(argv):
         # Adversarial model
         vgg_model_adv = make_compiled_model(sess, attack_params, is_adversarial=True)
 
-        print("[INFO] evaluating base model on clean data")
-        _, acc, _ = vgg_model_base.evaluate(make_pos_and_neg_attr_datasets(FLAGS)[
-                                                attr_val].dataset)
-        results.add_result({"metric": keys.ACC,
-                            "value": acc,
-                            "model": keys.BASE_MODEL,
-                            "data": keys.CLEAN_DATA,
-                            "phase": keys.TEST,
-                            "attr": FLAGS.slice_attribute_name,
-                            "attr_val": attr_val,
-                            "epsilon": None
-                            })
 
         print("[INFO] evaluating adversarial model on clean data")
         _, acc, _ = vgg_model_adv.evaluate(

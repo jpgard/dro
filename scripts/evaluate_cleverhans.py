@@ -119,7 +119,28 @@ def main(argv):
         # Build the models for evalaution on clean data
         attack_params = get_attack_params(FLAGS.adv_step_size)
         # load the models
-        vgg_model_base = make_compiled_model(sess, attack_params, is_adversarial=False)
+        # vgg_model_base = make_compiled_model(sess, attack_params, is_adversarial=False)
+        print("[INFO] reached dev block.")
+        #### Try to load the model without using the adversarial loss metric.
+        eval_dset = make_pos_and_neg_attr_datasets(FLAGS)[attr_val].dataset
+        eval_dset_x = eval_dset.map(lambda x: x[0])
+        eval_dset_y = eval_dset.map(lambda x: x[1])
+        vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
+                                        activation="softmax")
+        model_compile_args = {
+            "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
+            "loss": None,  # No loss needed for evaluation.
+            "metrics": ['accuracy', ]}
+        vgg_model_base.compile(**model_compile_args)
+        attack = get_attack(FLAGS, vgg_model_base, sess)
+        x_adv = attack.generate(eval_dset_x, **attack_params)
+        preds_adv = vgg_model_base(x_adv)
+        acc = keras.metrics.categorical_accuracy(eval_dset_y, preds_adv)
+        print(acc)
+        import ipdb;
+        ipdb.set_trace()
+        #####################################################################
+
         # Adversarial model
         vgg_model_adv = make_compiled_model(sess, attack_params, is_adversarial=True)
 
@@ -159,27 +180,8 @@ def main(argv):
             # epsilon due to the way the cleverhans objects are constructed.
             attack_params = get_attack_params(adv_step_size_to_eval)
             # load the models
-            #### Try to load the model without using the adversarial loss metric.
-            # vgg_model_base = make_compiled_model(sess, attack_params,
-            #                                      is_adversarial=False)
-            eval_dset = make_pos_and_neg_attr_datasets(FLAGS)[attr_val].dataset
-            eval_dset_x = eval_dset.map(lambda x: x[0])
-            eval_dset_y = eval_dset.map(lambda x: x[1])
-            vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
-                                            activation="softmax")
-            model_compile_args = {
-                "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
-                "loss": None,  # No loss needed for evaluation.
-                "metrics": ['accuracy', ]}
-            vgg_model_base.compile(**model_compile_args)
-            attack = get_attack(FLAGS, vgg_model_base, sess)
-            x_adv = attack.generate(eval_dset_x, **attack_params)
-            preds_adv = vgg_model_base(x_adv)
-            acc = keras.metrics.categorical_accuracy(eval_dset_y, preds_adv)
-            print(acc)
-            import ipdb;
-            ipdb.set_trace()
-            #####################################################################
+            vgg_model_base = make_compiled_model(sess, attack_params,
+                                                 is_adversarial=False)
             # Adversarial model
             vgg_model_adv = make_compiled_model(sess, attack_params, is_adversarial=True)
 

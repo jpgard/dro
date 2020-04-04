@@ -15,7 +15,7 @@ export EPOCHS=40
 
 export DIR="/projects/grail/jpgard/lfw"
 
-python3 scripts/evaluate.py \
+python3 scripts/evaluate_cleverhans.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
@@ -25,7 +25,7 @@ python3 scripts/evaluate.py \
 
 for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
 do
-    python3 scripts/evaluate.py \
+    python3 scripts/evaluate_cleverhans.py \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
@@ -69,8 +69,8 @@ define_adv_training_flags()
 define_eval_flags()
 
 
-def make_compiled_model(sess, attack_params, is_adversarial: bool):
-    model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
+def make_compiled_model(sess, attack_params, is_adversarial: bool, activation="softmax"):
+    model = vggface2_model(dropout_rate=FLAGS.dropout_rate, activation=activation)
     # Initialize the attack object
     attack = get_attack(FLAGS, model, sess)
     print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))

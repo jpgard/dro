@@ -53,7 +53,10 @@ def get_adversarial_acc_metric(model: keras.Model, attack: Attack, fgsm_params: 
         print(x_adv)
         print(model.input)
         # preds_adv = model(x_adv)
-        preds_adv = extract_feat(model, x_adv)
+        # preds_adv = extract_feat(model, x_adv)
+        preds_adv = x_adv
+        for layer in model.layers:
+            preds_adv = layer(preds_adv)
         return keras.metrics.categorical_accuracy(y, preds_adv)
 
     return adv_acc
@@ -76,7 +79,10 @@ def get_adversarial_loss(model: keras.Model, attack: Attack,
 
         # Cross-entropy on the adversarial examples
         # preds_adv = model(x_adv)
-        preds_adv = extract_feat(model, x_adv)
+        # preds_adv = extract_feat(model, x_adv)
+        preds_adv = x_adv
+        for layer in model.layers:
+            preds_adv = layer(preds_adv)
         cross_ent_adv = keras.losses.categorical_crossentropy(y, preds_adv)
 
         return cross_ent + adv_multiplier * cross_ent_adv

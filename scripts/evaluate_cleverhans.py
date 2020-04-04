@@ -130,7 +130,7 @@ def main(argv):
                                         activation="softmax")
         model_compile_args = {
             "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
-            "loss": tf.keras.losses.CategoricalCrossentropy(from_logits=False)
+            "loss": tf.keras.losses.CategoricalCrossentropy(from_logits=False),
             "metrics": ['accuracy', ]}
         vgg_model_base.compile(**model_compile_args)
         attack = get_attack(FLAGS, vgg_model_base, sess)

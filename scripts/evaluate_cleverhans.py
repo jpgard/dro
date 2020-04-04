@@ -53,7 +53,7 @@ from dro.utils.cleverhans import get_attack, get_attack_params, get_adversarial_
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID
 from dro import keys
 
-tf.compat.v1.enable_eager_execution()
+# tf.compat.v1.enable_eager_execution()
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)

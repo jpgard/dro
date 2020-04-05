@@ -157,12 +157,13 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset):
     acc_keys_to_update = ["acc_base_perturbed", "acc_base_clean", "acc_adv_perturbed",
                           "acc_adv_clean"]
     batch_index = 0
-    sample_batch = dict()
+    sample_batch = defaultdict()
     for batch_x, batch_y in eval_dset_numpy:
         res = sess.run(ops_to_run, feed_dict={x: batch_x, y: batch_y})
         res_dict = dict(zip(op_names, res))
         if batch_index == 0:
             print("[INFO] storing sample batch.")
+            print(res_dict.keys())
             sample_batch["x_clean"] = batch_x
             sample_batch["x_perturbed"] = res_dict["x_perturbed"]
             sample_batch["y"] = batch_y

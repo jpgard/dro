@@ -164,12 +164,12 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset):
         if batch_index == 0:
             print("[INFO] storing sample batch.")
             sample_batch["x_clean"] = batch_x
-            sample_batch["x_perturbed"] = res["x_perturbed"]
+            sample_batch["x_perturbed"] = res_dict["x_perturbed"]
             sample_batch["y"] = batch_y
-            sample_batch["yhat_base_perturbed"] = res["yhat_base_perturbed"]
-            sample_batch["yhat_base_clean"] = res["yhat_base_clean"]
-            sample_batch["yhat_adv_perturbed"] = res["yhat_adv_perturbed"]
-            sample_batch["yhat_adv_clean"] = res["yhat_adv_clean"]
+            sample_batch["yhat_base_perturbed"] = res_dict["yhat_base_perturbed"]
+            sample_batch["yhat_base_clean"] = res_dict["yhat_base_clean"]
+            sample_batch["yhat_adv_perturbed"] = res_dict["yhat_adv_perturbed"]
+            sample_batch["yhat_adv_clean"] = res_dict["yhat_adv_clean"]
 
         # We store the binary "correct" vector for categorical accuracy as a list;
         # this is because we need to know the exact dataset size to compute overall

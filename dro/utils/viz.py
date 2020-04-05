@@ -38,8 +38,10 @@ def show_adversarial_resuts(n_batches: int, perturbed_images, labels, prediction
     Generate a plot of adversarial results.
 
     :param n_batches: number of batches to plot.
-    :param perturbed_images: numpy array of shape [n_batches, width, height, n_channnels]
-    :param labels: array of labels.
+    :param perturbed_images: list of numpy arrays [batch_size, width, height,
+    n_channnels] and length n_batches.
+    :param labels: nested list of iterables; each element of the list contains a binary
+    vector of lentch batch_size.
     :param predictions: list of dicts, where each dict has format {MODEL_NAME:
     model_preds} and model_preds is a binary vector of predictions.
     :param fp_basename: basename of file to write to.

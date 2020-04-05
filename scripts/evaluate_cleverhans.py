@@ -183,8 +183,8 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset, epsilon):
         for k in acc_keys_to_update:
             accuracies[k].extend(batch_res[k].tolist())
         # Print stats for debugging
-        for k in acc_keys_to_update:
-            print("batch {} {}: {}".format(batch_index, k, mean(batch_res[k])))
+        # for k in acc_keys_to_update:
+        #     print("batch {} {}: {}".format(batch_index, k, mean(batch_res[k])))
         batch_index += 1
 
 
@@ -273,11 +273,12 @@ def main(argv):
                     attack=FLAGS.attack,
                     ss=adv_step_size_to_eval
                 )
+            # check the shapes, etc of the arguments to show_adversarial_results
             show_adversarial_resuts(
                 n_batches=1,
                 # Add a batch_dimension to the results.
-                perturbed_images=np.expand_dims(sample_batch["x_perturbed"], axis=0),
-                labels=sample_batch["y"],
+                perturbed_images=[sample_batch["x_perturbed"], ],
+                labels=[np.argmax(sample_batch["y"], axis=1), ],
                 # Convert the predictions to a binary label
                 predictions=[
                     {keys.BASE_MODEL: np.argmax(sample_batch["yhat_base_perturbed"],

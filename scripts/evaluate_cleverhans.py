@@ -87,6 +87,10 @@ def evaluate_cleverhans_models_on_dataset(eval_dset, epsilon):
         (by default, the first batch is used).
     """
 
+    # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
+    # arrays.
+    eval_dset_numpy = tfds.as_numpy(eval_dset)
+
     # Create TF session and set as Keras backend session. Creating a new session at
     # each function call helps clear up memory after the evaluation terminates.
 
@@ -98,9 +102,6 @@ def evaluate_cleverhans_models_on_dataset(eval_dset, epsilon):
         #  will be pased directly to get_attack_params; this would allow flexible
         #  specificatoin of any attack's parameters, not just FGSM.
 
-        # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
-        # arrays.
-        eval_dset_numpy = tfds.as_numpy(eval_dset)
 
         # Use the same compile args for both models. Since we are not training,
         # the optimizer and loss will not be used to adjust any parameters.

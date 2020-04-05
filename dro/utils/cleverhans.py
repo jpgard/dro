@@ -20,13 +20,16 @@ def get_attack_params(epsilon):
     return attack_params
 
 
-def get_model_compile_args(flags, loss, adv_acc_metric):
+def get_model_compile_args(flags, loss, adv_acc_metric=None):
     """Builds a dict of the args for compilation containing callables for loss and
     metrics."""
+    metrics = ['accuracy']
+    if adv_acc_metric:
+        metrics.extend(adv_acc_metric)
     compile_args = {
         "optimizer": tf.keras.optimizers.SGD(learning_rate=flags.learning_rate),
         "loss": loss,
-        "metrics": ['accuracy', adv_acc_metric]
+        "metrics": metrics
     }
     return compile_args
 

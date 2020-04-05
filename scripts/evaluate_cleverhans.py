@@ -76,7 +76,7 @@ define_adv_training_flags()
 define_eval_flags()
 
 
-def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset, epsilon):
+def evaluate_cleverhans_models_on_dataset(eval_dset, epsilon):
     """Evaluate the pretrained models (both base and adversarial) on eval_dset.
 
     Both models are evaluated at the same time because the attacks are the same (
@@ -87,106 +87,115 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset, epsilon):
         (by default, the first batch is used).
     """
 
-    # TODO(jpgard): instead of using `epsilon`, take a dict of input arguments which
-    #  will be pased directly to get_attack_params; this would allow flexible
-    #  specificatoin of any attack's parameters, not just FGSM.
+    # Create TF session and set as Keras backend session. Creating a new session at
+    # each function call helps clear up memory after the evaluation terminates.
 
-    # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
-    # arrays.
-    eval_dset_numpy = tfds.as_numpy(eval_dset)
+    config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
+    with tf.Session(config=config) as sess:
+        keras.backend.set_session(sess)
 
-    # Use the same compile args for both models. Since we are not training,
-    # the optimizer and loss will not be used to adjust any parameters.
-    model_init_args = {"dropout_rate": FLAGS.dropout_rate,
-                       "activation": "softmax"}
-    model_compile_args = get_model_compile_args(
-        FLAGS, tf.keras.losses.CategoricalCrossentropy(from_logits=False),
-        adv_acc_metric=None)
-    vgg_model_base = vggface2_model(**model_init_args)
-    vgg_model_base.compile(**model_compile_args)
-    load_model_weights_from_flags(vgg_model_base, FLAGS, is_adversarial=False)
+        # TODO(jpgard): instead of using `epsilon`, take a dict of input arguments which
+        #  will be pased directly to get_attack_params; this would allow flexible
+        #  specificatoin of any attack's parameters, not just FGSM.
 
-    vgg_model_adv = vggface2_model(**model_init_args)
-    vgg_model_adv.compile(**model_compile_args)
-    load_model_weights_from_flags(vgg_model_adv, FLAGS, is_adversarial=True)
+        # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
+        # arrays.
+        eval_dset_numpy = tfds.as_numpy(eval_dset)
 
-    # Initialize the attack. The attack is always computed relative to the base model.
-    attack_params = get_attack_params(epsilon)
-    attack = get_attack(FLAGS, vgg_model_base, sess)
+        # Use the same compile args for both models. Since we are not training,
+        # the optimizer and loss will not be used to adjust any parameters.
+        model_init_args = {"dropout_rate": FLAGS.dropout_rate,
+                           "activation": "softmax"}
+        model_compile_args = get_model_compile_args(
+            FLAGS, tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+            adv_acc_metric=None)
+        vgg_model_base = vggface2_model(**model_init_args)
+        vgg_model_base.compile(**model_compile_args)
+        load_model_weights_from_flags(vgg_model_base, FLAGS, is_adversarial=False)
 
-    # Define the ops to run for evaluation
-    x = tf.compat.v1.placeholder(tf.float32, shape=(None, 224, 224, 3))
-    x_perturbed = attack.generate(x, **attack_params)
-    y = tf.compat.v1.placeholder(tf.float32, shape=(None, 2))  # [batch_size, 2]
-    yhat_base_perturbed = vgg_model_base(x_perturbed)
-    yhat_base_clean = vgg_model_base(x)
-    yhat_adv_perturbed = vgg_model_adv(x_perturbed)
-    yhat_adv_clean = vgg_model_adv(x)
+        vgg_model_adv = vggface2_model(**model_init_args)
+        vgg_model_adv.compile(**model_compile_args)
+        load_model_weights_from_flags(vgg_model_adv, FLAGS, is_adversarial=True)
 
-    # the acc_ results tensors each have shape [batch_size,] but note that the final
-    # batch of a dataset may not be full-sized (when N % batch_size != 0)
+        # Initialize the attack. The attack is always computed relative to the base model.
+        attack_params = get_attack_params(epsilon)
+        attack = get_attack(FLAGS, vgg_model_base, sess)
 
-    acc_bp_op = tf.keras.metrics.categorical_accuracy(y, yhat_base_perturbed)
-    acc_bc_op = tf.keras.metrics.categorical_accuracy(y, yhat_base_clean)
-    acc_ap_op = tf.keras.metrics.categorical_accuracy(y, yhat_adv_perturbed)
-    acc_ac_op = tf.keras.metrics.categorical_accuracy(y, yhat_adv_clean)
+        # Define the ops to run for evaluation
+        x = tf.compat.v1.placeholder(tf.float32, shape=(None, 224, 224, 3))
+        x_perturbed = attack.generate(x, **attack_params)
+        y = tf.compat.v1.placeholder(tf.float32, shape=(None, 2))  # [batch_size, 2]
+        yhat_base_perturbed = vgg_model_base(x_perturbed)
+        yhat_base_clean = vgg_model_base(x)
+        yhat_adv_perturbed = vgg_model_adv(x_perturbed)
+        yhat_adv_clean = vgg_model_adv(x)
 
-    # Build dicts of {op_name: op_tensor} to run in the session.
+        # the acc_ results tensors each have shape [batch_size,] but note that the final
+        # batch of a dataset may not be full-sized (when N % batch_size != 0)
 
-    # The ops which run on clean data (these are always run even when epsilon=0)
-    clean_data_ops = OrderedDict({"acc_base_clean": acc_bc_op,
-                                  "acc_adv_clean": acc_ac_op,
-                                  "yhat_base_clean": yhat_base_clean,
-                                  "yhat_adv_clean": yhat_adv_clean,
-                                  })
+        acc_bp_op = tf.keras.metrics.categorical_accuracy(y, yhat_base_perturbed)
+        acc_bc_op = tf.keras.metrics.categorical_accuracy(y, yhat_base_clean)
+        acc_ap_op = tf.keras.metrics.categorical_accuracy(y, yhat_adv_perturbed)
+        acc_ac_op = tf.keras.metrics.categorical_accuracy(y, yhat_adv_clean)
 
-    # The ops which run on perturbed data (these are only run when epsilon > 0).
-    perturbed_data_ops = OrderedDict({"acc_base_perturbed": acc_bp_op,
-                                      "acc_adv_perturbed": acc_ap_op,
-                                      "yhat_base_perturbed": yhat_base_perturbed,
-                                      "yhat_adv_perturbed": yhat_adv_perturbed,
-                                      "x_perturbed": x_perturbed
+        # Build dicts of {op_name: op_tensor} to run in the session.
+
+        # The ops which run on clean data (these are always run even when epsilon=0)
+        clean_data_ops = OrderedDict({"acc_base_clean": acc_bc_op,
+                                      "acc_adv_clean": acc_ac_op,
+                                      "yhat_base_clean": yhat_base_clean,
+                                      "yhat_adv_clean": yhat_adv_clean,
                                       })
 
-    if epsilon > 0:
-        ops_to_run = OrderedDict({**clean_data_ops, **perturbed_data_ops})
-        sample_batch_keys_to_update = ["yhat_base_clean", "yhat_adv_clean",
-                                       "yhat_base_perturbed", "yhat_adv_perturbed",
-                                       "x_perturbed"]
-    else:
-        ops_to_run = clean_data_ops
-        sample_batch_keys_to_update = ["yhat_base_clean", "yhat_adv_clean"]
+        # The ops which run on perturbed data (these are only run when epsilon > 0).
+        perturbed_data_ops = OrderedDict({"acc_base_perturbed": acc_bp_op,
+                                          "acc_adv_perturbed": acc_ap_op,
+                                          "yhat_base_perturbed": yhat_base_perturbed,
+                                          "yhat_adv_perturbed": yhat_adv_perturbed,
+                                          "x_perturbed": x_perturbed
+                                          })
 
-    # The names of the ops which compute accuracy
-    acc_keys_to_update = [k for k in ops_to_run.keys() if k.startswith("acc")]
+        if epsilon > 0:
+            ops_to_run = OrderedDict({**clean_data_ops, **perturbed_data_ops})
+            sample_batch_keys_to_update = ["yhat_base_clean", "yhat_adv_clean",
+                                           "yhat_base_perturbed", "yhat_adv_perturbed",
+                                           "x_perturbed"]
+        else:
+            ops_to_run = clean_data_ops
+            sample_batch_keys_to_update = ["yhat_base_clean", "yhat_adv_clean"]
 
-    batch_index = 0
-    sample_batch = defaultdict()
-    accuracies = defaultdict(list)
+        # The names of the ops which compute accuracy
+        acc_keys_to_update = [k for k in ops_to_run.keys() if k.startswith("acc")]
 
-    for batch_x, batch_y in eval_dset_numpy:
-        batch_res = sess.run(list(ops_to_run.values()),
-                             feed_dict={x: batch_x, y: batch_y})
-        batch_res = dict(zip(ops_to_run.keys(), batch_res))
-        if batch_index == 0:
-            print("[INFO] storing sample batch.")
-            # Always store the x and y
-            sample_batch["x"] = batch_x
-            sample_batch["y"] = batch_y
-            # Update the remaining sample batch keys.
-            for k in sample_batch_keys_to_update:
-                sample_batch[k] = batch_res[k]
+        batch_index = 0
+        sample_batch = defaultdict()
+        accuracies = defaultdict(list)
 
-        # We store the binary "correct" vector for categorical accuracy as a list;
-        # this is because we need to know the exact dataset size to compute overall
-        # accuracy.
-        for k in acc_keys_to_update:
-            accuracies[k].extend(batch_res[k].tolist())
-        # Print stats for debugging
-        # for k in acc_keys_to_update:
-        #     print("batch {} {}: {}".format(batch_index, k, mean(batch_res[k])))
-        batch_index += 1
+        for batch_x, batch_y in eval_dset_numpy:
+            batch_res = sess.run(list(ops_to_run.values()),
+                                 feed_dict={x: batch_x, y: batch_y})
+            batch_res = dict(zip(ops_to_run.keys(), batch_res))
+            if batch_index == 0:
+                print("[INFO] storing sample batch.")
+                # Always store the x and y
+                sample_batch["x"] = batch_x
+                sample_batch["y"] = batch_y
+                # Update the remaining sample batch keys.
+                for k in sample_batch_keys_to_update:
+                    sample_batch[k] = batch_res[k]
 
+            # We store the binary "correct" vector for categorical accuracy as a list;
+            # this is because we need to know the exact dataset size to compute overall
+            # accuracy.
+            for k in acc_keys_to_update:
+                accuracies[k].extend(batch_res[k].tolist())
+            # Print stats for debugging
+            # for k in acc_keys_to_update:
+            #     print("batch {} {}: {}".format(batch_index, k, mean(batch_res[k])))
+            batch_index += 1
+
+    # Free up the memory from this session after the session is closed.
+    tf.reset_default_graph()
 
     res = {k: mean(accuracies[k]) for k in acc_keys_to_update}
     return res, sample_batch
@@ -195,16 +204,6 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset, epsilon):
 def main(argv):
     # Object used to keep track of (and return) key accuracies
     results = Report(FLAGS)
-
-    # Set TF random seed to improve reproducibility
-    tf.set_random_seed(1234)
-    # Force TensorFlow to use single thread to improve reproducibility
-    config = tf.ConfigProto(intra_op_parallelism_threads=1,
-                            inter_op_parallelism_threads=1)
-
-    # Create TF session and set as Keras backend session
-    sess = tf.Session(config=config)
-    keras.backend.set_session(sess)
 
     # Set the learning phase to False, following the issue here:
     # https://github.com/tensorflow/cleverhans/issues/1052
@@ -219,7 +218,7 @@ def main(argv):
             attr_val].dataset
 
         # Do the evalaution with no epsilon; this only evaluates on the clean data.
-        res, sample_batch = evaluate_cleverhans_models_on_dataset(sess, eval_dset,
+        res, sample_batch = evaluate_cleverhans_models_on_dataset(eval_dset,
                                                                   epsilon=0.)
 
         results.add_result({"metric": keys.ACC,
@@ -245,7 +244,7 @@ def main(argv):
         for adv_step_size_to_eval in ADV_STEP_SIZE_GRID:
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
             res, sample_batch = evaluate_cleverhans_models_on_dataset(
-                sess, eval_dset, epsilon=adv_step_size_to_eval)
+                eval_dset, epsilon=adv_step_size_to_eval)
             results.add_result({"metric": keys.ACC,
                                 "value": res["acc_base_perturbed"],
                                 "model": keys.BASE_MODEL,

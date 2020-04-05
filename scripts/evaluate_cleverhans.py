@@ -35,11 +35,16 @@ do
 done
 """
 
+from collections import defaultdict
+import pprint
+from statistics import mean
 from absl import app, flags
 
 import tensorflow as tf
 from tensorflow import keras
 import tensorflow.keras.backend as K
+import tensorflow_datasets as tfds
+import numpy as np
 
 from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise
 from cleverhans.compat import flags
@@ -89,6 +94,97 @@ def make_compiled_model(sess, attack_params, is_adversarial: bool, activation="s
     return model
 
 
+def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset):
+    # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
+    # arrays.
+    eval_dset_numpy = tfds.as_numpy(eval_dset)
+
+    attack_params = get_attack_params(FLAGS.adv_step_size)
+
+    vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
+                                    activation="softmax")
+
+    # Use the same compile args for both models. Since we are not training,
+    # the optimizer and loss will not be used to adjust any parameters.
+
+    model_compile_args = {
+        "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
+        "loss": tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+        "metrics": ['accuracy', ]}
+    vgg_model_base.compile(**model_compile_args)
+    load_model_weights_from_flags(vgg_model_base, FLAGS, is_adversarial=False)
+
+    vgg_model_adv = vggface2_model(dropout_rate=FLAGS.dropout_rate,
+                                   activation="softmax")
+    vgg_model_adv.compile(**model_compile_args)
+    load_model_weights_from_flags(vgg_model_adv, FLAGS, is_adversarial=True)
+
+    # The attack is always computed relative to the base model
+    attack = get_attack(FLAGS, vgg_model_base, sess)
+
+    accuracies = defaultdict(list)
+
+    # Define the ops to run for evaluation
+
+    x = tf.compat.v1.placeholder(tf.float32, shape=(None, 224, 224, 3))
+    x_perturbed = attack.generate(x, **attack_params)
+    y = tf.compat.v1.placeholder(tf.float32, shape=(None, 2))  # [batch_size, 2]
+    yhat_base_perturbed = vgg_model_base(x_perturbed)
+    yhat_base_clean = vgg_model_base(x)
+    yhat_adv_perturbed = vgg_model_adv(x_perturbed)
+    yhat_adv_clean = vgg_model_adv(x)
+    # the acc_ results have shape [batch_size,] but note that the final batch of a
+    # dataset may not be full-sized (when N % batch_size != 0)
+
+    acc_bp_op = tf.keras.metrics.categorical_accuracy(y, yhat_base_perturbed)
+    acc_bc_op = tf.keras.metrics.categorical_accuracy(y, yhat_base_clean)
+    acc_ap_op = tf.keras.metrics.categorical_accuracy(y, yhat_adv_perturbed)
+    acc_ac_op = tf.keras.metrics.categorical_accuracy(y, yhat_adv_clean)
+    ops_to_run = [acc_bp_op, acc_bc_op, acc_ap_op, acc_ac_op,
+                  yhat_base_perturbed, yhat_base_clean,
+                  yhat_adv_perturbed, yhat_adv_clean,
+                  x_perturbed]
+
+    # TODO(jpgard): can we read these directly from the op names (probably need to
+    #  assign them names above)?
+
+    op_names = ["acc_base_perturbed", "acc_base_clean", "acc_adv_perturbed",
+                "acc_adv_clean",
+                "yhat_base_perturbed", "yhat_base_clean",
+                "yhat_adv_perturbed", "yhat_adv_clean"
+                "x_perturbed"]
+
+    acc_keys_to_update = ["acc_base_perturbed", "acc_base_clean", "acc_adv_perturbed",
+                          "acc_adv_clean"]
+    batch_index = 0
+    sample_batch = dict()
+    for batch_x, batch_y in eval_dset_numpy:
+        res = sess.run(ops_to_run, feed_dict={x: batch_x, y: batch_y})
+        res_dict = dict(zip(op_names, res))
+        if batch_index == 0:
+            print("[INFO] storing sample batch.")
+            sample_batch["x_clean"] = batch_x
+            sample_batch["x_perturbed"] = res["x_perturbed"]
+            sample_batch["y"] = batch_y
+            sample_batch["yhat_base_perturbed"] = res["yhat_base_perturbed"]
+            sample_batch["yhat_base_clean"] = res["yhat_base_clean"]
+            sample_batch["yhat_adv_perturbed"] = res["yhat_adv_perturbed"]
+            sample_batch["yhat_adv_clean"] = res["yhat_adv_clean"]
+
+        # We store the binary "correct" vector for categorical accuracy as a list;
+        # this is because we need to know the exact dataset size to compute overall
+        # accuracy.
+        for k in acc_keys_to_update:
+            accuracies[k].extend(res_dict[k].tolist())
+        # Print stats for debugging
+        for k in acc_keys_to_update:
+            print("batch {} {}: {}".format(batch_index, k, mean(res_dict[k])))
+        batch_index += 1
+
+    res = zip([(k, mean(accuracies[k])) for k in acc_keys_to_update])
+    import ipdb;ipdb.set_trace()
+    return res, sample_batch
+
 def main(argv):
     # Object used to keep track of (and return) key accuracies
     results = Report(FLAGS)
@@ -116,31 +212,18 @@ def main(argv):
         #  call attack.generate() and then use batches of those generated examples to
         #  compute the accuracy.
 
-        # Build the models for evalaution on clean data
-        attack_params = get_attack_params(FLAGS.adv_step_size)
-
         #####################################################################
 
         print("[INFO] reached dev block.")
         #### Try to load the model without using the adversarial loss metric.
         eval_dset = make_pos_and_neg_attr_datasets(FLAGS, write_samples=False)[
             attr_val].dataset
-        eval_dset_x = eval_dset.map(lambda x, y: x)
-        eval_dset_y = eval_dset.map(lambda x, y: y)
-        vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
-                                        activation="softmax")
-        model_compile_args = {
-            "optimizer": tf.keras.optimizers.SGD(learning_rate=FLAGS.learning_rate),
-            "loss": tf.keras.losses.CategoricalCrossentropy(from_logits=False),
-            "metrics": ['accuracy', ]}
-        vgg_model_base.compile(**model_compile_args)
-        attack = get_attack(FLAGS, vgg_model_base, sess)
-        x_adv = attack.generate(eval_dset_x, **attack_params)
-        preds_adv = vgg_model_base(x_adv)
-        acc = keras.metrics.categorical_accuracy(eval_dset_y, preds_adv)
-        print(acc)
+
+        res = evaluate_cleverhans_models_on_dataset(sess, eval_dset)
         import ipdb;
         ipdb.set_trace()
+
+        # print(acc)
         #####################################################################
         # load the models
         vgg_model_base = make_compiled_model(sess, attack_params, is_adversarial=False)
@@ -160,7 +243,6 @@ def main(argv):
 
         # Adversarial model
         vgg_model_adv = make_compiled_model(sess, attack_params, is_adversarial=True)
-
 
         print("[INFO] evaluating adversarial model on clean data")
         _, acc, _ = vgg_model_adv.evaluate(

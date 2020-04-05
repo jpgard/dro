@@ -53,10 +53,11 @@ from dro.utils.training_utils import load_model_weights_from_flags
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags
 from dro.utils.reports import Report
-from dro.utils.cleverhans import get_attack, get_attack_params, get_adversarial_loss, \
-    get_adversarial_acc_metric, get_model_compile_args
+from dro.utils.cleverhans import get_attack, get_attack_params, get_model_compile_args
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID
+from dro.utils.training_utils import make_model_uid
 from dro import keys
+from dro.utils.viz import show_adversarial_resuts
 
 # tf.compat.v1.enable_eager_execution()
 
@@ -221,12 +222,9 @@ def main(argv):
         # Do the evalaution with no epsilon; this only evaluates on the clean data.
         res, sample_batch = evaluate_cleverhans_models_on_dataset(sess, eval_dset,
                                                                   epsilon=0.)
-        import ipdb;
-        ipdb.set_trace()
-        # TODO(jpgard): add the corresponding entries of res to results, below.
 
         results.add_result({"metric": keys.ACC,
-                            "value": acc,
+                            "value": res['acc_base_clean'],
                             "model": keys.BASE_MODEL,
                             "data": keys.CLEAN_DATA,
                             "phase": keys.TEST,
@@ -236,7 +234,7 @@ def main(argv):
                             })
 
         results.add_result({"metric": keys.ACC,
-                            "value": acc,
+                            "value": res['acc_adv_clean'],
                             "model": keys.ADV_MODEL,
                             "data": keys.CLEAN_DATA,
                             "phase": keys.TEST,
@@ -247,9 +245,10 @@ def main(argv):
 
         for adv_step_size_to_eval in ADV_STEP_SIZE_GRID:
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
-
+            res, sample_batch = evaluate_cleverhans_models_on_dataset(
+                sess, eval_dset, epsilon=adv_step_size_to_eval)
             results.add_result({"metric": keys.ACC,
-                                "value": adv_acc,
+                                "value": res["acc_base_perturbed"],
                                 "model": keys.BASE_MODEL,
                                 "data": keys.ADV_DATA,
                                 "phase": keys.TEST,
@@ -258,18 +257,38 @@ def main(argv):
                                 "epsilon": adv_step_size_to_eval
                                 })
 
-            _, _, adv_acc = vgg_model_adv.evaluate(
-                make_pos_and_neg_attr_datasets(FLAGS)[attr_val].dataset)
-
             results.add_result({"metric": keys.ACC,
-                                "value": adv_acc,
-                                "model": keys.ADV_DATA,
+                                "value": res["acc_adv_perturbed"],
+                                "model": keys.ADV_MODEL,
                                 "data": keys.ADV_DATA,
                                 "phase": keys.TEST,
                                 "attr": FLAGS.slice_attribute_name,
                                 "attr_val": attr_val,
                                 "epsilon": adv_step_size_to_eval
                                 })
+            adv_image_basename = \
+                "./debug/adv-examples-{uid}-{attr}-{val}-{attack}step{ss}".format(
+                    uid=make_model_uid(FLAGS, is_adversarial=True),
+                    attr=FLAGS.slice_attribute_name,
+                    val=attr_val,
+                    attack=FLAGS.attack,
+                    ss=adv_step_size_to_eval
+                )
+            show_adversarial_resuts(
+                n_batches=1,
+                # Add a batch_dimension to the results.
+                perturbed_images=np.expand_dims(sample_batch["x_perturbed"], axis=0),
+                labels=sample_batch["y"],
+                # Convert the predictions to a binary label
+                predictions=[
+                    {keys.BASE_MODEL: np.argmax(sample_batch["yhat_base_perturbed"],
+                                                axis=1),
+                     keys.ADV_MODEL: np.argmax(sample_batch["yhat_adv_perturbed"],
+                                               axis=1)}, ],
+                fp_basename=adv_image_basename,
+                batch_size=FLAGS.batch_size
+            )
+
     results.to_csv()
 
 

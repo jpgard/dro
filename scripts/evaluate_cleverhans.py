@@ -76,7 +76,7 @@ define_adv_training_flags()
 define_eval_flags()
 
 
-def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset, epsilon):
+def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, epsilon):
     """Evaluate the pretrained models (both base and adversarial) on eval_dset.
 
     Both models are evaluated at the same time because the attacks are the same (
@@ -91,9 +91,6 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset, epsilon):
     #  will be pased directly to get_attack_params; this would allow flexible
     #  specificatoin of any attack's parameters, not just FGSM.
 
-    # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
-    # arrays.
-    eval_dset_numpy = tfds.as_numpy(eval_dset)
 
     # Use the same compile args for both models. Since we are not training,
     # the optimizer and loss will not be used to adjust any parameters.
@@ -201,12 +198,16 @@ def main(argv):
 
     config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
 
-    # Create TF session and set as Keras backend session
-    sess = tf.Session(config=config)
-    keras.backend.set_session(sess)
-    # Set the learning phase to False, following the issue here:
-    # https://github.com/tensorflow/cleverhans/issues/1052
-    K.set_learning_phase(False)
+    def _clear_and_start_session():
+        """Clear the current session and start a new one."""
+        K.get_session().close()
+        # Create TF session and set as Keras backend session
+        sess = tf.Session(config=config)
+        keras.backend.set_session(sess)
+        # Set the learning phase to False, following the issue here:
+        # https://github.com/tensorflow/cleverhans/issues/1052
+        K.set_learning_phase(False)
+        return sess
 
     for attr_val in ("0", "1"):
 
@@ -214,10 +215,15 @@ def main(argv):
 
         eval_dset = make_pos_and_neg_attr_datasets(FLAGS, write_samples=False)[
             attr_val].dataset
+        # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
+        # arrays.
+        eval_dset_numpy = tfds.as_numpy(eval_dset)
 
         # Do the evalaution with no epsilon; this only evaluates on the clean data.
-        res, sample_batch = evaluate_cleverhans_models_on_dataset(sess, eval_dset,
+        sess = _clear_and_start_session()
+        res, sample_batch = evaluate_cleverhans_models_on_dataset(sess, eval_dset_numpy,
                                                                   epsilon=0.)
+
 
         results.add_result({"metric": keys.ACC,
                             "value": res['acc_base_clean'],
@@ -241,8 +247,9 @@ def main(argv):
 
         for adv_step_size_to_eval in ADV_STEP_SIZE_GRID:
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
+            sess = _clear_and_start_session()
             res, sample_batch = evaluate_cleverhans_models_on_dataset(
-                sess, eval_dset, epsilon=adv_step_size_to_eval)
+                sess, eval_dset_numpy, epsilon=adv_step_size_to_eval)
             results.add_result({"metric": keys.ACC,
                                 "value": res["acc_base_perturbed"],
                                 "model": keys.BASE_MODEL,

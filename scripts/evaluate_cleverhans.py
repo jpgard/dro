@@ -31,6 +31,7 @@ do
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
     --adv_step_size $SS \
+    --attack FastGradientMethod \
     --epochs $EPOCHS --metrics_dir ./tmp
 done
 """

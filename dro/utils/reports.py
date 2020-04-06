@@ -28,8 +28,12 @@ class Report:
             self.results = pd.concat([self.results, result_row])
         return
 
-    def to_csv(self):
-        fp = "./metrics/{}.csv".format(self.uid)
+    def to_csv(self, attr_name=None):
+        if attr_name:
+            fp = "./metrics/{}-{}.csv".format(self.uid, attr_name)
+        else:
+            fp = "./metrics/{}{}.csv".format(self.uid)
+
         print("[INFO] writing results to {}".format(fp))
         print(self.results)
         self.results.to_csv(fp, index=False)

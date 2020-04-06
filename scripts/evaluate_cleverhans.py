@@ -299,7 +299,7 @@ def main(argv):
                 batch_size=FLAGS.batch_size
             )
 
-    results.to_csv()
+    results.to_csv(attr_name=FLAGS.slice_attribute_name)
 
 
 if __name__ == "__main__":

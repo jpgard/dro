@@ -211,16 +211,15 @@ def main(argv):
 
     for attr_val in ("0", "1"):
 
-        print("[INFO] reached dev block.")
-
-        eval_dset = make_pos_and_neg_attr_datasets(FLAGS, write_samples=False)[
-            attr_val].dataset
-        # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
-        # arrays.
-        eval_dset_numpy = tfds.as_numpy(eval_dset)
-
         # Do the evalaution with no epsilon; this only evaluates on the clean data.
         sess = _clear_and_start_session()
+
+        # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
+        # arrays.
+        eval_dset = make_pos_and_neg_attr_datasets(FLAGS, write_samples=False)[
+            attr_val].dataset
+        eval_dset_numpy = tfds.as_numpy(eval_dset)
+
         res, sample_batch = evaluate_cleverhans_models_on_dataset(sess, eval_dset_numpy,
                                                                   epsilon=0.)
 
@@ -248,6 +247,13 @@ def main(argv):
         for adv_step_size_to_eval in ADV_STEP_SIZE_GRID:
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
             sess = _clear_and_start_session()
+
+            # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
+            # arrays.
+            eval_dset = make_pos_and_neg_attr_datasets(FLAGS, write_samples=False)[
+                attr_val].dataset
+            eval_dset_numpy = tfds.as_numpy(eval_dset)
+
             res, sample_batch = evaluate_cleverhans_models_on_dataset(
                 sess, eval_dset_numpy, epsilon=adv_step_size_to_eval)
             results.add_result({"metric": keys.ACC,

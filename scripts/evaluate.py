@@ -38,31 +38,25 @@ done
 from absl import app, flags
 from collections import OrderedDict
 import os
-import time
 
 import tensorflow as tf
 import pandas as pd
 
-from dro.utils.lfw import apply_thresh, \
-    get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME
-from dro.utils.training_utils import pred_to_binary, add_keys_to_dict
+from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID
+from dro.utils.training_utils import add_keys_to_dict
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
-from dro.keys import LABEL_INPUT_NAME, FILENAME_COLNAME, ADV_MODEL, BASE_MODEL, \
+from dro.keys import LABEL_INPUT_NAME, ADV_MODEL, BASE_MODEL, \
     ADV_DATA, CLEAN_DATA
-from dro.utils.viz import show_batch
 from dro.utils.training_utils import get_train_metrics, \
     add_adversarial_metric_names_to_list
 from dro.utils.training_utils import make_ckpt_filepath
 from dro.utils.training_utils import perturb_and_evaluate, \
-    make_compiled_reference_model
+    make_compiled_reference_model, load_model_weights_from_flags
 from dro.utils.training_utils import make_model_uid
 from dro.utils.viz import show_adversarial_resuts
-from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags
-
-ADV_STEP_SIZE_GRID = (0.005, 0.01, 0.025, 0.05, 0.1, 0.125, 0.2, 0.25)
 
 tf.compat.v1.enable_eager_execution()
 
@@ -81,63 +75,6 @@ define_adv_training_flags()
 define_eval_flags()
 
 
-def make_pos_and_neg_attr_datasets():
-    # build a labeled dataset from the files
-    annotated_files = get_annotated_data_df(anno_fp=FLAGS.anno_fp,
-                                            test_dir=FLAGS.test_dir)
-    assert len(annotated_files) > 0, "no files detected"
-
-    # Create a DataFrame with columns for (filename, label, slice_attribute); the columns
-    # need to be renamed to generic LABEL_COLNAME and ATTR_COLNAME in order to allow
-    # for cases where label and attribute names are the same (e.g. slicing 'Male'
-    # prediction by 'Male' attribute).
-
-    dset_df = annotated_files.reset_index()[
-        [FILENAME_COLNAME, FLAGS.label_name, FLAGS.slice_attribute_name]]
-    dset_df.columns = [FILENAME_COLNAME, LABEL_COLNAME, ATTR_COLNAME]
-
-    # Apply thresholding. We want observations which have absolute value greater than some
-    # threshold (predictions close to zero have low confidence).
-
-    dset_df = apply_thresh(dset_df, LABEL_COLNAME,
-                           FLAGS.confidence_threshold)
-    dset_df = apply_thresh(dset_df, ATTR_COLNAME,
-                           FLAGS.confidence_threshold)
-
-    dset_df[LABEL_COLNAME] = dset_df[LABEL_COLNAME].apply(pred_to_binary)
-    dset_df[ATTR_COLNAME] = dset_df[ATTR_COLNAME].apply(
-        pred_to_binary)
-
-    # Break the input dataset into separate tf.Datasets based on the value of the slice
-    # attribute.
-
-    # Create and preprocess the dataset of examples where ATTR_COLNAME == 1
-    preprocessing_kwargs = {"shuffle": False, "repeat_forever": False, "batch_size":
-        FLAGS.batch_size}
-    dset_attr_pos = ImageDataset()
-    dset_attr_pos.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 1],
-                                 label_name=LABEL_COLNAME)
-    dset_attr_pos.preprocess(**preprocessing_kwargs)
-
-    # Create and process the dataset of examples where ATTR_COLNAME == 1
-    dset_attr_neg = ImageDataset()
-    dset_attr_neg.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 0],
-                                 label_name=LABEL_COLNAME)
-    dset_attr_neg.preprocess(**preprocessing_kwargs)
-
-    image_batch, label_batch = next(iter(dset_attr_pos.dataset))
-    show_batch(image_batch.numpy(), label_batch.numpy(),
-               fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
-                   FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
-               )
-    image_batch, label_batch = next(iter(dset_attr_neg.dataset))
-    show_batch(image_batch.numpy(), label_batch.numpy(),
-               fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
-                   FLAGS.slice_attribute_name, FLAGS.label_name, int(time.time()))
-               )
-    return {"1": dset_attr_pos, "0": dset_attr_neg}
-
-
 def main(argv):
     # load the models
     train_metrics_dict = get_train_metrics()
@@ -150,14 +87,7 @@ def main(argv):
     }
     vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     vgg_model_base.compile(**model_compile_args)
-    if FLAGS.base_model_ckpt:  # load from the manually-specified checkpoint
-        print("[INFO] loading from specified checkpoint {}".format(
-            FLAGS.base_model_ckpt
-        ))
-        vgg_model_base.load_weights(filepath=FLAGS.base_model_ckpt)
-    else:  # Load from the default checkpoint path
-        vgg_model_base.load_weights(filepath=make_ckpt_filepath(
-            FLAGS, is_adversarial=False))
+    load_model_weights_from_flags(vgg_model_base, FLAGS, is_adversarial=False)
 
     # Adversarial model
     adv_config = nsl.configs.make_adv_reg_config(
@@ -172,10 +102,8 @@ def main(argv):
         adv_config=adv_config
     )
     adv_model.compile(**model_compile_args)
-    if FLAGS.adv_model_ckpt:
-        adv_model.load_weights(FLAGS.adv_model_ckpt)
-    else:
-        adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
+    load_model_weights_from_flags(adv_model, FLAGS, is_adversarial=True)
+
     # List to store the results of the experiment
     metrics_list = list()
 
@@ -199,13 +127,13 @@ def main(argv):
         print("[INFO] evaluating base model on clean data")
         clean_input_metrics_base = get_model_metrics(
             vgg_model_base,
-            make_pos_and_neg_attr_datasets()[attr_val].dataset,
+            make_pos_and_neg_attr_datasets(FLAGS)[attr_val].dataset,
             train_metrics_names,
             is_adversarial=False,
             data_type=CLEAN_DATA)
         print("[INFO] evaluating adversarial model on clean data")
         # Convert the dataset to dictionary for input to the adversarial model.
-        dset = make_pos_and_neg_attr_datasets()[attr_val]
+        dset = make_pos_and_neg_attr_datasets(FLAGS)[attr_val]
         dset.convert_to_dictionaries()
         clean_input_metrics_adv = get_model_metrics(
             adv_model,
@@ -232,7 +160,7 @@ def main(argv):
             }
 
             # Perturb the images and get the metrics for adversarial inputs
-            dset = make_pos_and_neg_attr_datasets()[attr_val]
+            dset = make_pos_and_neg_attr_datasets(FLAGS)[attr_val]
             dset.convert_to_dictionaries()
             perturbed_images, labels, predictions, adv_input_metrics_dict = \
                 perturb_and_evaluate(

@@ -34,6 +34,19 @@ def show_batch(image_batch, label_batch=None, fp=None):
 
 def show_adversarial_resuts(n_batches: int, perturbed_images, labels, predictions,
                             fp_basename, batch_size):
+    """
+    Generate a plot of adversarial results.
+
+    :param n_batches: number of batches to plot.
+    :param perturbed_images: list of numpy arrays [batch_size, width, height,
+    n_channnels] and length n_batches.
+    :param labels: nested list of iterables; each element of the list contains a binary
+    vector of lentch batch_size.
+    :param predictions: list of dicts, where each dict has format {MODEL_NAME:
+    model_preds} and model_preds is a binary vector of predictions.
+    :param fp_basename: basename of file to write to.
+    :param batch_size: batch size.
+    """
     n_col = 4
     n_row = (batch_size + n_col - 1) / n_col
     n_batches = min(n_batches, len(perturbed_images))

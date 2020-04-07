@@ -15,13 +15,6 @@ export EPOCHS=40
 
 export DIR="/projects/grail/jpgard/lfw"
 
-python3 scripts/evaluate_cleverhans.py \
-    --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
-    --test_dir ${DIR}/lfw-deepfunneled \
-    --label_name $LABEL \
-    --slice_attribute_name $SLICE_ATTR \
-    --adv_step_size $SS \
-    --epochs $EPOCHS
 
 for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
 do
@@ -32,7 +25,8 @@ do
     --slice_attribute_name $SLICE_ATTR \
     --attack FastGradientMethod \
     --attack_params "{\"eps\": $SS}" \
-    --epochs $EPOCHS --metrics_dir ./tmp
+    --epochs $EPOCHS
+    --metrics_dir ./metrics
 done
 """
 

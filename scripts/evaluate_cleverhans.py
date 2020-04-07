@@ -26,7 +26,7 @@ do
     --attack FastGradientMethod \
     --attack_params "{\"eps\": $SS}" \
     --adv_multiplier 0.2 \
-    --epochs $EPOCHS
+    --epochs $EPOCHS \
     --metrics_dir ./metrics
 done
 """

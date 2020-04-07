@@ -19,11 +19,12 @@ python3 scripts/train_vggface2_cleverhans.py \
     --label_name $LABEL \
     --test_dir ${DIR}/test/${LABEL} \
     --train_dir ${DIR}/train/${LABEL} \
-    --adv_step_size $SS --epochs $EPOCHS \
+    --epochs $EPOCHS \
+    --attack FastGradientMethod \
+    --attack_params "{\"eps\": 0.025}" \
     --anno_dir /projects/grail/jpgard/vggface2/anno
 
 """
-# pylint: disable=missing-docstring
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -44,7 +45,7 @@ from dro.utils.training_utils import make_callbacks, get_n_from_file_pattern, \
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags
 from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
-    get_adversarial_loss, get_attack_params, get_model_compile_args
+    get_adversarial_loss, attack_params_from_flags, get_model_compile_args
 from dro import keys
 from dro.utils.vggface import make_vgg_file_pattern
 
@@ -134,7 +135,7 @@ def mnist_tutorial(label_smoothing=0.1):
         steps_per_train_epoch = 1
         steps_per_val_epoch = 1
 
-    attack_params = get_attack_params(FLAGS.adv_step_size)
+    attack_params = attack_params_from_flags(FLAGS)
 
     # Set the learning phase to False, following the issue here:
     # https://github.com/tensorflow/cleverhans/issues/1052

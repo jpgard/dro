@@ -18,7 +18,8 @@ python3 scripts/train_vggface2.py \
     --test_dir ${DIR}/test/${LABEL} \
     --train_dir ${DIR}/train/${LABEL} \
     --epochs $EPOCHS \
-    --attack_params "{\"adv_multiplier\": 0.2, \"adv_step_size\": $SS, \"adv_grad_norm\": \"infinity\"}" \
+    --attack_params "{\"adv_multiplier\": 0.2, \"adv_step_size\": $SS, 
+    \"adv_grad_norm\": \"infinity\"}" \
     --use_dbs --precomputed_batches_fp ./embeddings/batches.npz \
     --anno_dir /projects/grail/jpgard/vggface2/anno \
 
@@ -29,7 +30,6 @@ python3 scripts/train_vggface2.py \
 from collections import OrderedDict
 import os
 import numpy as np
-import json
 
 from absl import app
 from absl import flags
@@ -41,7 +41,8 @@ from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
     write_test_metrics_to_csv, get_train_metrics, make_model_uid, \
-    add_adversarial_metric_names_to_list, get_n_from_file_pattern, compute_n_train_n_val, \
+    add_adversarial_metric_names_to_list, get_n_from_file_pattern, \
+    compute_n_train_n_val, \
     steps_per_epoch, load_model_weights_from_flags
 from dro.datasets import ImageDataset
 from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp, \
@@ -49,7 +50,8 @@ from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_fr
 from dro.utils.testing import assert_shape_equal, assert_file_exists
 from dro.datasets.dbs import LabeledBatchGenerator
 from dro.utils.training_utils import make_ckpt_filepath
-from dro.utils.flags import define_training_flags, define_adv_training_flags
+from dro.utils.flags import define_training_flags, define_adv_training_flags, \
+    get_attack_params
 
 tf.compat.v1.enable_eager_execution()
 
@@ -60,7 +62,7 @@ FLAGS = flags.FLAGS
 define_training_flags()
 
 # the adversarial training parameters
-define_adv_training_flags()
+define_adv_training_flags(cleverhans=False)
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -219,7 +221,7 @@ def main(argv):
 
     # Adversarial model training
     adv_config = nsl.configs.make_adv_reg_config(
-        **json.loads(FLAGS.attack_params)
+        get_attack_params(FLAGS)
     )
     base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     adv_model = nsl.keras.AdversarialRegularization(

@@ -31,6 +31,7 @@ done
 
 from absl import app, flags
 from collections import OrderedDict
+import json
 import os
 
 import tensorflow as tf
@@ -50,7 +51,7 @@ from dro.utils.training_utils import perturb_and_evaluate, \
 from dro.utils.training_utils import make_model_uid
 from dro.utils.viz import show_adversarial_resuts
 from dro.utils.flags import define_training_flags, define_eval_flags, \
-    define_adv_training_flags
+    define_adv_training_flags, get_attack_params
 
 tf.compat.v1.enable_eager_execution()
 
@@ -63,7 +64,7 @@ FLAGS = flags.FLAGS
 define_training_flags()
 
 # the adversarial training parameters
-define_adv_training_flags()
+define_adv_training_flags(cleverhans=False)
 
 # the evaluation flags
 define_eval_flags()
@@ -71,6 +72,7 @@ define_eval_flags()
 
 def main(argv):
     # load the models
+    attack_params = get_attack_params(FLAGS)
     train_metrics_dict = get_train_metrics()
     train_metrics_names = ["categorical_crossentropy", ] + list(train_metrics_dict.keys())
     train_metrics = list(train_metrics_dict.values())
@@ -85,9 +87,7 @@ def main(argv):
 
     # Adversarial model
     adv_config = nsl.configs.make_adv_reg_config(
-        multiplier=FLAGS.adv_multiplier,
-        adv_step_size=FLAGS.adv_step_size,
-        adv_grad_norm=FLAGS.adv_grad_norm
+        **attack_params
     )
     base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     adv_model = nsl.keras.AdversarialRegularization(
@@ -143,9 +143,9 @@ def main(argv):
             reference_model = make_compiled_reference_model(
                 model_base=vgg_model_base,
                 adv_config=nsl.configs.make_adv_reg_config(
-                    multiplier=FLAGS.adv_multiplier,
+                    multiplier=attack_params["adv_multiplier"],
                     adv_step_size=adv_step_size_to_eval,
-                    adv_grad_norm=FLAGS.adv_grad_norm
+                    adv_grad_norm=attack_params["adv_grad_norm"]
                 ),
                 model_compile_args=model_compile_args)
             models_to_eval = {

@@ -1,6 +1,11 @@
 from absl import flags
+import json
 
 FLAGS = flags.FLAGS
+
+
+def get_attack_params(flags):
+    return json.loads(flags.attack_params)
 
 
 def define_training_flags():
@@ -49,7 +54,7 @@ def define_training_flags():
     return
 
 
-def define_adv_training_flags():
+def define_adv_training_flags(cleverhans: bool):
     """Defines the flags used for adversarial training."""
 
     flags.DEFINE_string('attack', 'FastGradientMethod',
@@ -63,8 +68,16 @@ def define_adv_training_flags():
         Example for usage with cleverhans:
         "{\"eps\": 0.025}" 
         Example for usage with nsl.AdversarialRegularization:
-        "{\"adv_multiplier\": 0.2, \"adv_step_size\": 0.025, \"adv_grad_norm\": \"infinity\"}"
+        "{\"adv_multiplier\": 0.2, \"adv_step_size\": 0.025, \"adv_grad_norm\": 
+        \"infinity\"}"
         """)
+    if cleverhans:
+        flags.DEFINE_float(
+            "adv_multiplier", 0.2,
+            "adversarial multiplier. This is defined as a separate flag for cleverhans, "
+            "since it is not a parameter provided to the Attack.generate() method. "
+            "The loss will be computed as:"
+            "loss_on_clean_inputs + adv_multiplier * loss_on_perturbed_inputs")
     return
 
 

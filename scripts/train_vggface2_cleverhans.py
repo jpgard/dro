@@ -22,6 +22,7 @@ python3 scripts/train_vggface2_cleverhans.py \
     --epochs $EPOCHS \
     --attack FastGradientMethod \
     --attack_params "{\"eps\": $SS}" \
+    --adv_multiplier 0.2 \
     --anno_dir /projects/grail/jpgard/vggface2/anno
 
 """
@@ -55,7 +56,7 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 FLAGS = flags.FLAGS
 
 define_training_flags()
-define_adv_training_flags()
+define_adv_training_flags(cleverhans=True)
 
 flags.DEFINE_bool("train_mnist", False, "whether to train the cleverhans mnist model.")
 

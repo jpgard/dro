@@ -25,6 +25,7 @@ do
     --slice_attribute_name $SLICE_ATTR \
     --attack FastGradientMethod \
     --attack_params "{\"eps\": $SS}" \
+    --adv_multiplier 0.2 \
     --epochs $EPOCHS
     --metrics_dir ./metrics
 done
@@ -65,7 +66,7 @@ FLAGS = flags.FLAGS
 define_training_flags()
 
 # the adversarial training parameters
-define_adv_training_flags()
+define_adv_training_flags(cleverhans=True)
 
 # the evaluation flags
 define_eval_flags()

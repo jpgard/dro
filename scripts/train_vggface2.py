@@ -17,10 +17,10 @@ python3 scripts/train_vggface2.py \
     --label_name $LABEL \
     --test_dir ${DIR}/test/${LABEL} \
     --train_dir ${DIR}/train/${LABEL} \
-    --adv_step_size $SS --epochs $EPOCHS \
+    --epochs $EPOCHS \
+    --attack_params "{\"adv_multiplier\": 0.2, \"adv_step_size\": $SS, \"adv_grad_norm\": \"infinity\"}" \
     --use_dbs --precomputed_batches_fp ./embeddings/batches.npz \
     --anno_dir /projects/grail/jpgard/vggface2/anno \
-    --experiment_uid DBS_TEST
 
 
 
@@ -29,6 +29,7 @@ python3 scripts/train_vggface2.py \
 from collections import OrderedDict
 import os
 import numpy as np
+import json
 
 from absl import app
 from absl import flags
@@ -41,7 +42,7 @@ from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
     write_test_metrics_to_csv, get_train_metrics, make_model_uid, \
     add_adversarial_metric_names_to_list, get_n_from_file_pattern, compute_n_train_n_val, \
-    steps_per_epoch
+    steps_per_epoch, load_model_weights_from_flags
 from dro.datasets import ImageDataset
 from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp, \
     make_vgg_file_pattern
@@ -213,19 +214,12 @@ def main(argv):
         test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
         write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
 
-    elif FLAGS.base_model_ckpt:
-        # load the model from specified checkpoint path instead of training it
-        vgg_model_base.load_weights(filepath=FLAGS.base_model_ckpt)
-        # load the model from default checkpoint path instead of training it
     else:
-        vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS,
-                                                                is_adversarial=False))
+        load_model_weights_from_flags(vgg_model_base, FLAGS, is_adversarial=False)
 
     # Adversarial model training
     adv_config = nsl.configs.make_adv_reg_config(
-        multiplier=FLAGS.adv_multiplier,
-        adv_step_size=FLAGS.adv_step_size,
-        adv_grad_norm=FLAGS.adv_grad_norm
+        **json.loads(FLAGS.attack_params)
     )
     base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     adv_model = nsl.keras.AdversarialRegularization(
@@ -258,12 +252,8 @@ def main(argv):
         assert len(test_metrics_adv_names) == len(test_metrics_adv)
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
-
-    elif FLAGS.adv_model_ckpt:  # load the model
-        adv_model.load_weights(FLAGS.adv_model_ckpt)
     else:
-        adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
-
+        load_model_weights_from_flags(adv_model, FLAGS, is_adversarial=True)
 
 
 if __name__ == "__main__":

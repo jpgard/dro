@@ -21,7 +21,7 @@ python3 scripts/train_vggface2_cleverhans.py \
     --train_dir ${DIR}/train/${LABEL} \
     --epochs $EPOCHS \
     --attack FastGradientMethod \
-    --attack_params "{\"eps\": 0.025}" \
+    --attack_params "{\"eps\": $SS}" \
     --anno_dir /projects/grail/jpgard/vggface2/anno
 
 """

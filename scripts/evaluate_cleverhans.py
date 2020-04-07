@@ -30,8 +30,8 @@ do
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
-    --adv_step_size $SS \
     --attack FastGradientMethod \
+    --attack_params "{\"eps\": $SS}" \
     --epochs $EPOCHS --metrics_dir ./tmp
 done
 """
@@ -54,7 +54,7 @@ from dro.utils.training_utils import load_model_weights_from_flags
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags
 from dro.utils.reports import Report
-from dro.utils.cleverhans import get_attack, get_attack_params, get_model_compile_args
+from dro.utils.cleverhans import get_attack, attack_params_from_flags, get_model_compile_args
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID
 from dro.utils.training_utils import make_model_uid
 from dro import keys
@@ -88,10 +88,6 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         (by default, the first batch is used).
     """
 
-    # TODO(jpgard): instead of using `epsilon`, take a dict of input arguments which
-    #  will be pased directly to get_attack_params; this would allow flexible
-    #  specificatoin of any attack's parameters, not just FGSM.
-
     # Use the same compile args for both models. Since we are not training,
     # the optimizer and loss will not be used to adjust any parameters.
     model_init_args = {"dropout_rate": FLAGS.dropout_rate,
@@ -108,7 +104,7 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
     load_model_weights_from_flags(vgg_model_adv, FLAGS, is_adversarial=True)
 
     # Initialize the attack. The attack is always computed relative to the base model.
-    attack_params = get_attack_params(epsilon)
+    attack_params = attack_params_from_flags(FLAGS, override_eps_value=epsilon)
     attack = get_attack(FLAGS, vgg_model_base, sess)
 
     # Define the ops to run for evaluation

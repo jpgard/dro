@@ -12,19 +12,29 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 export LABEL="Mouth_Open"
-export DIR="/projects/grail/jpgard/vggface2/annotated_partitioned_by_label"
+export DIR="/projects/grail/jpgard/vggface2"
 export SS=0.025
 export EPOCHS=40
+
 python3 scripts/train_vggface2_cleverhans.py \
     --label_name $LABEL \
-    --test_dir ${DIR}/test/${LABEL} \
-    --train_dir ${DIR}/train/${LABEL} \
+    --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
+    --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
     --epochs $EPOCHS \
     --attack FastGradientMethod \
     --attack_params "{\"eps\": $SS}" \
     --adv_multiplier 0.2 \
-    --anno_dir /projects/grail/jpgard/vggface2/anno
+    --anno_dir ${DIR}/anno
 
+python3 scripts/train_vggface2_cleverhans.py \
+    --label_name $LABEL \
+    --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
+    --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
+    --epochs $EPOCHS \
+    --attack BasicIterativeMethod \
+    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004}" \
+    --adv_multiplier 0.2 \
+    --anno_dir ${DIR}/anno
 """
 from __future__ import absolute_import
 from __future__ import division

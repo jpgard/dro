@@ -1,6 +1,7 @@
+from collections import defaultdict
 import glob
 from itertools import islice
-from collections import defaultdict
+import json
 import os
 
 import pandas as pd
@@ -134,10 +135,10 @@ def make_model_uid(flags, is_adversarial=False):
                 dropout_rate=flags.dropout_rate
                 )
     if is_adversarial:
-        model_uid = "{model_uid}-{attack}-m{mul}-s{step}-n{norm}".format(
-            attack=flags.attack,
-            model_uid=model_uid, mul=flags.adv_multiplier,
-            step=flags.adv_step_size, norm=flags.adv_grad_norm)
+        attack_params = json.loads(flags.attack_params)
+        model_uid += "-" + flags.attack
+        for k,v in sorted(attack_params.items()):
+            model_uid += "-{}{}".format(k[0], str(v))
     if flags.use_dbs:
         model_uid += "dbs"
     if flags.experiment_uid:

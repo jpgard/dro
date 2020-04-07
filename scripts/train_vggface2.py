@@ -10,18 +10,16 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 export LABEL="Mouth_Open"
-export DIR="/projects/grail/jpgard/vggface2/annotated_partitioned_by_label"
+export DIR="/projects/grail/jpgard/vggface2"
 export SS=0.025
 export EPOCHS=40
 python3 scripts/train_vggface2.py \
     --label_name $LABEL \
-    --test_dir ${DIR}/test/${LABEL} \
-    --train_dir ${DIR}/train/${LABEL} \
+    --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
+    --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
     --epochs $EPOCHS \
-    --attack_params "{\"adv_multiplier\": 0.2, \"adv_step_size\": $SS, 
-    \"adv_grad_norm\": \"infinity\"}" \
-    --use_dbs --precomputed_batches_fp ./embeddings/batches.npz \
-    --anno_dir /projects/grail/jpgard/vggface2/anno \
+    --attack_params "{\"multiplier\": 0.2, \"adv_step_size\": $SS, \"adv_grad_norm\": \"infinity\"}" \
+    --anno_dir ${DIR}/anno
 
 
 
@@ -221,7 +219,7 @@ def main(argv):
 
     # Adversarial model training
     adv_config = nsl.configs.make_adv_reg_config(
-        get_attack_params(FLAGS)
+        **get_attack_params(FLAGS)
     )
     base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     adv_model = nsl.keras.AdversarialRegularization(
@@ -229,6 +227,7 @@ def main(argv):
         label_keys=[LABEL_INPUT_NAME],
         adv_config=adv_config
     )
+    import ipdb;ipdb.set_trace()
 
     adv_model.compile(**model_compile_args)
 

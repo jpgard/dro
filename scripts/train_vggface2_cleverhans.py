@@ -146,12 +146,6 @@ def mnist_tutorial(label_smoothing=0.1):
         vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
                                         activation='softmax')
 
-        # TODO(jpgard): re-run script with this commented; it should be safe to remove.
-        #  Remove it after confirming.
-        # # To be able to call the model in the custom loss, we need to call it once
-        # # before, see https://github.com/tensorflow/tensorflow/issues/23769
-        # vgg_model_base(vgg_model_base.input)
-
         # Initialize the attack object
         attack = get_attack(FLAGS, vgg_model_base, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))

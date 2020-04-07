@@ -92,7 +92,6 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
     #  will be pased directly to get_attack_params; this would allow flexible
     #  specificatoin of any attack's parameters, not just FGSM.
 
-
     # Use the same compile args for both models. Since we are not training,
     # the optimizer and loss will not be used to adjust any parameters.
     model_init_args = {"dropout_rate": FLAGS.dropout_rate,
@@ -223,7 +222,6 @@ def main(argv):
 
         res, sample_batch = evaluate_cleverhans_models_on_dataset(sess, eval_dset_numpy,
                                                                   epsilon=0.)
-
 
         results.add_result({"metric": keys.ACC,
                             "value": res['acc_base_clean'],

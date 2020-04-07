@@ -46,7 +46,6 @@ from tensorflow import keras
 import tensorflow.keras.backend as K
 
 from cleverhans.compat import flags
-from cleverhans.utils_keras import KerasModelWrapper
 
 from dro.training.models import vggface2_model
 from dro.utils.reports import Report

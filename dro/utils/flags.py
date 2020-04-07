@@ -1,6 +1,12 @@
 from absl import flags
+import json
 
 FLAGS = flags.FLAGS
+
+
+def get_attack_params(flags):
+    return json.loads(flags.attack_params)
+
 
 def define_training_flags():
     """Defines the flags used for model training."""
@@ -47,18 +53,31 @@ def define_training_flags():
                       "precomputed_batches_fp.")
     return
 
-def define_adv_training_flags():
+
+def define_adv_training_flags(cleverhans: bool):
     """Defines the flags used for adversarial training."""
-    flags.DEFINE_float('adv_multiplier', 0.2,
-                       " The weight of adversarial loss in the training objective, "
-                       "relative "
-                       "to the labeled loss. e.g. if this is 0.2, The model minimizes "
-                       "(mean_crossentropy_loss + 0.2 * adversarial_regularization) ")
-    flags.DEFINE_float('adv_step_size', 0.2, "The magnitude of adversarial perturbation.")
-    flags.DEFINE_string('adv_grad_norm', 'infinity',
-                        "The norm to measure the magnitude of adversarial perturbation.")
-    flags.DEFINE_string('attack', 'FastGradientMethod', 'the cleverhans attack class '
-                                                        'name to use.')
+
+    flags.DEFINE_string('attack', 'FastGradientMethod',
+                        'the cleverhans attack class name to use.')
+    flags.DEFINE_string(
+        'attack_params',
+        None,
+        """JSON string representing the dictionary of arguments to pass to the attack 
+        constructor. 
+        
+        Example for usage with cleverhans:
+        "{\"eps\": 0.025}" 
+        Example for usage with nsl.AdversarialRegularization:
+        "{\"adv_multiplier\": 0.2, \"adv_step_size\": 0.025, \"adv_grad_norm\": 
+        \"infinity\"}"
+        """)
+    if cleverhans:
+        flags.DEFINE_float(
+            "adv_multiplier", 0.2,
+            "adversarial multiplier. This is defined as a separate flag for cleverhans, "
+            "since it is not a parameter provided to the Attack.generate() method. "
+            "The loss will be computed as:"
+            "loss_on_clean_inputs + adv_multiplier * loss_on_perturbed_inputs")
     return
 
 
@@ -113,4 +132,3 @@ def define_dbs_flags():
     flags.DEFINE_integer("batch_size", 16, "Size of batches to generate")
     flags.mark_flags_as_required(["embeddings_fp", "eigen_vals_fp", "eigen_vecs_fp"])
     return
-

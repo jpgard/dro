@@ -10,17 +10,16 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # run the script
 export LABEL="Mouth_Open"
-export DIR="/projects/grail/jpgard/vggface2/annotated_partitioned_by_label"
+export DIR="/projects/grail/jpgard/vggface2"
 export SS=0.025
 export EPOCHS=40
 python3 scripts/train_vggface2.py \
     --label_name $LABEL \
-    --test_dir ${DIR}/test/${LABEL} \
-    --train_dir ${DIR}/train/${LABEL} \
-    --adv_step_size $SS --epochs $EPOCHS \
-    --use_dbs --precomputed_batches_fp ./embeddings/batches.npz \
-    --anno_dir /projects/grail/jpgard/vggface2/anno \
-    --experiment_uid DBS_TEST
+    --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
+    --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
+    --epochs $EPOCHS \
+    --attack_params "{\"multiplier\": 0.2, \"adv_step_size\": $SS, \"adv_grad_norm\": \"infinity\"}" \
+    --anno_dir ${DIR}/anno
 
 
 
@@ -40,15 +39,17 @@ from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
     write_test_metrics_to_csv, get_train_metrics, make_model_uid, \
-    add_adversarial_metric_names_to_list, get_n_from_file_pattern, compute_n_train_n_val, \
-    steps_per_epoch
+    add_adversarial_metric_names_to_list, get_n_from_file_pattern, \
+    compute_n_train_n_val, \
+    steps_per_epoch, load_model_weights_from_flags
 from dro.datasets import ImageDataset
 from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp, \
     make_vgg_file_pattern
 from dro.utils.testing import assert_shape_equal, assert_file_exists
 from dro.datasets.dbs import LabeledBatchGenerator
 from dro.utils.training_utils import make_ckpt_filepath
-from dro.utils.flags import define_training_flags, define_adv_training_flags
+from dro.utils.flags import define_training_flags, define_adv_training_flags, \
+    get_attack_params
 
 tf.compat.v1.enable_eager_execution()
 
@@ -59,7 +60,7 @@ FLAGS = flags.FLAGS
 define_training_flags()
 
 # the adversarial training parameters
-define_adv_training_flags()
+define_adv_training_flags(cleverhans=False)
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -213,19 +214,12 @@ def main(argv):
         test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
         write_test_metrics_to_csv(test_metrics_dict, FLAGS, is_adversarial=False)
 
-    elif FLAGS.base_model_ckpt:
-        # load the model from specified checkpoint path instead of training it
-        vgg_model_base.load_weights(filepath=FLAGS.base_model_ckpt)
-        # load the model from default checkpoint path instead of training it
     else:
-        vgg_model_base.load_weights(filepath=make_ckpt_filepath(FLAGS,
-                                                                is_adversarial=False))
+        load_model_weights_from_flags(vgg_model_base, FLAGS, is_adversarial=False)
 
     # Adversarial model training
     adv_config = nsl.configs.make_adv_reg_config(
-        multiplier=FLAGS.adv_multiplier,
-        adv_step_size=FLAGS.adv_step_size,
-        adv_grad_norm=FLAGS.adv_grad_norm
+        **get_attack_params(FLAGS)
     )
     base_adv_model = vggface2_model(dropout_rate=FLAGS.dropout_rate)
     adv_model = nsl.keras.AdversarialRegularization(
@@ -233,6 +227,7 @@ def main(argv):
         label_keys=[LABEL_INPUT_NAME],
         adv_config=adv_config
     )
+    import ipdb;ipdb.set_trace()
 
     adv_model.compile(**model_compile_args)
 
@@ -258,12 +253,8 @@ def main(argv):
         assert len(test_metrics_adv_names) == len(test_metrics_adv)
         test_metrics_adv = OrderedDict(zip(test_metrics_adv_names, test_metrics_adv))
         write_test_metrics_to_csv(test_metrics_adv, FLAGS, is_adversarial=True)
-
-    elif FLAGS.adv_model_ckpt:  # load the model
-        adv_model.load_weights(FLAGS.adv_model_ckpt)
     else:
-        adv_model.load_weights(filepath=make_ckpt_filepath(FLAGS, is_adversarial=True))
-
+        load_model_weights_from_flags(adv_model, FLAGS, is_adversarial=True)
 
 
 if __name__ == "__main__":

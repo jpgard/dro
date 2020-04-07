@@ -1,8 +1,10 @@
+import json
 import tensorflow as tf
 from tensorflow import keras
 
 from cleverhans.utils_keras import KerasModelWrapper
-from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise, Attack
+from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise, \
+    Attack, BasicIterativeMethod, MadryEtAl
 from cleverhans.utils_keras import KerasModelWrapper
 
 
@@ -13,10 +15,22 @@ def get_attack(flags, model: keras.Model, sess: tf.Session):
     return globals()[flags.attack](wrap, sess=sess)
 
 
-def get_attack_params(epsilon):
-    attack_params = {'eps': epsilon,
-                     'clip_min': 0.,
-                     'clip_max': 1.}
+def attack_params_from_flags(flags, override_eps_value: float = None):
+    """Build a dict of attack params to be passed to Attack.generate().
+
+    :param flags: the flags object.
+    :param override_eps_value: optional value to use to override the epsilon in the
+    flags; for example, when generating perturbations at an epsilon different from the
+    epsilon used to train the model.
+    :return: a dict of {parameter_name:parameter_value} pairs to be passed to
+    Attack.generate().
+    """
+    attack_params = json.loads(flags.attack_params)
+    # These are default parameter values we do not want to change.
+    params_to_add = {'clip_min': 0., 'clip_max': 1.}
+    if override_eps_value is not None:
+        attack_params["eps"] = override_eps_value
+    attack_params.update(params_to_add)
     return attack_params
 
 
@@ -25,7 +39,7 @@ def get_model_compile_args(flags, loss, adv_acc_metric=None):
     metrics."""
     metrics = ['accuracy']
     if adv_acc_metric:
-        metrics.extend(adv_acc_metric)
+        metrics.append(adv_acc_metric)
     compile_args = {
         "optimizer": tf.keras.optimizers.SGD(learning_rate=flags.learning_rate),
         "loss": loss,

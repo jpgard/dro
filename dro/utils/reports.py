@@ -32,7 +32,7 @@ class Report:
         if attr_name:
             fp = "./metrics/{}-{}.csv".format(self.uid, attr_name)
         else:
-            fp = "./metrics/{}{}.csv".format(self.uid)
+            fp = "./metrics/{}.csv".format(self.uid)
 
         print("[INFO] writing results to {}".format(fp))
         print(self.results)

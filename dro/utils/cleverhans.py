@@ -38,7 +38,7 @@ def get_model_compile_args(flags, loss, adv_acc_metric=None):
     metrics."""
     metrics = ['accuracy']
     if adv_acc_metric:
-        metrics.extend(adv_acc_metric)
+        metrics.append(adv_acc_metric)
     compile_args = {
         "optimizer": tf.keras.optimizers.SGD(learning_rate=flags.learning_rate),
         "loss": loss,

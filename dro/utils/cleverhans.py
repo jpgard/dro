@@ -3,7 +3,8 @@ import tensorflow as tf
 from tensorflow import keras
 
 from cleverhans.utils_keras import KerasModelWrapper
-from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise, Attack
+from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise, \
+    Attack, BasicIterativeMethod, MadryEtAl
 from cleverhans.utils_keras import KerasModelWrapper
 
 

@@ -23,7 +23,7 @@ do
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
-    --adv_step_size $SS \
+    --attack_params "{\"multiplier\": 0.2, \"adv_step_size\": $SS, \"adv_grad_norm\": \"infinity\"}" \
     --epochs $EPOCHS \
     --metrics_dir ./metrics
 done
@@ -143,7 +143,7 @@ def main(argv):
             reference_model = make_compiled_reference_model(
                 model_base=vgg_model_base,
                 adv_config=nsl.configs.make_adv_reg_config(
-                    multiplier=attack_params["adv_multiplier"],
+                    multiplier=attack_params["multiplier"],
                     adv_step_size=adv_step_size_to_eval,
                     adv_grad_norm=attack_params["adv_grad_norm"]
                 ),

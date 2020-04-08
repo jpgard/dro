@@ -22,7 +22,7 @@ python3 scripts/train_vggface2_cleverhans.py \
     --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
     --epochs $EPOCHS \
     --attack FastGradientMethod \
-    --attack_params "{\"eps\": $SS}" \
+    --attack_params "{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
     --anno_dir ${DIR}/anno
 
@@ -160,7 +160,6 @@ def mnist_tutorial(label_smoothing=0.1):
         # Initialize the attack object
         attack = get_attack(FLAGS, vgg_model_base, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))
-
         adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, attack, attack_params)
         model_compile_args_base = get_model_compile_args(
             FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),

@@ -27,10 +27,8 @@ def attack_params_from_flags(flags, override_eps_value: float = None):
     """
     attack_params = json.loads(flags.attack_params)
     # These are default parameter values we do not want to change.
-    params_to_add = {'clip_min': 0., 'clip_max': 1.}
     if override_eps_value is not None:
         attack_params["eps"] = override_eps_value
-    attack_params.update(params_to_add)
     return attack_params
 
 

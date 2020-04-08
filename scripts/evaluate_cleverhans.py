@@ -24,7 +24,7 @@ do
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
     --attack FastGradientMethod \
-    --attack_params ""{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
+    --attack_params "{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
     --epochs $EPOCHS \
     --metrics_dir ./metrics

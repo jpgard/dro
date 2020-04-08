@@ -10,7 +10,8 @@ from cleverhans.compat import softmax_cross_entropy_with_logits
 from cleverhans.utils_tf import clip_eta
 
 
-def fgm(model, x, y, ord, eps: float, nb_iter=1, clip_min=0., clip_max=1.):
+def fgm(model, x, y, ord, eps: float, eps_iter:float, nb_iter=1, clip_min=0.,
+        clip_max=1.):
     """
     Fast gradient method; adapted from
     https://github.com/gongzhitaao/tensorflow-adversarial
@@ -44,14 +45,16 @@ def fgm(model, x, y, ord, eps: float, nb_iter=1, clip_min=0., clip_max=1.):
         logits = model.get_logits(adv_x)
         loss = softmax_cross_entropy_with_logits(labels=y, logits=logits)
         grad, = tf.gradients(loss, adv_x)
-        optimal_perturbation = optimize_linear(grad, eps, ord)
+        # Each step, we take a step of size eps_iter (this is alpha in Kurakin et al).
+        optimal_perturbation = optimize_linear(grad, eps_iter, ord)
         adv_x = x + optimal_perturbation
         # Following cleverhans, we only support clipping when both clip_min and clip_max
         # are specified.
         if (clip_min is not None) and (clip_max is not None):
             adv_x = tf.clip_by_value(adv_x, clip_min, clip_max)
 
-        # Clipping perturbation eta to self.ord norm ball
+        # Clipping perturbation eta to self.ord norm ball, using eps (not eps_iter) to
+        # constrain the total size.
         eta = adv_x - x
         eta = clip_eta(eta, ord, eps)
         adv_x = x + eta
@@ -86,7 +89,9 @@ class IterativeFastGradientMethod(Attack):
         """
 
         super(IterativeFastGradientMethod, self).__init__(model, sess, dtypestr, **kwargs)
-        self.feedable_kwargs = ('eps', 'y', 'y_target', 'clip_min', 'clip_max', 'nb_iter')
+        self.feedable_kwargs = ('eps', 'eps_iter', 'y', 'y_target', 'clip_min',
+                                'clip_max',
+                                'nb_iter')
         self.structural_kwargs = ['ord', 'sanity_checks']
 
     def generate(self, x, **kwargs):
@@ -100,6 +105,7 @@ class IterativeFastGradientMethod(Attack):
                    y=labels,
                    ord=self.ord,
                    eps=self.eps,
+                   eps_iter=self.eps_iter,
                    nb_iter=self.nb_iter,
                    clip_min=self.clip_min,
                    clip_max=self.clip_max
@@ -113,6 +119,7 @@ class IterativeFastGradientMethod(Attack):
                      clip_min=None,
                      clip_max=None,
                      nb_iter=1,
+                     eps_iter=0.004,
                      sanity_checks=True,
                      **kwargs):
         """
@@ -136,6 +143,8 @@ class IterativeFastGradientMethod(Attack):
         :param clip_min: (optional float) Minimum input component value
         :param clip_max: (optional float) Maximum input component value
         :param nb_iter: number of iterations to perform.
+        :param eps_iter: the step size to take at each iteration; this is also called
+        alpha in Kurakin et al (naming here follows cleverhans).
         :param sanity_checks: bool, if True, include asserts
           (Turn them off to use less runtime / memory or for unit tests that
           intentionally pass strange input)
@@ -149,6 +158,7 @@ class IterativeFastGradientMethod(Attack):
         self.clip_min = clip_min
         self.clip_max = clip_max
         self.nb_iter = nb_iter
+        self.eps_iter = eps_iter
         self.sanity_checks = sanity_checks
 
         if self.y is not None and self.y_target is not None:

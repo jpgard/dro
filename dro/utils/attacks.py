@@ -3,16 +3,11 @@ import warnings
 import numpy as np
 import tensorflow as tf
 
-from cleverhans.attacks import Attack, optimize_linear, clip_eta
-from cleverhans import utils
-from cleverhans.attacks_tf import SPSAAdam, margin_logit_loss, TensorAdam
-from cleverhans.model import Model, CallableModelWrapper
-from cleverhans.model import wrapper_warning, wrapper_warning_logits
+from cleverhans.attacks import Attack, optimize_linear
 from cleverhans.compat import reduce_sum, reduce_mean
 from cleverhans.compat import reduce_max
 from cleverhans.compat import softmax_cross_entropy_with_logits
 from cleverhans.utils_tf import clip_eta
-from cleverhans import utils_tf
 
 
 def fgm(model, x, y, ord, eps: float, nb_iter=1, clip_min=0., clip_max=1.):

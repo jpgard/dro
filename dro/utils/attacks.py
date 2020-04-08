@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 import tensorflow as tf
 
-from cleverhans.attacks import Attack
+from cleverhans.attacks import Attack, optimize_linear, clip_eta
 from cleverhans import utils
 from cleverhans.attacks_tf import SPSAAdam, margin_logit_loss, TensorAdam
 from cleverhans.model import Model, CallableModelWrapper
@@ -15,7 +15,7 @@ from cleverhans.utils_tf import clip_eta
 from cleverhans import utils_tf
 
 
-def fgm(model, x, y, eps=0.01, epochs=1, sign=True, clip_min=0., clip_max=1.):
+def fgm(model, x, y, ord, eps: float, nb_iter=1, clip_min=0., clip_max=1.):
     """
     Fast gradient method; adapted from
     https://github.com/gongzhitaao/tensorflow-adversarial
@@ -27,8 +27,7 @@ def fgm(model, x, y, eps=0.01, epochs=1, sign=True, clip_min=0., clip_max=1.):
     :param model: A wrapper that returns the output as well as logits.
     :param x: The input placeholder.
     :param eps: The scale factor for noise.
-    :param epochs: The maximum epoch to run.
-    :param sign: Use gradient sign if True, otherwise use gradient value.
+    :param nb_iter: The number of iterations to conduct.
     :param clip_min: The minimum value in output.
     :param clip_max: The maximum value in output.
 
@@ -37,72 +36,38 @@ def fgm(model, x, y, eps=0.01, epochs=1, sign=True, clip_min=0., clip_max=1.):
 
     if y is None:
         # Using model predictions as ground truth to avoid label leaking
+        logits = model.get_logits(x)
         preds_max = reduce_max(logits, 1, keepdims=True)
         y = tf.to_float(tf.equal(logits, preds_max))
         y = tf.stop_gradient(y)
     y = y / reduce_sum(y, 1, keepdims=True)
 
-    # ybar = model(xadv)
-    # yshape = ybar.get_shape().as_list()
-    # ydim = yshape[1]
-    #
-    # indices = tf.argmax(ybar, axis=1)
-    # target = tf.cond(
-    #     tf.equal(ydim, 1),
-    #     lambda: tf.nn.relu(tf.sign(ybar - 0.5)),
-    #     lambda: tf.one_hot(indices, ydim, on_value=1.0, off_value=0.0))
-    #
-    # if 1 == ydim:
-    #     loss_fn = tf.nn.sigmoid_cross_entropy_with_logits
-    # else:
-    #     loss_fn = tf.nn.softmax_cross_entropy_with_logits
-
-    if sign:
-        noise_fn = tf.sign
-    else:
-        noise_fn = tf.identity
-
     eps = tf.abs(eps)
 
-    def _cond(xadv, i):
-        return tf.less(i, epochs)
-
-    def _body(x, i):
-        logits = model.get_logits(x)
-        loss = softmax_cross_entropy_with_logits(labels=y, logits=logits)
-        import ipdb;ipdb.set_trace()
-        dy_dx, = tf.gradients(loss, x)
-        adv_x = x + eps * noise_fn(dy_dx)
-        adv_x = tf.stop_gradient(adv_x)
-        # TODO(jpgard): uncomment this; the clipping to x +/- eps is key to IFGSM.
-        # xadv = clip(xadv)
-        # OR use this:
-        # optimal_perturbation = optimize_linear(grad, eps, ord)
-        # Add perturbation to original example to obtain adversarial example
-        # adv_x = x + optimal_perturbation
-        adv_x = tf.clip_by_value(adv_x, clip_min, clip_max)
-        return adv_x, i + 1
-
-    # xadv, _ = tf.while_loop(_cond, _body, (x, 0), back_prop=False,
-    #                         name='fast_gradient')
     adv_x = x
-    for i in range(epochs):
+    for i in range(nb_iter):
         logits = model.get_logits(adv_x)
         loss = softmax_cross_entropy_with_logits(labels=y, logits=logits)
-        dy_dx, = tf.gradients(loss, adv_x)
-        adv_x = x + eps * noise_fn(dy_dx)
-        adv_x = tf.stop_gradient(adv_x)
-        # TODO(jpgard): uncomment this; the clipping to x +/- eps is key to IFGSM.
-        # xadv = clip(xadv)
-        # OR use this:
-        # optimal_perturbation = optimize_linear(grad, eps, ord)
-        # Add perturbation to original example to obtain adversarial example
-        # adv_x = x + optimal_perturbation
-
+        grad, = tf.gradients(loss, adv_x)
+        optimal_perturbation = optimize_linear(grad, eps, ord)
+        adv_x = x + optimal_perturbation
         # Following cleverhans, we only support clipping when both clip_min and clip_max
         # are specified.
         if (clip_min is not None) and (clip_max is not None):
             adv_x = tf.clip_by_value(adv_x, clip_min, clip_max)
+
+        # Clipping perturbation eta to self.ord norm ball
+        eta = adv_x - x
+        eta = clip_eta(eta, ord, eps)
+        adv_x = x + eta
+
+        # Following cleverhans, redo the clipping: subtracting and re-adding eta can
+        # add some small numerical error.
+        if (clip_min is not None) and (clip_max is not None):
+            adv_x = tf.clip_by_value(adv_x, clip_min, clip_max)
+
+        adv_x = tf.stop_gradient(adv_x)
+
     return adv_x
 
 
@@ -138,9 +103,9 @@ class IterativeFastGradientMethod(Attack):
         return fgm(self.model,
                    x=x,
                    y=labels,
+                   ord=self.ord,
                    eps=self.eps,
-                   epochs=self.nb_iter,
-                   sign=True,
+                   nb_iter=self.nb_iter,
                    clip_min=self.clip_min,
                    clip_max=self.clip_max
                    )

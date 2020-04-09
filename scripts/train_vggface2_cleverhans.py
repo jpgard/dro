@@ -76,7 +76,8 @@ from dro.utils.training_utils import make_callbacks, get_n_from_file_pattern, \
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags
 from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
-    get_adversarial_loss, attack_params_from_flags, get_model_compile_args
+    get_adversarial_loss, attack_params_from_flags, get_model_compile_args, \
+    get_adversarial_auc_metric
 from dro import keys
 from dro.utils.vggface import make_vgg_file_pattern
 
@@ -89,6 +90,25 @@ define_training_flags()
 define_adv_training_flags(cleverhans=True)
 
 flags.DEFINE_bool("train_mnist", False, "whether to train the cleverhans mnist model.")
+
+
+def get_data_type_and_metric_from_name(name, sep="_"):
+    """Helper function which uses the metric name to determine whether the metric
+    operates on clean or adversarial data, and trims the metric name if needed."""
+    if "adv" in name:
+        data = keys.ADV_DATA
+        metric_name = name.split(sep)[1]
+    else:
+        data = keys.CLEAN_DATA
+        metric_name = name
+    return data, metric_name
+
+
+def run_variable_initializers(sess):
+    init = tf.group(tf.global_variables_initializer(),
+                    tf.local_variables_initializer())
+    sess.run(init)
+    return
 
 
 def mnist_tutorial(label_smoothing=0.1):
@@ -122,12 +142,6 @@ def mnist_tutorial(label_smoothing=0.1):
     # Create TF session and set as Keras backend session
     sess = tf.Session(config=config)
     keras.backend.set_session(sess)
-
-    # Obtain Image Parameters
-
-    # Label smoothing
-    # TODO(jpgard): implement label smoothing as part of the ImageDataSet class.
-    # y_train -= label_smoothing * (y_train - 1. / nb_classes)
 
     train_file_pattern = make_vgg_file_pattern(FLAGS.train_dir)
     test_file_pattern = make_vgg_file_pattern(FLAGS.test_dir)
@@ -173,6 +187,11 @@ def mnist_tutorial(label_smoothing=0.1):
 
     K.set_learning_phase(False)
 
+    # Shared training arguments for the model fitting.
+    train_args = {"steps_per_epoch": steps_per_train_epoch,
+                  "epochs": FLAGS.epochs,
+                  "validation_steps": steps_per_val_epoch}
+
     if FLAGS.train_base:  # Base model training
 
         vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
@@ -182,52 +201,43 @@ def mnist_tutorial(label_smoothing=0.1):
         attack = get_attack(FLAGS, vgg_model_base, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))
         adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, attack, attack_params)
+        adv_auc_metric = get_adversarial_auc_metric(vgg_model_base, attack, attack_params)
         model_compile_args_base = get_model_compile_args(
             FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
-            metrics_to_add=[adv_acc_metric, ])
+            metrics_to_add=[adv_acc_metric, tf.keras.metrics.AUC(), adv_auc_metric])
 
         vgg_model_base.compile(**model_compile_args_base)
         vgg_model_base.summary()
 
-        # Shared training arguments for the model fitting.
-        train_args = {"steps_per_epoch": steps_per_train_epoch,
-                      "epochs": FLAGS.epochs,
-                      "validation_steps": steps_per_val_epoch}
-
         print("[INFO] training base model")
         callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
+
+        # Initialize the variables; this is required for the auc computation.
+        run_variable_initializers(sess)
+
         vgg_model_base.fit(train_ds.dataset, callbacks=callbacks_base,
                            validation_data=val_ds.dataset, **train_args)
 
         # Evaluate the accuracy on legitimate and adversarial test examples
-        _, acc, adv_acc = vgg_model_base.evaluate(test_ds.dataset)
-        results.add_result({"metric": keys.ACC,
-                            "value": acc,
-                            "model": keys.BASE_MODEL,
-                            "data": keys.CLEAN_DATA,
-                            "phase": keys.TEST})
-        results.add_result({"metric": keys.ACC,
-                            "value": adv_acc,
-                            "model": keys.BASE_MODEL,
-                            "data": keys.ADV_DATA,
-                            "phase": keys.TEST})
-
-        print('Test accuracy on legitimate examples: %0.4f' % acc)
-        print('Test accuracy on perturbed examples: %0.4f\n' % adv_acc)
+        base_metrics_test = vgg_model_base.evaluate(test_ds.dataset)
+        for name, value in zip(vgg_model_base.metrics_names, base_metrics_test):
+            data, metric_name = get_data_type_and_metric_from_name(name)
+            results.add_result({"metric": metric_name,
+                                "value": value,
+                                "model": keys.BASE_MODEL,
+                                "data": data,
+                                "phase": keys.TEST})
 
         # Calculate training error
-        _, train_acc, train_adv_acc = vgg_model_base.evaluate(train_ds.dataset,
-                                                              steps=steps_per_train_epoch)
-        results.add_result({"metric": keys.ACC,
-                            "value": train_acc,
-                            "model": keys.BASE_MODEL,
-                            "data": keys.CLEAN_DATA,
-                            "phase": keys.TRAIN})
-        results.add_result({"metric": keys.ACC,
-                            "value": train_adv_acc,
-                            "model": keys.BASE_MODEL,
-                            "data": keys.ADV_DATA,
-                            "phase": keys.TRAIN})
+        base_metrics_train = vgg_model_base.evaluate(train_ds.dataset,
+                                                     steps=steps_per_train_epoch)
+        for name, value in zip(vgg_model_base.metrics_names, base_metrics_train):
+            data, metric_name = get_data_type_and_metric_from_name(name)
+            results.add_result({"metric": metric_name,
+                                "value": value,
+                                "model": keys.BASE_MODEL,
+                                "data": data,
+                                "phase": keys.TRAIN})
 
     # Redefine Keras model
     if FLAGS.train_adversarial:
@@ -241,46 +251,45 @@ def mnist_tutorial(label_smoothing=0.1):
                                             FLAGS.adv_multiplier)
         adv_acc_metric_adv = get_adversarial_acc_metric(vgg_model_adv, attack,
                                                         attack_params)
+        adv_auc_metric_adv = get_adversarial_auc_metric(vgg_model_adv, attack,
+                                                        attack_params)
 
         model_compile_args_adv = get_model_compile_args(
-            FLAGS, loss=adv_loss_adv, metrics_to_add=[adv_acc_metric_adv, ])
+            FLAGS, loss=adv_loss_adv, metrics_to_add=[adv_acc_metric_adv,
+                                                      tf.keras.metrics.AUC(),
+                                                      adv_auc_metric_adv])
 
         vgg_model_adv.compile(**model_compile_args_adv)
         print("[INFO] training adversarial model")
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
+
+        # Initialize the variables; this is required for the auc computation.
+        run_variable_initializers(sess)
+
         vgg_model_adv.fit(train_ds.dataset, callbacks=callbacks_adv,
                           validation_data=val_ds.dataset, **train_args)
 
         # Evaluate the accuracy on legitimate and adversarial test examples
-        _, acc, adv_acc = vgg_model_adv.evaluate(test_ds.dataset)
-        results.add_result({"metric": keys.ACC,
-                            "value": acc,
-                            "model": keys.ADV_MODEL,
-                            "data": keys.CLEAN_DATA,
-                            "phase": keys.TEST})
-        results.add_result({"metric": keys.ACC,
-                            "value": adv_acc,
-                            "model": keys.ADV_MODEL,
-                            "data": keys.ADV_DATA,
-                            "phase": keys.TEST})
-
-        print('Test acc. w/adversarial training on clean examples: %0.4f' % acc)
-        print('Test acc. w/adversarial training on perturbed examples: %0.4f\n' % adv_acc)
+        adv_metrics_test = vgg_model_adv.evaluate(test_ds.dataset)
+        for name, value in zip(vgg_model_adv.metrics_names, adv_metrics_test):
+            data, metric_name = get_data_type_and_metric_from_name(name)
+            import ipdb;ipdb.set_trace()
+            results.add_result({"metric": metric_name,
+                                "value": value,
+                                "model": keys.ADV_MODEL,
+                                "data": data,
+                                "phase": keys.TEST})
 
         # Calculate training error
-        _, train_acc, train_adv_acc = vgg_model_adv.evaluate(train_ds.dataset,
-                                                             steps=steps_per_train_epoch)
-        results.add_result({"metric": keys.ACC,
-                            "value": train_acc,
-                            "model": keys.ADV_MODEL,
-                            "data": keys.CLEAN_DATA,
-                            "phase": keys.TRAIN})
-        results.add_result({"metric": keys.ACC,
-                            "value": train_adv_acc,
-                            "model": keys.ADV_MODEL,
-                            "data": keys.ADV_DATA,
-                            "phase": keys.TRAIN})
-
+        adv_metrics_train = vgg_model_adv.evaluate(train_ds.dataset,
+                                                   steps=steps_per_train_epoch)
+        for name, value in zip(vgg_model_adv.metrics_names, adv_metrics_train):
+            data, metric_name = get_data_type_and_metric_from_name(name)
+            results.add_result({"metric": metric_name,
+                                "value": value,
+                                "model": keys.ADV_MODEL,
+                                "data": data,
+                                "phase": keys.TRAIN})
         results.to_csv()
 
     return

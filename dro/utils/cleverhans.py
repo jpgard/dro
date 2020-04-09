@@ -33,12 +33,12 @@ def attack_params_from_flags(flags, override_eps_value: float = None):
     return attack_params
 
 
-def get_model_compile_args(flags, loss, adv_acc_metric=None):
+def get_model_compile_args(flags, loss, metrics_to_add: list = None):
     """Builds a dict of the args for compilation containing callables for loss and
     metrics."""
     metrics = ['accuracy']
-    if adv_acc_metric:
-        metrics.append(adv_acc_metric)
+    if metrics_to_add:
+        metrics.extend(metrics_to_add)
     compile_args = {
         "optimizer": tf.keras.optimizers.SGD(learning_rate=flags.learning_rate),
         "loss": loss,

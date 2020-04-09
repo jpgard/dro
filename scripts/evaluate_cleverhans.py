@@ -87,7 +87,7 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
                        "activation": "softmax"}
     model_compile_args = get_model_compile_args(
         FLAGS, tf.keras.losses.CategoricalCrossentropy(from_logits=False),
-        adv_acc_metric=None)
+        metrics_to_add=None)
     vgg_model_base = vggface2_model(**model_init_args)
     vgg_model_base.compile(**model_compile_args)
     load_model_weights_from_flags(vgg_model_base, FLAGS, is_adversarial=False)

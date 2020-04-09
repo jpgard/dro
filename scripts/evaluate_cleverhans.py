@@ -173,7 +173,6 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         #     print("batch {} {}: {}".format(batch_index, k, mean(batch_res[k])))
         batch_index += 1
 
-
     res = {k: mean(accuracies[k]) for k in acc_keys_to_update}
     return res, sample_batch
 

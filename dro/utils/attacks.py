@@ -10,17 +10,17 @@ from cleverhans.compat import softmax_cross_entropy_with_logits
 from cleverhans.utils_tf import clip_eta
 
 
-def fgm(model, x, y, ord, eps: float, eps_iter:float, nb_iter=1, clip_min=0.,
-        clip_max=1.):
+def iterative_fgsm(model, x, y, ord, eps: float, eps_iter:float, nb_iter=1, clip_min=0.,
+                   clip_max=1.):
     """
-    Fast gradient method; adapted from
+    Iterative fast gradient sign method; adapted from cleverhans fgsm and from
     https://github.com/gongzhitaao/tensorflow-adversarial
 
     See https://arxiv.org/abs/1412.6572 and https://arxiv.org/abs/1607.02533
     for details.  This implements the revised version since the original FGM
     has label leaking problem (https://arxiv.org/abs/1611.01236).
 
-    :param model: A wrapper that returns the output as well as logits.
+    :param model: A model which implements a get_logits() method.
     :param x: The input placeholder.
     :param eps: The scale factor for noise.
     :param nb_iter: The number of iterations to conduct.
@@ -100,16 +100,16 @@ class IterativeFastGradientMethod(Attack):
 
         labels, _nb_classes = self.get_or_guess_labels(x, kwargs)
 
-        return fgm(self.model,
-                   x=x,
-                   y=labels,
-                   ord=self.ord,
-                   eps=self.eps,
-                   eps_iter=self.eps_iter,
-                   nb_iter=self.nb_iter,
-                   clip_min=self.clip_min,
-                   clip_max=self.clip_max
-                   )
+        return iterative_fgsm(self.model,
+                              x=x,
+                              y=labels,
+                              ord=self.ord,
+                              eps=self.eps,
+                              eps_iter=self.eps_iter,
+                              nb_iter=self.nb_iter,
+                              clip_min=self.clip_min,
+                              clip_max=self.clip_max
+                              )
 
     def parse_params(self,
                      eps=0.3,

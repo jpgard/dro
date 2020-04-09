@@ -35,7 +35,7 @@ def attack_params_from_flags(flags, override_eps_value: float = None):
 
 def get_model_compile_args(flags, loss, metrics_to_add: list = None):
     """Builds a dict of the args for compilation containing callables for loss and
-    metrics."""
+    metrics. Accuracy is added by default; other metrics can also be added."""
     metrics = ['accuracy']
     if metrics_to_add:
         metrics.extend(metrics_to_add)
@@ -47,13 +47,13 @@ def get_model_compile_args(flags, loss, metrics_to_add: list = None):
     return compile_args
 
 
-def get_adversarial_acc_metric(model: keras.Model, attack: Attack, fgsm_params: dict):
+def get_adversarial_acc_metric(model: keras.Model, attack: Attack, attack_params: dict):
     """Get a callable which can be used to compute the adversarial accuracy during
     training."""
 
     def adv_acc(y, _):
         # Generate adversarial examples
-        x_adv = attack.generate(model.input, **fgsm_params)
+        x_adv = attack.generate(model.input, **attack_params)
         # Consider the attack to be constant
         x_adv = tf.stop_gradient(x_adv)
 
@@ -64,6 +64,22 @@ def get_adversarial_acc_metric(model: keras.Model, attack: Attack, fgsm_params: 
         return keras.metrics.categorical_accuracy(y, preds_adv)
 
     return adv_acc
+
+
+def get_adversarial_auc_metric(model: keras.Model, attack: Attack, attack_params: dict):
+    def adv_auc(y, _):
+        # Generate adversarial examples
+        x_adv = attack.generate(model.input, **attack_params)
+        # Consider the attack to be constant
+        x_adv = tf.stop_gradient(x_adv)
+
+        # Accuracy on the adversarial examples
+        print(x_adv)
+        print(model.input)
+        preds_adv = model(x_adv)
+        return tf.metrics.auc(y, preds_adv)
+
+    return adv_auc
 
 
 def get_adversarial_loss(model: keras.Model, attack: Attack,

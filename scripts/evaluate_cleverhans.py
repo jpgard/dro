@@ -42,7 +42,6 @@ import tensorflow.keras.backend as K
 import tensorflow_datasets as tfds
 import numpy as np
 
-from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise
 from cleverhans.compat import flags
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import load_model_weights_from_flags
@@ -55,7 +54,6 @@ from dro.utils.training_utils import make_model_uid
 from dro import keys
 from dro.utils.viz import show_adversarial_resuts
 
-# tf.compat.v1.enable_eager_execution()
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)

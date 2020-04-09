@@ -24,7 +24,7 @@ do
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
     --attack FastGradientMethod \
-    --attack_params ""{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
+    --attack_params "{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
     --epochs $EPOCHS \
     --metrics_dir ./metrics
@@ -42,7 +42,6 @@ import tensorflow.keras.backend as K
 import tensorflow_datasets as tfds
 import numpy as np
 
-from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise
 from cleverhans.compat import flags
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import load_model_weights_from_flags
@@ -55,7 +54,6 @@ from dro.utils.training_utils import make_model_uid
 from dro import keys
 from dro.utils.viz import show_adversarial_resuts
 
-# tf.compat.v1.enable_eager_execution()
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -174,7 +172,6 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         # for k in acc_keys_to_update:
         #     print("batch {} {}: {}".format(batch_index, k, mean(batch_res[k])))
         batch_index += 1
-
 
     res = {k: mean(accuracies[k]) for k in acc_keys_to_update}
     return res, sample_batch

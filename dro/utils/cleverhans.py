@@ -5,6 +5,7 @@ from tensorflow import keras
 from cleverhans.utils_keras import KerasModelWrapper
 from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise, \
     Attack, BasicIterativeMethod, MadryEtAl
+from dro.utils.attacks import IterativeFastGradientMethod
 from cleverhans.utils_keras import KerasModelWrapper
 
 

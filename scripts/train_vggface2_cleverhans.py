@@ -35,6 +35,16 @@ python3 scripts/train_vggface2_cleverhans.py \
     --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004}" \
     --adv_multiplier 0.2 \
     --anno_dir ${DIR}/anno
+
+python3 scripts/train_vggface2_cleverhans.py \
+    --label_name $LABEL \
+    --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
+    --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
+    --epochs $EPOCHS \
+    --attack IterativeFastGradientMethod \
+    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\": null, \"clip_max\": null}" \
+    --adv_multiplier 0.2 \
+    --anno_dir ${DIR}/anno
 """
 from __future__ import absolute_import
 from __future__ import division

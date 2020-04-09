@@ -41,6 +41,7 @@ from tensorflow import keras
 import tensorflow.keras.backend as K
 import tensorflow_datasets as tfds
 import numpy as np
+from sklearn.metrics import roc_auc_score
 
 from cleverhans.compat import flags
 from dro.training.models import vggface2_model
@@ -48,12 +49,12 @@ from dro.utils.training_utils import load_model_weights_from_flags
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags
 from dro.utils.reports import Report
-from dro.utils.cleverhans import get_attack, attack_params_from_flags, get_model_compile_args
+from dro.utils.cleverhans import get_attack, attack_params_from_flags, \
+    get_model_compile_args
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID
 from dro.utils.training_utils import make_model_uid
 from dro import keys
 from dro.utils.viz import show_adversarial_resuts
-
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -149,6 +150,8 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
     batch_index = 0
     sample_batch = defaultdict()
     accuracies = defaultdict(list)
+    yhats = defaultdict(list)
+    y_true = list()
 
     for batch_x, batch_y in eval_dset_numpy:
         batch_res = sess.run(list(ops_to_run.values()),
@@ -163,17 +166,36 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
             for k in sample_batch_keys_to_update:
                 sample_batch[k] = batch_res[k]
 
-        # We store the binary "correct" vector for categorical accuracy as a list;
-        # this is because we need to know the exact dataset size to compute overall
-        # accuracy.
+        # Update the accuracy metrics. We store the binary "correct" vector for
+        # categorical accuracy as a list; this is because we need to know the exact
+        # dataset size to compute overall accuracy.
         for k in acc_keys_to_update:
             accuracies[k].extend(batch_res[k].tolist())
-        # Print stats for debugging
-        # for k in acc_keys_to_update:
-        #     print("batch {} {}: {}".format(batch_index, k, mean(batch_res[k])))
-        batch_index += 1
+        # store the yhats
+        for j in batch_res.keys():
+            if j.startswith("yhat"):
+                yhats[j].append(batch_res[j])
+        # store the ys
+        y_true.append(batch_y)
 
+        batch_index += 1
+        # TODO(jpgard): remove the limitation on the number of batches.
+        if batch_index > 2:
+            break
+    # Compute the accuacies; this is the mean of a binary "correct/incorrect" vector
     res = {k: mean(accuracies[k]) for k in acc_keys_to_update}
+    # Compute the AUCs
+    y_true = np.concatenate(y_true)
+    for k in yhats.keys():
+        yhat = np.concatenate(yhats[k])
+        try:
+            auc = roc_auc_score(y_true, yhat)
+        except ValueError as ve:
+            print(ve)
+            print("entering null value for auc")
+            auc = np.nan
+        name = k.replace("yhat", "auc")
+        res[name] = auc
     return res, sample_batch
 
 
@@ -211,25 +233,17 @@ def main(argv):
         res, sample_batch = evaluate_cleverhans_models_on_dataset(sess, eval_dset_numpy,
                                                                   epsilon=0.)
 
-        results.add_result({"metric": keys.ACC,
-                            "value": res['acc_base_clean'],
-                            "model": keys.BASE_MODEL,
-                            "data": keys.CLEAN_DATA,
-                            "phase": keys.TEST,
-                            "attr": FLAGS.slice_attribute_name,
-                            "attr_val": attr_val,
-                            "epsilon": None
-                            })
-
-        results.add_result({"metric": keys.ACC,
-                            "value": res['acc_adv_clean'],
-                            "model": keys.ADV_MODEL,
-                            "data": keys.CLEAN_DATA,
-                            "phase": keys.TEST,
-                            "attr": FLAGS.slice_attribute_name,
-                            "attr_val": attr_val,
-                            "epsilon": None
-                            })
+        for k, v in res.items():
+            metric, model, data = k.split("_")
+            results.add_result({"metric": metric,
+                                "value": v,
+                                "model": model,
+                                "data": data,
+                                "phase": keys.TEST,
+                                "attr": FLAGS.slice_attribute_name,
+                                "attr_val": attr_val,
+                                "epsilon": None
+                                })
 
         for adv_step_size_to_eval in ADV_STEP_SIZE_GRID:
             print("adv_step_size_to_eval %f" % adv_step_size_to_eval)
@@ -243,25 +257,17 @@ def main(argv):
 
             res, sample_batch = evaluate_cleverhans_models_on_dataset(
                 sess, eval_dset_numpy, epsilon=adv_step_size_to_eval)
-            results.add_result({"metric": keys.ACC,
-                                "value": res["acc_base_perturbed"],
-                                "model": keys.BASE_MODEL,
-                                "data": keys.ADV_DATA,
-                                "phase": keys.TEST,
-                                "attr": FLAGS.slice_attribute_name,
-                                "attr_val": attr_val,
-                                "epsilon": adv_step_size_to_eval
-                                })
-
-            results.add_result({"metric": keys.ACC,
-                                "value": res["acc_adv_perturbed"],
-                                "model": keys.ADV_MODEL,
-                                "data": keys.ADV_DATA,
-                                "phase": keys.TEST,
-                                "attr": FLAGS.slice_attribute_name,
-                                "attr_val": attr_val,
-                                "epsilon": adv_step_size_to_eval
-                                })
+            for k, v in res.items():
+                metric, model, data = k.split("_")
+                results.add_result({"metric": metric,
+                                    "value": v,
+                                    "model": model,
+                                    "data": data,
+                                    "phase": keys.TEST,
+                                    "attr": FLAGS.slice_attribute_name,
+                                    "attr_val": attr_val,
+                                    "epsilon": adv_step_size_to_eval
+                                    })
             adv_image_basename = \
                 "./debug/adv-examples-{uid}-{attr}-{val}-{attack}step{ss}".format(
                     uid=make_model_uid(FLAGS, is_adversarial=True),

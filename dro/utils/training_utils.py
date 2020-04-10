@@ -135,10 +135,11 @@ def make_model_uid(flags, is_adversarial=False):
                 dropout_rate=flags.dropout_rate
                 )
     if is_adversarial:
-        attack_params = json.loads(flags.attack_params)
         model_uid += "-" + flags.attack
-        for k,v in sorted(attack_params.items()):
-            model_uid += "-{}{}".format(k[0], str(v))
+        if flags.attack_params is not None:
+            attack_params = json.loads(flags.attack_params)
+            for k, v in sorted(attack_params.items()):
+                model_uid += "-{}{}".format(k[0], str(v))
     if flags.use_dbs:
         model_uid += "dbs"
     if flags.experiment_uid:

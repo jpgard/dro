@@ -9,6 +9,14 @@ from dro.utils.attacks import IterativeFastGradientMethod, RandomizedFastGradien
 from cleverhans.utils_keras import KerasModelWrapper
 
 
+def generate_attack(attack: Attack, x: tf.Tensor, attack_params):
+    """Helper function to generate an attack."""
+    if attack_params is not None:
+        return attack.generate(x, **attack_params)
+    else:
+        return attack.generate(x)
+
+
 def get_attack(flags, model: keras.Model, sess: tf.Session):
     """Load and instantiate the cleverhans object for the specified attack."""
     """Creates an instance of the attack method specified in flags."""
@@ -54,7 +62,7 @@ def get_adversarial_acc_metric(model: keras.Model, attack: Attack, attack_params
 
     def adv_acc(y, _):
         # Generate adversarial examples
-        x_adv = attack.generate(model.input, **attack_params)
+        x_adv = generate_attack(attack, model.input, attack_params)
         # Consider the attack to be constant
         x_adv = tf.stop_gradient(x_adv)
 
@@ -70,7 +78,7 @@ def get_adversarial_acc_metric(model: keras.Model, attack: Attack, attack_params
 def get_adversarial_auc_metric(model: keras.Model, attack: Attack, attack_params: dict):
     def adv_auc(y, _):
         # Generate adversarial examples
-        x_adv = attack.generate(model.input, **attack_params)
+        x_adv = generate_attack(attack, model.input, attack_params)
         # Consider the attack to be constant
         x_adv = tf.stop_gradient(x_adv)
 
@@ -94,7 +102,7 @@ def get_adversarial_loss(model: keras.Model, attack: Attack,
         cross_ent = keras.losses.categorical_crossentropy(y, preds)
 
         # Generate adversarial examples
-        x_adv = attack.generate(model.input, **fgsm_params)
+        x_adv = generate_attack(attack, model.input, fgsm_params)
         # Consider the attack to be constant
         x_adv = tf.stop_gradient(x_adv)
 

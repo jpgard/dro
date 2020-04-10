@@ -12,6 +12,8 @@ export LABEL="Sunglasses"
 export LABEL="Male"
 export SS=0.025
 export EPOCHS=40
+export ATTACK="FastGradientMethod"
+export ATTACK_PARAMS="{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}"
 
 export DIR="/projects/grail/jpgard/lfw"
 
@@ -23,8 +25,23 @@ do
     --test_dir ${DIR}/lfw-deepfunneled \
     --label_name $LABEL \
     --slice_attribute_name $SLICE_ATTR \
-    --attack FastGradientMethod \
-    --attack_params "{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
+    --attack $ATTACK \
+    --attack_params $ATTACK_PARAMS \
+    --adv_multiplier 0.2 \
+    --epochs $EPOCHS \
+    --metrics_dir ./metrics
+done
+
+for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
+do
+    python3 scripts/evaluate_cleverhans.py \
+    --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
+    --test_dir ${DIR}/lfw-deepfunneled \
+    --label_name $LABEL \
+    --slice_attribute_name $SLICE_ATTR \
+    --attack $ATTACK \
+    --base_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8-Noise-m0.2-s0.025-ninfinity/${LABEL}bs16e40lr0.01dropout0.8-Noise-m0.2-s0.025-ninfinity.h5" \
+    --adv_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8/${LABEL}bs16e40lr0.01dropout0.8.h5" \
     --adv_multiplier 0.2 \
     --epochs $EPOCHS \
     --metrics_dir ./metrics
@@ -50,7 +67,7 @@ from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags
 from dro.utils.reports import Report
 from dro.utils.cleverhans import get_attack, attack_params_from_flags, \
-    get_model_compile_args
+    get_model_compile_args, generate_attack
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID
 from dro.utils.training_utils import make_model_uid
 from dro import keys
@@ -103,7 +120,7 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
 
     # Define the ops to run for evaluation
     x = tf.compat.v1.placeholder(tf.float32, shape=(None, 224, 224, 3))
-    x_perturbed = attack.generate(x, **attack_params)
+    x_perturbed = generate_attack(attack, x, attack_params)
     y = tf.compat.v1.placeholder(tf.float32, shape=(None, 2))  # [batch_size, 2]
     yhat_base_perturbed = vgg_model_base(x_perturbed)
     yhat_base_clean = vgg_model_base(x)

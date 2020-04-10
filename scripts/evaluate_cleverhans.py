@@ -196,9 +196,6 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         y_true.append(batch_y)
 
         batch_index += 1
-        # TODO(jpgard): remove the limitation on the number of batches.
-        if batch_index > 2:
-            break
     # Compute the accuacies; this is the mean of a binary "correct/incorrect" vector
     res = {k: mean(accuracies[k]) for k in acc_keys_to_update}
     # Compute the AUCs

@@ -24,13 +24,14 @@ def attack_params_from_flags(flags, override_eps_value: float = None):
     flags; for example, when generating perturbations at an epsilon different from the
     epsilon used to train the model.
     :return: a dict of {parameter_name:parameter_value} pairs to be passed to
-    Attack.generate().
+    Attack.generate() if flags.attack_params is not None; otherwise return None.
     """
-    attack_params = json.loads(flags.attack_params)
-    # These are default parameter values we do not want to change.
-    if override_eps_value is not None:
-        attack_params["eps"] = override_eps_value
-    return attack_params
+    if flags.attack_params is not None:
+        attack_params = json.loads(flags.attack_params)
+        # These are default parameter values we do not want to change.
+        if override_eps_value is not None:
+            attack_params["eps"] = override_eps_value
+        return attack_params
 
 
 def get_model_compile_args(flags, loss, metrics_to_add: list = None):

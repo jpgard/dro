@@ -42,8 +42,7 @@ python3 scripts/train_vggface2_cleverhans.py \
     --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
     --epochs $EPOCHS \
     --attack IterativeFastGradientMethod \
-    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\":
-    null, \"clip_max\": null}" \
+    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
     --anno_dir ${DIR}/anno
 
@@ -273,7 +272,6 @@ def mnist_tutorial(label_smoothing=0.1):
         adv_metrics_test = vgg_model_adv.evaluate(test_ds.dataset)
         for name, value in zip(vgg_model_adv.metrics_names, adv_metrics_test):
             data, metric_name = get_data_type_and_metric_from_name(name)
-            import ipdb;ipdb.set_trace()
             results.add_result({"metric": metric_name,
                                 "value": value,
                                 "model": keys.ADV_MODEL,

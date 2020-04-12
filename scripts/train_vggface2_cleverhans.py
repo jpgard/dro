@@ -42,7 +42,8 @@ python3 scripts/train_vggface2_cleverhans.py \
     --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
     --epochs $EPOCHS \
     --attack IterativeFastGradientMethod \
-    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\": null, \"clip_max\": null}" \
+    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\":
+    null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
     --anno_dir ${DIR}/anno
 
@@ -203,7 +204,12 @@ def mnist_tutorial(label_smoothing=0.1):
         adv_auc_metric = get_adversarial_auc_metric(vgg_model_base, attack, attack_params)
         model_compile_args_base = get_model_compile_args(
             FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
-            metrics_to_add=[adv_acc_metric, tf.keras.metrics.AUC(), adv_auc_metric])
+            metrics_to_add=[
+                adv_acc_metric,
+                # tf.keras.metrics.AUC(),
+                # adv_auc_metric
+            ]
+        )
 
         vgg_model_base.compile(**model_compile_args_base)
         vgg_model_base.summary()
@@ -254,9 +260,13 @@ def mnist_tutorial(label_smoothing=0.1):
                                                         attack_params)
 
         model_compile_args_adv = get_model_compile_args(
-            FLAGS, loss=adv_loss_adv, metrics_to_add=[adv_acc_metric_adv,
-                                                      tf.keras.metrics.AUC(),
-                                                      adv_auc_metric_adv])
+            FLAGS, loss=adv_loss_adv,
+            metrics_to_add=[
+                adv_acc_metric_adv,
+                # tf.keras.metrics.AUC(),
+                # adv_auc_metric_adv
+            ]
+        )
 
         vgg_model_adv.compile(**model_compile_args_adv)
         print("[INFO] training adversarial model")

@@ -104,11 +104,11 @@ def get_data_type_and_metric_from_name(name, sep="_"):
     return data, metric_name
 
 
-def run_variable_initializers(sess):
-    init = tf.group(tf.global_variables_initializer(),
-                    tf.local_variables_initializer())
-    sess.run(init)
-    return
+# def run_variable_initializers(sess):
+#     init = tf.group(tf.global_variables_initializer(),
+#                     tf.local_variables_initializer())
+#     sess.run(init)
+#     return
 
 
 def mnist_tutorial(label_smoothing=0.1):
@@ -218,7 +218,7 @@ def mnist_tutorial(label_smoothing=0.1):
         callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
 
         # Initialize the variables; this is required for the auc computation.
-        run_variable_initializers(sess)
+        # run_variable_initializers(sess)
 
         vgg_model_base.fit(train_ds.dataset, callbacks=callbacks_base,
                            validation_data=val_ds.dataset, **train_args)
@@ -273,7 +273,7 @@ def mnist_tutorial(label_smoothing=0.1):
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
 
         # Initialize the variables; this is required for the auc computation.
-        run_variable_initializers(sess)
+        # run_variable_initializers(sess)
 
         vgg_model_adv.fit(train_ds.dataset, callbacks=callbacks_adv,
                           validation_data=val_ds.dataset, **train_args)

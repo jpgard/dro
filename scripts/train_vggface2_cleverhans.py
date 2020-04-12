@@ -104,11 +104,11 @@ def get_data_type_and_metric_from_name(name, sep="_"):
     return data, metric_name
 
 
-# def run_variable_initializers(sess):
-#     init = tf.group(tf.global_variables_initializer(),
-#                     tf.local_variables_initializer())
-#     sess.run(init)
-#     return
+def run_variable_initializers(sess):
+    init = tf.group(tf.global_variables_initializer(),
+                    tf.local_variables_initializer())
+    sess.run(init)
+    return
 
 
 def mnist_tutorial(label_smoothing=0.1):

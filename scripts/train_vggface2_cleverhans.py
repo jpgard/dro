@@ -206,7 +206,7 @@ def mnist_tutorial(label_smoothing=0.1):
             FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
             metrics_to_add=[
                 adv_acc_metric,
-                # tf.keras.metrics.AUC(),
+                tf.keras.metrics.AUC(),
                 # adv_auc_metric
             ]
         )
@@ -263,7 +263,7 @@ def mnist_tutorial(label_smoothing=0.1):
             FLAGS, loss=adv_loss_adv,
             metrics_to_add=[
                 adv_acc_metric_adv,
-                # tf.keras.metrics.AUC(),
+                tf.keras.metrics.AUC(),
                 # adv_auc_metric_adv
             ]
         )

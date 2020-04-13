@@ -68,7 +68,8 @@ def vggface2_model(dropout_rate, input_shape=(224, 224, 3), activation='sigmoid'
 
 def facenet_model(dropout_rate, activation='sigmoid'):
     cwd, _ = osp.split(__file__)
-    facenet_base = load_model(osp.join(cwd, "facenet", "facenet_keras.h5"))
+    facenet_base = load_model(osp.join(cwd, "facenet", "facenet_keras.h5"),
+                              compile=False)
     for layer in facenet_base.layers:
         layer.trainable = False
     last_layer_name = facenet_base.layers[-1].name

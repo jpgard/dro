@@ -51,6 +51,8 @@ def define_training_flags():
                       "whether diverse batch sampling was used; if this is "
                       "set to True, batches will be read from the "
                       "precomputed_batches_fp.")
+    flags.DEFINE_enum("model_type", "vggface2", ["vggface2", "facenet"],
+                      "the type of model to use")
     return
 
 

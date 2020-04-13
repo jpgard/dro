@@ -7,44 +7,58 @@ reported  by image
 subgroups.
 
 usage:
-export LABEL="Mouth_Open"
-export LABEL="Sunglasses"
-export LABEL="Male"
+
 export SS=0.025
 export EPOCHS=40
 export ATTACK="FastGradientMethod"
-export ATTACK_PARAMS="{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}"
 
 export DIR="/projects/grail/jpgard/lfw"
 
+# set the gpu
+export GPU_ID="1"
+export CUDA_DEVICE_ORDER="PCI_BUS_ID"
+export CUDA_VISIBLE_DEVICES=$GPU_ID
 
-for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
+for LABEL in "Mouth_Open" "Sunglasses" "Male"
 do
-    python3 scripts/evaluate_cleverhans.py \
-    --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
-    --test_dir ${DIR}/lfw-deepfunneled \
-    --label_name $LABEL \
-    --slice_attribute_name $SLICE_ATTR \
-    --attack $ATTACK \
-    --attack_params $ATTACK_PARAMS \
-    --adv_multiplier 0.2 \
-    --epochs $EPOCHS \
-    --metrics_dir ./metrics
+    for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
+    do
+        echo $LABEL;
+        echo $SLICE_ATTR;
+        python3 scripts/evaluate_cleverhans.py \
+        --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
+        --test_dir ${DIR}/lfw-deepfunneled \
+        --label_name $LABEL \
+        --slice_attribute_name $SLICE_ATTR \
+        --attack $ATTACK \
+        --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\": null, \"clip_max\": null}" \
+        --adv_multiplier 0.2 \
+        --epochs $EPOCHS \
+        --metrics_dir ./metrics
+    done
+    echo ""
 done
 
-for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
+for LABEL in "Mouth_Open" "Sunglasses" "Male"
 do
-    python3 scripts/evaluate_cleverhans.py \
-    --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
-    --test_dir ${DIR}/lfw-deepfunneled \
-    --label_name $LABEL \
-    --slice_attribute_name $SLICE_ATTR \
-    --attack $ATTACK \
-    --base_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8-Noise-m0.2-s0.025-ninfinity/${LABEL}bs16e40lr0.01dropout0.8-Noise-m0.2-s0.025-ninfinity.h5" \
-    --adv_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8/${LABEL}bs16e40lr0.01dropout0.8.h5" \
-    --adv_multiplier 0.2 \
-    --epochs $EPOCHS \
-    --metrics_dir ./metrics
+    for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
+    do
+        echo $LABEL;
+        echo $SLICE_ATTR;
+        python3 scripts/evaluate_cleverhans.py \
+        --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
+        --test_dir ${DIR}/lfw-deepfunneled \
+        --label_name $LABEL \
+        --slice_attribute_name $SLICE_ATTR \
+        --attack FastGradientMethod \
+        --base_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8/${LABEL}bs16e40lr0.01dropout0.8.h5" \
+        --adv_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8-RandomizedFastGradientMethod-cNone-cNone-e0.03125/${LABEL}bs16e40lr0.01dropout0.8-RandomizedFastGradientMethod-cNone-cNone-e0.03125.h5" \
+        --adv_multiplier 0.2 \
+        --epochs $EPOCHS \
+        --metrics_dir ./metrics \
+        --experiment_uid RandomizedFastGradientMethodEval
+    done
+    echo ""
 done
 """
 
@@ -196,7 +210,8 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         y_true.append(batch_y)
 
         batch_index += 1
-    # Compute the accuacies; this is the mean of a binary "correct/incorrect" vector
+
+    # Compute the accuracies; this is the mean of a binary "correct/incorrect" vector
     res = {k: mean(accuracies[k]) for k in acc_keys_to_update}
     # Compute the AUCs
     y_true = np.concatenate(y_true)

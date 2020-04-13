@@ -65,30 +65,11 @@ def get_adversarial_acc_metric(model: keras.Model, attack: Attack, attack_params
         x_adv = generate_attack(attack, model.input, attack_params)
         # Consider the attack to be constant
         x_adv = tf.stop_gradient(x_adv)
-
         # Accuracy on the adversarial examples
-        print(x_adv)
-        print(model.input)
         preds_adv = model(x_adv)
         return keras.metrics.categorical_accuracy(y, preds_adv)
 
     return adv_acc
-
-
-def get_adversarial_auc_metric(model: keras.Model, attack: Attack, attack_params: dict):
-    def adv_auc(y, _):
-        # Generate adversarial examples
-        x_adv = generate_attack(attack, model.input, attack_params)
-        # Consider the attack to be constant
-        x_adv = tf.stop_gradient(x_adv)
-
-        # Accuracy on the adversarial examples
-        print(x_adv)
-        print(model.input)
-        preds_adv = model(x_adv)
-        return tf.metrics.auc(y, preds_adv)
-
-    return adv_auc
 
 
 def get_adversarial_loss(model: keras.Model, attack: Attack,

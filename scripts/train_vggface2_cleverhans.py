@@ -31,16 +31,6 @@ python3 scripts/train_vggface2_cleverhans.py \
     --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
     --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
     --epochs $EPOCHS \
-    --attack BasicIterativeMethod \
-    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004}" \
-    --adv_multiplier 0.2 \
-    --anno_dir ${DIR}/anno
-
-python3 scripts/train_vggface2_cleverhans.py \
-    --label_name $LABEL \
-    --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
-    --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
-    --epochs $EPOCHS \
     --attack IterativeFastGradientMethod \
     --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
@@ -75,8 +65,7 @@ from dro.utils.training_utils import make_callbacks, get_n_from_file_pattern, \
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags
 from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
-    get_adversarial_loss, attack_params_from_flags, get_model_compile_args, \
-    get_adversarial_auc_metric
+    get_adversarial_loss, attack_params_from_flags, get_model_compile_args
 from dro import keys
 from dro.utils.vggface import make_vgg_file_pattern
 
@@ -101,13 +90,6 @@ def get_data_type_and_metric_from_name(name, sep="_"):
         data = keys.CLEAN_DATA
         metric_name = name
     return data, metric_name
-
-
-def run_variable_initializers(sess):
-    init = tf.group(tf.global_variables_initializer(),
-                    tf.local_variables_initializer())
-    sess.run(init)
-    return
 
 
 def mnist_tutorial(label_smoothing=0.1):
@@ -200,19 +182,20 @@ def mnist_tutorial(label_smoothing=0.1):
         attack = get_attack(FLAGS, vgg_model_base, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))
         adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, attack, attack_params)
-        adv_auc_metric = get_adversarial_auc_metric(vgg_model_base, attack, attack_params)
+
         model_compile_args_base = get_model_compile_args(
             FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
-            metrics_to_add=[adv_acc_metric, tf.keras.metrics.AUC(), adv_auc_metric])
+            metrics_to_add=[
+                adv_acc_metric,
+                tf.keras.metrics.AUC(),
+            ]
+        )
 
         vgg_model_base.compile(**model_compile_args_base)
         vgg_model_base.summary()
 
         print("[INFO] training base model")
         callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
-
-        # Initialize the variables; this is required for the auc computation.
-        run_variable_initializers(sess)
 
         vgg_model_base.fit(train_ds.dataset, callbacks=callbacks_base,
                            validation_data=val_ds.dataset, **train_args)
@@ -250,20 +233,21 @@ def mnist_tutorial(label_smoothing=0.1):
                                             FLAGS.adv_multiplier)
         adv_acc_metric_adv = get_adversarial_acc_metric(vgg_model_adv, attack,
                                                         attack_params)
-        adv_auc_metric_adv = get_adversarial_auc_metric(vgg_model_adv, attack,
-                                                        attack_params)
 
         model_compile_args_adv = get_model_compile_args(
-            FLAGS, loss=adv_loss_adv, metrics_to_add=[adv_acc_metric_adv,
-                                                      tf.keras.metrics.AUC(),
-                                                      adv_auc_metric_adv])
+            FLAGS, loss=adv_loss_adv,
+            metrics_to_add=[
+                adv_acc_metric_adv,
+                tf.keras.metrics.AUC(),
+            ]
+        )
 
         vgg_model_adv.compile(**model_compile_args_adv)
         print("[INFO] training adversarial model")
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
 
         # Initialize the variables; this is required for the auc computation.
-        run_variable_initializers(sess)
+        # run_variable_initializers(sess)
 
         vgg_model_adv.fit(train_ds.dataset, callbacks=callbacks_adv,
                           validation_data=val_ds.dataset, **train_args)

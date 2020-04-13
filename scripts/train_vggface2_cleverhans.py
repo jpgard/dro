@@ -1,9 +1,6 @@
 """
-Generate adversarial examples using FGSM
-and train a vggface model using adversarial training with Keras.
-
-The original paper can be found at:
-https://arxiv.org/abs/1412.6572
+Train a base model with standard training, and an adversarial model using adversarial
+training, with Keras.
 
 # set the gpu
 export GPU_ID="1"
@@ -24,7 +21,8 @@ python3 scripts/train_vggface2_cleverhans.py \
     --attack FastGradientMethod \
     --attack_params "{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
-    --anno_dir ${DIR}/anno
+    --anno_dir ${DIR}/anno \
+    --model_type vggface2
 
 python3 scripts/train_vggface2_cleverhans.py \
     --label_name $LABEL \
@@ -57,11 +55,9 @@ import tensorflow.keras.backend as K
 
 from cleverhans.compat import flags
 
-from dro.training.models import vggface2_model
 from dro.utils.reports import Report
 from dro.utils.training_utils import make_callbacks, get_n_from_file_pattern, \
-    compute_n_train_n_val, \
-    steps_per_epoch
+    compute_n_train_n_val, steps_per_epoch, get_model_from_flags
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags
 from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
@@ -175,8 +171,7 @@ def mnist_tutorial(label_smoothing=0.1):
 
     if FLAGS.train_base:  # Base model training
 
-        model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
-                                        activation='softmax')
+        model_base = get_model_from_flags(FLAGS)
 
         # Initialize the attack object
         attack = get_attack(FLAGS, model_base, sess)
@@ -223,8 +218,8 @@ def mnist_tutorial(label_smoothing=0.1):
 
     # Redefine Keras model
     if FLAGS.train_adversarial:
-        model_adv = vggface2_model(dropout_rate=FLAGS.dropout_rate,
-                                       activation='softmax')
+
+        model_adv = get_model_from_flags(FLAGS)
         model_adv(model_adv.input)
         attack = get_attack(FLAGS, model_adv, sess=sess)
 

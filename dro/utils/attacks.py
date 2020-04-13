@@ -69,16 +69,6 @@ def iterative_fgsm(model, x, y, ord, eps: float, eps_iter: float, nb_iter=1, cli
     return adv_x
 
 
-def clip(x: tf.Tensor, eps: float):
-    """Implements the CLIP function described in Kurakin et al. (sec 2.1)"""
-    # These Tensors give the elemnt-wise upper and lower bounds for the matrix
-    upper_bound = x + eps
-    lower_bound = x - eps
-    clipped_upper = tf.minimum(upper_bound, x)
-    clipped = tf.maximum(clipped_upper, lower_bound)
-    return clipped
-
-
 class IterativeFastGradientMethod(Attack):
 
     def __init__(self, model, sess=None, dtypestr='float32', **kwargs):

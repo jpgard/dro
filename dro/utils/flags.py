@@ -53,6 +53,10 @@ def define_training_flags():
                       "precomputed_batches_fp.")
     flags.DEFINE_enum("model_type", "vggface2", ["vggface2", "facenet"],
                       "the type of model to use")
+    flags.DEFINE_string("model_activation", "softmax", "the activation to use in the "
+                                                       "final layer. Cleverhans "
+                                                       "requires the use of a softmax "
+                                                       "layer.")
     return
 
 

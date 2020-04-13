@@ -22,3 +22,5 @@ TRAIN = "train"
 TEST = "test"
 VGGFACE_2_MODEL = "vggface2"
 FACENET_MODEL = "facenet"
+VGGFACE_2_IMG_SHAPE = (224, 224)
+FACENET_IMG_SHAPE = (160, 160)

@@ -63,16 +63,6 @@ def vggface2_model(dropout_rate, input_shape=(224, 224, 3), activation='sigmoid'
                                                 activation=activation,
                                                 dropout_rate=dropout_rate,
                                                 last_layer_name='pool5')
-    # net = Flatten(name='flatten')(last_layer)
-    # net = Dense(4096, name='fc6')(net)
-    # net = Activation('relu', name='fc6/relu')(net)
-    # net = Dropout(rate=dropout_rate)(net)
-    # net = Dense(256, name='fc7')(net)
-    # net = Activation('relu', name='fc7/relu')(net)
-    # net = Dropout(rate=dropout_rate)(net)
-    # net = Dense(2, name='fc8')(net)
-    # out = Activation(activation, name='activation/{}'.format(activation))(net)
-    # custom_vgg_model = Model(vgg_model.input, out)
     return custom_vgg_model
 
 

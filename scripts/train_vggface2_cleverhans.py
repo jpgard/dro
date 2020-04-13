@@ -192,7 +192,9 @@ def mnist_tutorial(label_smoothing=0.1):
                   "epochs": FLAGS.epochs,
                   "validation_steps": steps_per_val_epoch}
 
+
     if FLAGS.train_base:  # Base model training
+
 
         vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
                                         activation='softmax')
@@ -201,6 +203,8 @@ def mnist_tutorial(label_smoothing=0.1):
         attack = get_attack(FLAGS, vgg_model_base, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))
         adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, attack, attack_params)
+        # Initialize the variables; this is required for the auc computation.
+        run_variable_initializers(sess)
         adv_auc_metric = get_adversarial_auc_metric(vgg_model_base, attack, attack_params)
         model_compile_args_base = get_model_compile_args(
             FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
@@ -216,9 +220,6 @@ def mnist_tutorial(label_smoothing=0.1):
 
         print("[INFO] training base model")
         callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
-
-        # Initialize the variables; this is required for the auc computation.
-        run_variable_initializers(sess)
 
         vgg_model_base.fit(train_ds.dataset, callbacks=callbacks_base,
                            validation_data=val_ds.dataset, **train_args)

@@ -76,8 +76,7 @@ from dro.utils.training_utils import make_callbacks, get_n_from_file_pattern, \
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags
 from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
-    get_adversarial_loss, attack_params_from_flags, get_model_compile_args, \
-    get_adversarial_auc_metric
+    get_adversarial_loss, attack_params_from_flags, get_model_compile_args
 from dro import keys
 from dro.utils.vggface import make_vgg_file_pattern
 

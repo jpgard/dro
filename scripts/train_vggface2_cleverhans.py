@@ -105,8 +105,10 @@ def get_data_type_and_metric_from_name(name, sep="_"):
 
 
 def run_variable_initializers(sess):
-    init = tf.group(tf.global_variables_initializer(),
-                    tf.local_variables_initializer())
+    init = tf.group(
+        # tf.global_variables_initializer(),
+        tf.local_variables_initializer()
+    )
     sess.run(init)
     return
 
@@ -192,9 +194,7 @@ def mnist_tutorial(label_smoothing=0.1):
                   "epochs": FLAGS.epochs,
                   "validation_steps": steps_per_val_epoch}
 
-
     if FLAGS.train_base:  # Base model training
-
 
         vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
                                         activation='softmax')
@@ -202,10 +202,10 @@ def mnist_tutorial(label_smoothing=0.1):
         # Initialize the attack object
         attack = get_attack(FLAGS, vgg_model_base, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))
-        # Initialize the variables; this is required for the auc computation.
-        run_variable_initializers(sess)
         adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, attack, attack_params)
         adv_auc_metric = get_adversarial_auc_metric(vgg_model_base, attack, attack_params)
+        # Initialize the variables; this is required for the auc computation.
+        run_variable_initializers(sess)
         model_compile_args_base = get_model_compile_args(
             FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
             metrics_to_add=[

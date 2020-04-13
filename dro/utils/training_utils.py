@@ -129,8 +129,8 @@ def make_callbacks(flags, is_adversarial: bool):
 
 def make_model_uid(flags, is_adversarial=False):
     """Create a unique identifier for the model."""
-    model_uid = """{label_name}-{model_name}-bs{batch_size}e{epochs}lr{lr}dropout{
-    dropout_rate}""".format(model_name=flags.model_name,
+    model_uid = """{label_name}-{model_type}-bs{batch_size}e{epochs}lr{lr}dropout{
+    dropout_rate}""".format(model_name=flags.model_type,
                 label_name=flags.label_name,
                 batch_size=flags.batch_size,
                 epochs=flags.epochs,

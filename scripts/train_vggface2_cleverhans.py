@@ -175,13 +175,13 @@ def mnist_tutorial(label_smoothing=0.1):
 
     if FLAGS.train_base:  # Base model training
 
-        vgg_model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
+        model_base = vggface2_model(dropout_rate=FLAGS.dropout_rate,
                                         activation='softmax')
 
         # Initialize the attack object
-        attack = get_attack(FLAGS, vgg_model_base, sess)
+        attack = get_attack(FLAGS, model_base, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))
-        adv_acc_metric = get_adversarial_acc_metric(vgg_model_base, attack, attack_params)
+        adv_acc_metric = get_adversarial_acc_metric(model_base, attack, attack_params)
 
         model_compile_args_base = get_model_compile_args(
             FLAGS, loss=tf.keras.losses.CategoricalCrossentropy(from_logits=False),
@@ -191,18 +191,18 @@ def mnist_tutorial(label_smoothing=0.1):
             ]
         )
 
-        vgg_model_base.compile(**model_compile_args_base)
-        vgg_model_base.summary()
+        model_base.compile(**model_compile_args_base)
+        model_base.summary()
 
         print("[INFO] training base model")
         callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
 
-        vgg_model_base.fit(train_ds.dataset, callbacks=callbacks_base,
+        model_base.fit(train_ds.dataset, callbacks=callbacks_base,
                            validation_data=val_ds.dataset, **train_args)
 
         # Evaluate the accuracy on legitimate and adversarial test examples
-        base_metrics_test = vgg_model_base.evaluate(test_ds.dataset)
-        for name, value in zip(vgg_model_base.metrics_names, base_metrics_test):
+        base_metrics_test = model_base.evaluate(test_ds.dataset)
+        for name, value in zip(model_base.metrics_names, base_metrics_test):
             data, metric_name = get_data_type_and_metric_from_name(name)
             results.add_result({"metric": metric_name,
                                 "value": value,
@@ -211,9 +211,9 @@ def mnist_tutorial(label_smoothing=0.1):
                                 "phase": keys.TEST})
 
         # Calculate training error
-        base_metrics_train = vgg_model_base.evaluate(train_ds.dataset,
+        base_metrics_train = model_base.evaluate(train_ds.dataset,
                                                      steps=steps_per_train_epoch)
-        for name, value in zip(vgg_model_base.metrics_names, base_metrics_train):
+        for name, value in zip(model_base.metrics_names, base_metrics_train):
             data, metric_name = get_data_type_and_metric_from_name(name)
             results.add_result({"metric": metric_name,
                                 "value": value,
@@ -223,15 +223,15 @@ def mnist_tutorial(label_smoothing=0.1):
 
     # Redefine Keras model
     if FLAGS.train_adversarial:
-        vgg_model_adv = vggface2_model(dropout_rate=FLAGS.dropout_rate,
+        model_adv = vggface2_model(dropout_rate=FLAGS.dropout_rate,
                                        activation='softmax')
-        vgg_model_adv(vgg_model_adv.input)
-        attack = get_attack(FLAGS, vgg_model_adv, sess=sess)
+        model_adv(model_adv.input)
+        attack = get_attack(FLAGS, model_adv, sess=sess)
 
         # Use a loss function based on legitimate and adversarial examples
-        adv_loss_adv = get_adversarial_loss(vgg_model_adv, attack, attack_params,
+        adv_loss_adv = get_adversarial_loss(model_adv, attack, attack_params,
                                             FLAGS.adv_multiplier)
-        adv_acc_metric_adv = get_adversarial_acc_metric(vgg_model_adv, attack,
+        adv_acc_metric_adv = get_adversarial_acc_metric(model_adv, attack,
                                                         attack_params)
 
         model_compile_args_adv = get_model_compile_args(
@@ -242,19 +242,19 @@ def mnist_tutorial(label_smoothing=0.1):
             ]
         )
 
-        vgg_model_adv.compile(**model_compile_args_adv)
+        model_adv.compile(**model_compile_args_adv)
         print("[INFO] training adversarial model")
         callbacks_adv = make_callbacks(FLAGS, is_adversarial=True)
 
         # Initialize the variables; this is required for the auc computation.
         # run_variable_initializers(sess)
 
-        vgg_model_adv.fit(train_ds.dataset, callbacks=callbacks_adv,
+        model_adv.fit(train_ds.dataset, callbacks=callbacks_adv,
                           validation_data=val_ds.dataset, **train_args)
 
         # Evaluate the accuracy on legitimate and adversarial test examples
-        adv_metrics_test = vgg_model_adv.evaluate(test_ds.dataset)
-        for name, value in zip(vgg_model_adv.metrics_names, adv_metrics_test):
+        adv_metrics_test = model_adv.evaluate(test_ds.dataset)
+        for name, value in zip(model_adv.metrics_names, adv_metrics_test):
             data, metric_name = get_data_type_and_metric_from_name(name)
             results.add_result({"metric": metric_name,
                                 "value": value,
@@ -263,9 +263,9 @@ def mnist_tutorial(label_smoothing=0.1):
                                 "phase": keys.TEST})
 
         # Calculate training error
-        adv_metrics_train = vgg_model_adv.evaluate(train_ds.dataset,
+        adv_metrics_train = model_adv.evaluate(train_ds.dataset,
                                                    steps=steps_per_train_epoch)
-        for name, value in zip(vgg_model_adv.metrics_names, adv_metrics_train):
+        for name, value in zip(model_adv.metrics_names, adv_metrics_train):
             data, metric_name = get_data_type_and_metric_from_name(name)
             results.add_result({"metric": metric_name,
                                 "value": value,

@@ -30,7 +30,8 @@ python3 scripts/train_vggface2_cleverhans.py \
     --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
     --epochs $EPOCHS \
     --attack IterativeFastGradientMethod \
-    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\": null, \"clip_max\": null}" \
+    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\":
+    null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
     --anno_dir ${DIR}/anno
 
@@ -57,7 +58,8 @@ from cleverhans.compat import flags
 
 from dro.utils.reports import Report
 from dro.utils.training_utils import make_callbacks, get_n_from_file_pattern, \
-    compute_n_train_n_val, steps_per_epoch, get_model_from_flags
+    compute_n_train_n_val, steps_per_epoch, get_model_from_flags, \
+    get_model_img_shape_from_flags
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags
 from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
@@ -125,9 +127,10 @@ def mnist_tutorial(label_smoothing=0.1):
     n_test = get_n_from_file_pattern(test_file_pattern)
     n_train_val = get_n_from_file_pattern(train_file_pattern)
     n_train, n_val = compute_n_train_n_val(n_train_val, FLAGS.val_frac)
+    img_shape = get_model_img_shape_from_flags(FLAGS)
 
-    train_ds = ImageDataset()
-    test_ds = ImageDataset()
+    train_ds = ImageDataset(img_shape)
+    test_ds = ImageDataset(img_shape)
 
     # Create the datasets.
     train_ds.from_files(train_file_pattern, shuffle=True)
@@ -193,7 +196,7 @@ def mnist_tutorial(label_smoothing=0.1):
         callbacks_base = make_callbacks(FLAGS, is_adversarial=False)
 
         model_base.fit(train_ds.dataset, callbacks=callbacks_base,
-                           validation_data=val_ds.dataset, **train_args)
+                       validation_data=val_ds.dataset, **train_args)
 
         # Evaluate the accuracy on legitimate and adversarial test examples
         base_metrics_test = model_base.evaluate(test_ds.dataset)
@@ -207,7 +210,7 @@ def mnist_tutorial(label_smoothing=0.1):
 
         # Calculate training error
         base_metrics_train = model_base.evaluate(train_ds.dataset,
-                                                     steps=steps_per_train_epoch)
+                                                 steps=steps_per_train_epoch)
         for name, value in zip(model_base.metrics_names, base_metrics_train):
             data, metric_name = get_data_type_and_metric_from_name(name)
             results.add_result({"metric": metric_name,
@@ -245,7 +248,7 @@ def mnist_tutorial(label_smoothing=0.1):
         # run_variable_initializers(sess)
 
         model_adv.fit(train_ds.dataset, callbacks=callbacks_adv,
-                          validation_data=val_ds.dataset, **train_args)
+                      validation_data=val_ds.dataset, **train_args)
 
         # Evaluate the accuracy on legitimate and adversarial test examples
         adv_metrics_test = model_adv.evaluate(test_ds.dataset)
@@ -259,7 +262,7 @@ def mnist_tutorial(label_smoothing=0.1):
 
         # Calculate training error
         adv_metrics_train = model_adv.evaluate(train_ds.dataset,
-                                                   steps=steps_per_train_epoch)
+                                               steps=steps_per_train_epoch)
         for name, value in zip(model_adv.metrics_names, adv_metrics_train):
             data, metric_name = get_data_type_and_metric_from_name(name)
             results.add_result({"metric": metric_name,

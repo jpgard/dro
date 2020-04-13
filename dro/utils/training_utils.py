@@ -15,6 +15,8 @@ from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
 
 from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME, ACC, CE
+from dro import keys
+from dro.training.models import vggface2_model, facenet_model
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 TEST_MODE = "test"
@@ -258,3 +260,18 @@ def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: boo
         model.load_weights(filepath=make_ckpt_filepath(
             flags, is_adversarial=is_adversarial))
     return
+
+
+def get_model_from_flags(flags):
+    """Parse the flags to construct a model of the appropriate type with the specified
+    architecture and hyperparamters."""
+    if flags.model_type == keys.VGGFACE_2_MODEL:
+        model = vggface2_model(dropout_rate=flags.dropout_rate,
+                               activation=flags.model_activation)
+    elif flags.model_type == keys.FACENET_MODEL:
+        model = facenet_model(dropout_rate=flags.dropout_rate,
+                              activation=flags.model_activation)
+    else:
+        raise NotImplementedError("The model type {} has not been implemented".format(
+            flags.model_type))
+    return model

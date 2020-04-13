@@ -275,3 +275,14 @@ def get_model_from_flags(flags):
         raise NotImplementedError("The model type {} has not been implemented".format(
             flags.model_type))
     return model
+
+
+def get_model_img_shape_from_flags(flags):
+    """Fetch the default model image shape."""
+    if flags.model_type == keys.VGGFACE_2_MODEL:
+        return keys.VGGFACE_2_IMG_SHAPE
+    elif flags.model_type == keys.FACENET_MODEL:
+        return keys.FACENET_IMG_SHAPE
+    else:
+        raise NotImplementedError("The model type {} has not been implemented".format(
+            flags.model_type))

@@ -170,9 +170,8 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
                                       })
 
     if epsilon > 0:
-        ops_to_run = OrderedDict({**clean_data_ops, **perturbed_data_ops})
-        sample_batch_keys_to_update = ["yhat_base_clean", "yhat_adv_clean",
-                                       "yhat_base_perturbed", "yhat_adv_perturbed",
+        ops_to_run = perturbed_data_ops
+        sample_batch_keys_to_update = ["yhat_base_perturbed", "yhat_adv_perturbed",
                                        "x_perturbed"]
     else:
         ops_to_run = clean_data_ops
@@ -205,7 +204,7 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         # dataset size to compute overall accuracy.
         for k in acc_keys_to_update:
             accuracies[k].extend(batch_res[k].tolist())
-        # store the yhats
+        # Store the yhats
         for j in batch_res.keys():
             if j.startswith("yhat"):
                 yhats[j].append(batch_res[j])

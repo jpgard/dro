@@ -51,6 +51,7 @@ do
         --label_name $LABEL \
         --slice_attribute_name $SLICE_ATTR \
         --attack FastGradientMethod \
+        --attack_params "{\"clip_min\": null, \"clip_max\": null}" \
         --base_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8/${LABEL}bs16e40lr0.01dropout0.8.h5" \
         --adv_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8-RandomizedFastGradientMethod-cNone-cNone-e0.03125/${LABEL}bs16e40lr0.01dropout0.8-RandomizedFastGradientMethod-cNone-cNone-e0.03125.h5" \
         --adv_multiplier 0.2 \
@@ -112,6 +113,8 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         metrics, and sample_batch is a dict of elements corresponding to a sample batch
         (by default, the first batch is used).
     """
+    # TODO(jpgard): this function should either evaluate on clean data, or on perturbed
+    #  data. There is never a need to run on both. That needlessly duplicates computation.
 
     # Use the same compile args for both models. Since we are not training,
     # the optimizer and loss will not be used to adjust any parameters.

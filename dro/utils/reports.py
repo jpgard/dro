@@ -1,3 +1,4 @@
+import os.path as osp
 import pandas as pd
 
 from dro import keys
@@ -28,12 +29,13 @@ class Report:
             self.results = pd.concat([self.results, result_row])
         return
 
-    def to_csv(self, attr_name=None):
+    def to_csv(self, metrics_dir, attr_name=None):
+        """Write the current results to a CSV file in metrics_dir."""
         if attr_name:
-            fp = "./metrics/{}-{}.csv".format(self.uid, attr_name)
+            csvname = "{}-{}.csv".format(self.uid, attr_name)
         else:
-            fp = "./metrics/{}.csv".format(self.uid)
-
+            csvname = "{}.csv".format(self.uid)
+        fp = osp.join(metrics_dir, csvname)
         print("[INFO] writing results to {}".format(fp))
         print(self.results)
         self.results.to_csv(fp, index=False)

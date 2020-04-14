@@ -170,9 +170,8 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
                                       })
 
     if epsilon > 0:
-        ops_to_run = OrderedDict({**clean_data_ops, **perturbed_data_ops})
-        sample_batch_keys_to_update = ["yhat_base_clean", "yhat_adv_clean",
-                                       "yhat_base_perturbed", "yhat_adv_perturbed",
+        ops_to_run = perturbed_data_ops
+        sample_batch_keys_to_update = ["yhat_base_perturbed", "yhat_adv_perturbed",
                                        "x_perturbed"]
     else:
         ops_to_run = clean_data_ops
@@ -205,7 +204,9 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         # dataset size to compute overall accuracy.
         for k in acc_keys_to_update:
             accuracies[k].extend(batch_res[k].tolist())
-        # store the yhats
+
+        # Store the yhats for each model. These are used to compute the AUC, which can
+        # only be computed once we have predictions for the entire dataset.
         for j in batch_res.keys():
             if j.startswith("yhat"):
                 yhats[j].append(batch_res[j])
@@ -214,6 +215,7 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
 
         batch_index += 1
 
+    print("[INFO] completed inference for {} batches".format(batch_index))
     # Compute the accuracies; this is the mean of a binary "correct/incorrect" vector
     res = {k: mean(accuracies[k]) for k in acc_keys_to_update}
     # Compute the AUCs
@@ -262,11 +264,12 @@ def main(argv):
             attr_val].dataset
         eval_dset_numpy = tfds.as_numpy(eval_dset)
 
-        res, sample_batch = evaluate_cleverhans_models_on_dataset(sess, eval_dset_numpy,
+        res, _ = evaluate_cleverhans_models_on_dataset(sess, eval_dset_numpy,
                                                                   epsilon=0.)
-
         for k, v in res.items():
             metric, model, data = k.split("_")
+            # Sanity check to ensure only metrics on clean data are returned at this step
+            assert data == keys.CLEAN_DATA
             results.add_result({"metric": metric,
                                 "value": v,
                                 "model": model,
@@ -291,6 +294,9 @@ def main(argv):
                 sess, eval_dset_numpy, epsilon=adv_step_size_to_eval)
             for k, v in res.items():
                 metric, model, data = k.split("_")
+                # Sanity check to ensure only metrics on perturbed data are returned at
+                # this step
+                assert data == keys.ADV_DATA
                 results.add_result({"metric": metric,
                                     "value": v,
                                     "model": model,
@@ -324,7 +330,7 @@ def main(argv):
                 batch_size=FLAGS.batch_size
             )
 
-    results.to_csv(attr_name=FLAGS.slice_attribute_name)
+    results.to_csv(metrics_dir=FLAGS.metrics_dir, attr_name=FLAGS.slice_attribute_name)
 
 
 if __name__ == "__main__":

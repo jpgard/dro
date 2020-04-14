@@ -270,7 +270,7 @@ def mnist_tutorial(label_smoothing=0.1):
                                 "model": keys.ADV_MODEL,
                                 "data": data,
                                 "phase": keys.TRAIN})
-        results.to_csv()
+        results.to_csv(metrics_dir=FLAGS.metrics_dir)
 
     return
 

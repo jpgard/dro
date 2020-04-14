@@ -53,7 +53,7 @@ def add_classification_block(input_model: Model, fc_sizes: list, activation: str
 def vggface2_model(dropout_rate, input_shape=(224, 224, 3), activation='sigmoid'):
     """Build a vggface2 model."""
     # Convolution Features
-    vgg_model = VGGFace(include_top=False, input_shape=input_shape)
+    vgg_model = VGGFace(include_top=False, input_shape=input_shape, pooling='avg')
     # set the vgg_model layers to non-trainable
     for layer in vgg_model.layers:
         layer.trainable = False

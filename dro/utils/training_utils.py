@@ -15,6 +15,8 @@ from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
 
 from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME, ACC, CE
+from dro import keys
+from dro.training.models import vggface2_model, facenet_model
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 TEST_MODE = "test"
@@ -127,13 +129,14 @@ def make_callbacks(flags, is_adversarial: bool):
 
 def make_model_uid(flags, is_adversarial=False):
     """Create a unique identifier for the model."""
-    model_uid = """{label_name}bs{batch_size}e{epochs}lr{lr}dropout{dropout_rate}""" \
-        .format(label_name=flags.label_name,
-                batch_size=flags.batch_size,
-                epochs=flags.epochs,
-                lr=flags.learning_rate,
-                dropout_rate=flags.dropout_rate
-                )
+    model_uid = """{label}-{model}-bs{bs}e{epochs}lr{lr}dropout{dr}""".format(
+        label=flags.label_name,
+        model=flags.model_type,
+        bs=flags.batch_size,
+        epochs=flags.epochs,
+        lr=flags.learning_rate,
+        dr=flags.dropout_rate
+    )
     if is_adversarial:
         model_uid += "-" + flags.attack
         if flags.attack_params is not None:
@@ -258,3 +261,29 @@ def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: boo
         model.load_weights(filepath=make_ckpt_filepath(
             flags, is_adversarial=is_adversarial))
     return
+
+
+def get_model_from_flags(flags):
+    """Parse the flags to construct a model of the appropriate type with the specified
+    architecture and hyperparamters."""
+    if flags.model_type == keys.VGGFACE_2_MODEL:
+        model = vggface2_model(dropout_rate=flags.dropout_rate,
+                               activation=flags.model_activation)
+    elif flags.model_type == keys.FACENET_MODEL:
+        model = facenet_model(dropout_rate=flags.dropout_rate,
+                              activation=flags.model_activation)
+    else:
+        raise NotImplementedError("The model type {} has not been implemented".format(
+            flags.model_type))
+    return model
+
+
+def get_model_img_shape_from_flags(flags):
+    """Fetch the default model image shape."""
+    if flags.model_type == keys.VGGFACE_2_MODEL:
+        return keys.VGGFACE_2_IMG_SHAPE
+    elif flags.model_type == keys.FACENET_MODEL:
+        return keys.FACENET_IMG_SHAPE
+    else:
+        raise NotImplementedError("The model type {} has not been implemented".format(
+            flags.model_type))

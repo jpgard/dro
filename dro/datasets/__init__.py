@@ -14,6 +14,7 @@ from dro.utils.viz import show_batch
 from dro.utils.training_utils import convert_to_dictionaries
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
+DEFAULT_IMG_OUTPUT_SHAPE = (224, 224)  # Default (height, width) of the images, in pixels.
 
 
 def preprocess_dataset(
@@ -56,12 +57,12 @@ def get_label(file_path):
     return tf.strings.to_number(label, out_type=tf.int32)
 
 
-def process_path(file_path, crop=True, labels=True):
+def process_path(file_path, output_shape=DEFAULT_IMG_OUTPUT_SHAPE,  crop=True, labels=True):
     """Load the data from file_path. Returns either an (x,y) tuplesif
     labels=True, or just x if label=False."""
     # load the raw data from the file as a string
     img = tf.io.read_file(file_path)
-    img = decode_img(img, crop=crop)
+    img = decode_img(img, output_shape, crop=crop)
     if not labels:
         return img
     else:
@@ -71,7 +72,7 @@ def process_path(file_path, crop=True, labels=True):
 
 
 def random_crop_and_resize(img):
-    # resize to a square image of 256 x 256, then crop to random 224 x 224
+    """Resize to a square image of 256 x 256, then crop to random 224 x 224 x 3 image."""
     if len(img.shape) < 4:  # add a batch dimension if one does not exist
         img = tf.expand_dims(img, axis=0)
     img = tf.image.resize_images(img, size=(256, 256), preserve_aspect_ratio=True)
@@ -81,39 +82,39 @@ def random_crop_and_resize(img):
     return img
 
 
-def decode_img(img, normalize_by_channel=False, crop=True):
+def decode_img(img, output_shape, crop=True):
+    """
+
+    :param img: the encoded image to decode.
+    :param output_shape: a tuple containing the desired height and width of the
+    output image (should be square).
+    :crop: whether to perform random cropping and resizing.
+    """
     # convert the compressed string to a 3D uint8 tensor
     img = tf.image.decode_jpeg(img, channels=3)
     # Use `convert_image_dtype` to convert to floats in the [0,1] range.
     img = tf.image.convert_image_dtype(img, tf.float32)
     if crop:
         img = random_crop_and_resize(img)
-
-    # Apply normalization: subtract the channel-wise mean from each image as in
-    # https://github.com/rcmalli/keras-vggface/blob/master/keras_vggface/utils.py ;
-    # divide means by 255.0 since the conversion above restricts to range [0,1].
-    if normalize_by_channel:
-        ch1mean = tf.constant(91.4953 / 255.0, shape=(224, 224, 1))
-        ch2mean = tf.constant(103.8827 / 255.0, shape=(224, 224, 1))
-        ch3mean = tf.constant(131.0912 / 255.0, shape=(224, 224, 1))
-        channel_norm_tensor = tf.concat([ch1mean, ch2mean, ch3mean], axis=2)
-        img -= channel_norm_tensor
+    if output_shape != DEFAULT_IMG_OUTPUT_SHAPE:
+        img = tf.image.resize_images(img, size=output_shape)
     return img
 
 
-def preprocess_path_label_tuple(x, y):
+def preprocess_path_label_tuple(x, y, output_shape):
     """Create an (image, one_hot_label) tuple from a (path, label) tuple."""
-    x = process_path(x, labels=False)
+    x = process_path(x, labels=False, output_shape=output_shape)
     y = tf.one_hot(y, 2)
     return x, y
 
 
 class ImageDataset(ABC):
-    def __init__(self):
+    def __init__(self, img_shape=DEFAULT_IMG_OUTPUT_SHAPE):
         self.n_train = None
         self.n_val = None
         self.n_test = None
         self.dataset = None
+        self.img_shape = img_shape
 
     def from_files(self, file_pattern: str, shuffle: bool,
                    random_seed=SHUFFLE_RANDOM_SEED, labels: bool = True):
@@ -121,8 +122,8 @@ class ImageDataset(ABC):
         or just x if labels==False."""
         self.dataset = tf.data.Dataset.list_files(file_pattern, shuffle=shuffle,
                                                   seed=random_seed)
-        _process_path = partial(process_path, labels=labels)
-        self.dataset = self.dataset.map(process_path, num_parallel_calls=AUTOTUNE)
+        _process_path = partial(process_path, labels=labels, output_shape=self.img_shape)
+        self.dataset = self.dataset.map(_process_path, num_parallel_calls=AUTOTUNE)
         return
 
     def from_dataframe(self, df: pd.DataFrame, label_name: str):
@@ -132,7 +133,9 @@ class ImageDataset(ABC):
             (df['filename'].values,
              df[label_name].values.astype(np.int))
         )
-        self.dataset = dset.map(preprocess_path_label_tuple)
+        _preprocess_path_label_tuple = partial(preprocess_path_label_tuple,
+                                               output_shape=self.img_shape)
+        self.dataset = dset.map(_preprocess_path_label_tuple)
         return
 
     def from_filename_and_label_generator(self, generator):
@@ -143,7 +146,9 @@ class ImageDataset(ABC):
         """
         dset = tf.data.Dataset.from_generator(generator,
                                               output_types=(tf.string, tf.int32))
-        self.dataset = dset.map(preprocess_path_label_tuple)
+        _preprocess_path_label_tuple = partial(preprocess_path_label_tuple,
+                                               output_shape=self.img_shape)
+        self.dataset = dset.map(_preprocess_path_label_tuple)
         return
 
     def validation_split(self, n_val):

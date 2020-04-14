@@ -262,9 +262,8 @@ def main(argv):
             attr_val].dataset
         eval_dset_numpy = tfds.as_numpy(eval_dset)
 
-        res, sample_batch = evaluate_cleverhans_models_on_dataset(sess, eval_dset_numpy,
+        res, _ = evaluate_cleverhans_models_on_dataset(sess, eval_dset_numpy,
                                                                   epsilon=0.)
-
         for k, v in res.items():
             metric, model, data = k.split("_")
             results.add_result({"metric": metric,

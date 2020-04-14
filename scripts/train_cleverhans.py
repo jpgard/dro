@@ -12,7 +12,9 @@ export LABEL="Mouth_Open"
 export DIR="/projects/grail/jpgard/vggface2"
 export SS=0.025
 export EPOCHS=40
+export MODEL_TYPE="facenet"
 
+# Usage with FGSM
 python3 scripts/train_cleverhans.py \
     --label_name $LABEL \
     --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
@@ -22,8 +24,9 @@ python3 scripts/train_cleverhans.py \
     --attack_params "{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
     --anno_dir ${DIR}/anno \
-    --model_type vggface2
+    --model_type $MODEL_TYPE
 
+# Usage with Iterative FGSM
 python3 scripts/train_cleverhans.py \
     --label_name $LABEL \
     --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
@@ -33,8 +36,10 @@ python3 scripts/train_cleverhans.py \
     --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\":
     null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
-    --anno_dir ${DIR}/anno
+    --anno_dir ${DIR}/anno \
+    -model_type $MODEL_TYPE
 
+# Usage with Randomized FGSM
 python3 scripts/train_cleverhans.py \
     --label_name $LABEL \
     --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
@@ -43,7 +48,8 @@ python3 scripts/train_cleverhans.py \
     --attack RandomizedFastGradientMethod \
     --attack_params "{\"eps_stddev\": 0.03125, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
-    --anno_dir ${DIR}/anno
+    --anno_dir ${DIR}/anno \
+    -model_type $MODEL_TYPE
 """
 from __future__ import absolute_import
 from __future__ import division

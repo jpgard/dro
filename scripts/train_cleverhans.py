@@ -13,7 +13,7 @@ export DIR="/projects/grail/jpgard/vggface2"
 export SS=0.025
 export EPOCHS=40
 
-python3 scripts/train_vggface2_cleverhans.py \
+python3 scripts/train_cleverhans.py \
     --label_name $LABEL \
     --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
     --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
@@ -24,7 +24,7 @@ python3 scripts/train_vggface2_cleverhans.py \
     --anno_dir ${DIR}/anno \
     --model_type vggface2
 
-python3 scripts/train_vggface2_cleverhans.py \
+python3 scripts/train_cleverhans.py \
     --label_name $LABEL \
     --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
     --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
@@ -35,7 +35,7 @@ python3 scripts/train_vggface2_cleverhans.py \
     --adv_multiplier 0.2 \
     --anno_dir ${DIR}/anno
 
-python3 scripts/train_vggface2_cleverhans.py \
+python3 scripts/train_cleverhans.py \
     --label_name $LABEL \
     --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
     --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \

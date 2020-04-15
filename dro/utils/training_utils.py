@@ -280,7 +280,7 @@ def get_model_from_flags(flags):
 
 
 def get_model_img_shape_from_flags(flags):
-    """Fetch the default model image shape."""
+    """Fetch the (height, width) of the default model image shape."""
     if flags.model_type == keys.VGGFACE_2_MODEL:
         return keys.VGGFACE_2_IMG_SHAPE
     elif flags.model_type == keys.FACENET_MODEL:

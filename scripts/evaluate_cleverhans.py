@@ -32,7 +32,7 @@ do
         --label_name $LABEL \
         --slice_attribute_name $SLICE_ATTR \
         --attack $ATTACK \
-        --attack_params "{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
+        --attack_params "{\"eps\": 0.025, \"clip_min\": null, \"clip_max\": null}" \
         --adv_multiplier 0.2 \
         --epochs $EPOCHS \
         --metrics_dir ./metrics \
@@ -86,7 +86,7 @@ from dro.utils.reports import Report
 from dro.utils.cleverhans import get_attack, attack_params_from_flags, \
     get_model_compile_args, generate_attack
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID
-from dro.utils.training_utils import make_model_uid
+from dro.utils.training_utils import make_model_uid, get_model_img_shape_from_flags
 from dro import keys
 from dro.utils.viz import show_adversarial_resuts
 
@@ -135,7 +135,8 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
     attack = get_attack(FLAGS, model_base, sess)
 
     # Define the ops to run for evaluation
-    x = tf.compat.v1.placeholder(tf.float32, shape=(None, 224, 224, 3))
+    imshape = get_model_img_shape_from_flags(FLAGS)
+    x = tf.compat.v1.placeholder(tf.float32, shape=(None, imshape[0], imshape[1], 3))
     x_perturbed = generate_attack(attack, x, attack_params)
     y = tf.compat.v1.placeholder(tf.float32, shape=(None, 2))  # [batch_size, 2]
     yhat_base_perturbed = model_base(x_perturbed)

@@ -258,8 +258,9 @@ def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: boo
         ))
         model.load_weights(filepath=model_ckpt)
     else:  # Load from the default checkpoint path
-        model.load_weights(filepath=make_ckpt_filepath(
-            flags, is_adversarial=is_adversarial))
+        filepath = make_ckpt_filepath(flags, is_adversarial=is_adversarial)
+        print("[INFO] loading weights from{}".format(filepath))
+        model.load_weights(filepath=filepath)
     return
 
 

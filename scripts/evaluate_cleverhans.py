@@ -18,6 +18,7 @@ export DIR="/projects/grail/jpgard/lfw"
 export GPU_ID="1"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
+export MODEL_TYPE="facenet"
 
 for LABEL in "Mouth_Open" "Sunglasses" "Male"
 do
@@ -31,10 +32,11 @@ do
         --label_name $LABEL \
         --slice_attribute_name $SLICE_ATTR \
         --attack $ATTACK \
-        --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\": null, \"clip_max\": null}" \
+        --attack_params "{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
         --adv_multiplier 0.2 \
         --epochs $EPOCHS \
-        --metrics_dir ./metrics
+        --metrics_dir ./metrics \
+        --model_type $MODEL_TYPE
     done
     echo ""
 done
@@ -76,8 +78,8 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 
 from cleverhans.compat import flags
-from dro.training.models import vggface2_model
-from dro.utils.training_utils import load_model_weights_from_flags
+from dro.utils.training_utils import load_model_weights_from_flags, \
+    get_model_from_flags
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags
 from dro.utils.reports import Report
@@ -114,35 +116,32 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         (by default, the first batch is used).
     """
     # TODO(jpgard): this function should either evaluate on clean data, or on perturbed
-    #  data. There is never a need to run on both. That needlessly duplicates computation.
+    #  data. There is never a need to run on both. That needlessly duplicates
+    #  computation. Especially for the facenet models, this also incurs the huge cost
+    #  of loading the model into memory over and over.
 
-    # Use the same compile args for both models. Since we are not training,
-    # the optimizer and loss will not be used to adjust any parameters.
-    model_init_args = {"dropout_rate": FLAGS.dropout_rate,
-                       "activation": "softmax"}
     model_compile_args = get_model_compile_args(
         FLAGS, tf.keras.losses.CategoricalCrossentropy(from_logits=False),
         metrics_to_add=None)
-    vgg_model_base = vggface2_model(**model_init_args)
-    vgg_model_base.compile(**model_compile_args)
-    load_model_weights_from_flags(vgg_model_base, FLAGS, is_adversarial=False)
-
-    vgg_model_adv = vggface2_model(**model_init_args)
-    vgg_model_adv.compile(**model_compile_args)
-    load_model_weights_from_flags(vgg_model_adv, FLAGS, is_adversarial=True)
+    model_base = get_model_from_flags(FLAGS)
+    model_base.compile(**model_compile_args)
+    load_model_weights_from_flags(model_base, FLAGS, is_adversarial=False)
+    model_adv = get_model_from_flags(FLAGS)
+    model_adv.compile(**model_compile_args)
+    load_model_weights_from_flags(model_adv, FLAGS, is_adversarial=True)
 
     # Initialize the attack. The attack is always computed relative to the base model.
     attack_params = attack_params_from_flags(FLAGS, override_eps_value=epsilon)
-    attack = get_attack(FLAGS, vgg_model_base, sess)
+    attack = get_attack(FLAGS, model_base, sess)
 
     # Define the ops to run for evaluation
     x = tf.compat.v1.placeholder(tf.float32, shape=(None, 224, 224, 3))
     x_perturbed = generate_attack(attack, x, attack_params)
     y = tf.compat.v1.placeholder(tf.float32, shape=(None, 2))  # [batch_size, 2]
-    yhat_base_perturbed = vgg_model_base(x_perturbed)
-    yhat_base_clean = vgg_model_base(x)
-    yhat_adv_perturbed = vgg_model_adv(x_perturbed)
-    yhat_adv_clean = vgg_model_adv(x)
+    yhat_base_perturbed = model_base(x_perturbed)
+    yhat_base_clean = model_base(x)
+    yhat_adv_perturbed = model_adv(x_perturbed)
+    yhat_adv_clean = model_adv(x)
 
     # the acc_ results tensors each have shape [batch_size,] but note that the final
     # batch of a dataset may not be full-sized (when N % batch_size != 0)

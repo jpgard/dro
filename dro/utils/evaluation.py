@@ -3,7 +3,7 @@ import time
 from dro.datasets import ImageDataset
 from dro.keys import FILENAME_COLNAME
 from dro.utils.lfw import get_annotated_data_df, LABEL_COLNAME, ATTR_COLNAME, apply_thresh
-from dro.utils.training_utils import pred_to_binary
+from dro.utils.training_utils import pred_to_binary, get_model_img_shape_from_flags
 from dro.utils.viz import show_batch
 
 
@@ -42,13 +42,17 @@ def make_pos_and_neg_attr_datasets(flags, write_samples=True):
     # Create and preprocess the dataset of examples where ATTR_COLNAME == 1
     preprocessing_kwargs = {"shuffle": False, "repeat_forever": False, "batch_size":
         flags.batch_size}
-    dset_attr_pos = ImageDataset()
+
+    # Fetch the desired shape of the images
+    img_shape = get_model_img_shape_from_flags(flags)
+
+    dset_attr_pos = ImageDataset(img_shape)
     dset_attr_pos.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 1],
                                  label_name=LABEL_COLNAME)
     dset_attr_pos.preprocess(**preprocessing_kwargs)
 
     # Create and process the dataset of examples where ATTR_COLNAME == 1
-    dset_attr_neg = ImageDataset()
+    dset_attr_neg = ImageDataset(img_shape)
     dset_attr_neg.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 0],
                                  label_name=LABEL_COLNAME)
     dset_attr_neg.preprocess(**preprocessing_kwargs)

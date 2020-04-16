@@ -4,10 +4,12 @@ from six.moves import xrange
 import warnings
 import collections
 
+import tensorflow as tf
+
 import cleverhans.utils as utils
 from cleverhans.model import Model, CallableModelWrapper
-
 from cleverhans import utils_tf
+from dro.staib.attacks_tf import fgm_distributional, distributional_gradient_step
 
 import logging
 
@@ -45,20 +47,19 @@ class NullAttack(Attack):
         return x
 
 
-
 class FastDistributionallyRobustMethod(Attack):
 
     """
     TODO: fill in explanation
     """
 
-    def __init__(self, model, back='tf', sess=None):
+    def __init__(self, model, sess=None, dtypestr='float32', **kwargs):
         """
         Create a FastDistributionallyRobustMethod instance.
         Note: the model parameter should be an instance of the
         cleverhans.model.Model abstraction provided by CleverHans.
         """
-        super(FastDistributionallyRobustMethod, self).__init__(model, back, sess)
+        super(FastDistributionallyRobustMethod, self).__init__(model, sess, dtypestr, **kwargs)
         self.feedable_kwargs = {'eps': np.float32,
                                 'y': np.float32,
                                 'y_target': np.float32,
@@ -91,11 +92,6 @@ class FastDistributionallyRobustMethod(Attack):
         """
         # Parse and save attack-specific parameters
         assert self.parse_params(**kwargs)
-
-        if self.back == 'tf':
-            from attacks_tf import fgm_distributional
-        else:
-            raise(NotImplementedError)
 
         labels, nb_classes = self.get_or_guess_labels(x, kwargs)
 
@@ -146,8 +142,7 @@ class FastDistributionallyRobustMethod(Attack):
             raise ValueError("Norm order must be either np.inf, 1, or 2.")
         if self.wasserstein_ord not in [np.inf] and self.wasserstein_ord <= 1:
             raise ValueError("Norm order must be either np.inf, or >1.")
-        if self.back == 'th':
-            raise NotImplementedError("Not implemented for Theano")
+
         return True
 
 
@@ -157,13 +152,13 @@ class FrankWolfeDistributionallyRobustMethod(Attack):
     Heuristic which tries to optimize the Distributionally Robust loss
     """
 
-    def __init__(self, model, back='tf', sess=None):
+    def __init__(self, model, sess=None, dtypestr='float32', **kwargs):
         """
         Create a FrankWolfeDistributionallyRobustMethod instance.
         Note: the model parameter should be an instance of the
         cleverhans.model.Model abstraction provided by CleverHans.
         """
-        super(FrankWolfeDistributionallyRobustMethod, self).__init__(model, back, sess)
+        super(FrankWolfeDistributionallyRobustMethod, self).__init__(model, sess, dtypestr, **kwargs)
         self.feedable_kwargs = {'eps': np.float32,
                                 'eps_iter': np.float32,
                                 'y': np.float32,
@@ -195,8 +190,6 @@ class FrankWolfeDistributionallyRobustMethod(Attack):
         :param clip_max: (optional float) Maximum input component value
         :param retract: abandon projection/Frank-Wolfe in favor of just dividing by the norm
         """
-        import tensorflow as tf
-
         # Parse and save attack-specific parameters
         assert self.parse_params(**kwargs)
 
@@ -219,17 +212,17 @@ class FrankWolfeDistributionallyRobustMethod(Attack):
             targeted = False
 
         y_kwarg = 'y_target' if targeted else 'y'
-        grad_params = {y_kwarg: y} 
+        grad_params = {y_kwarg: y}
 
         fdrm_params = {'eps': self.eps_iter, y_kwarg: y, 'ord': self.ord,
                       'clip_min': self.clip_min, 'clip_max': self.clip_max,
                       'point_ord': self.point_ord, 'wasserstein_ord': self.wasserstein_ord}
 
         for i in range(self.nb_iter):
-            FDRM = FastDistributionallyRobustMethod(self.model, 
+            FDRM = FastDistributionallyRobustMethod(self.model,
                                                     back=self.back,
                                                     sess=self.sess)
-            
+
             # Compute this step's perturbation
             adv_x_candidate, _ = FDRM.generate(adv_x, **fdrm_params)
             # eta = eta_plus_x - x
@@ -264,7 +257,7 @@ class FrankWolfeDistributionallyRobustMethod(Attack):
             # project back onto mixed norm ball
             # batch_size = tf.to_float(tf.shape(x)[0])
             # constraint = self.eps #* tf.pow(batch_size, 1.0 / self.wasserstein_ord)
-            
+
             # can only comment this out if we are guaranteed to never leave the ball,
             # which happens if we choose eps_iter = eps / nb_iter
             # adv_x = x + proj_mixed_norm(self.sess, adv_x - x, self.wasserstein_ord, self.point_ord, constraint)
@@ -281,7 +274,6 @@ class FrankWolfeDistributionallyRobustMethod(Attack):
 
 
     def _norm(self, v, keep_dims=False):
-        import tensorflow as tf
 
         red_ind = tf.range(1, tf.rank(v))
 
@@ -343,10 +335,6 @@ class FrankWolfeDistributionallyRobustMethod(Attack):
             raise ValueError("Norm order must be either np.inf, 1, or 2.")
         if self.wasserstein_ord not in [np.inf, int(1), int(2)]:
             raise ValueError("Norm order must be either np.inf, 1, or 2.")
-        if self.back == 'th':
-            error_string = "FrankWolfeDistributionallyRobustMethod is not implemented in Theano"
-            raise NotImplementedError(error_string)
-
         return True
 
 
@@ -395,7 +383,6 @@ class UnconstrainedDistributionallyRobustMethod(Attack):
         :param clip_max: (optional float) Maximum input component value
         :param retract: abandon projection/Frank-Wolfe in favor of just dividing by the norm
         """
-        import tensorflow as tf
 
         # Parse and save attack-specific parameters
         assert self.parse_params(**kwargs)
@@ -418,7 +405,6 @@ class UnconstrainedDistributionallyRobustMethod(Attack):
 
         y_kwarg = 'y_target' if targeted else 'y'
 
-        from attacks_tf import distributional_gradient_step
         start_x = x + 0
 
         for i in range(self.nb_iter):
@@ -426,13 +412,13 @@ class UnconstrainedDistributionallyRobustMethod(Attack):
                 stepsize = self.eps_iter / np.sqrt(i + 1)
             else:
                 stepsize = self.eps_iter
-            adv_x = distributional_gradient_step(adv_x, 
-                                                 start_x, 
-                                                 model_preds, 
-                                                 eps_iter=stepsize, 
-                                                 point_ord=self.point_ord, 
+            adv_x = distributional_gradient_step(adv_x,
+                                                 start_x,
+                                                 model_preds,
+                                                 eps_iter=stepsize,
+                                                 point_ord=self.point_ord,
                                                  gamma=self.gamma,
-                                                 clip_min=self.clip_min, 
+                                                 clip_min=self.clip_min,
                                                  clip_max=self.clip_max,
                                                  targeted=targeted)
 
@@ -447,7 +433,6 @@ class UnconstrainedDistributionallyRobustMethod(Attack):
 
 
     def _norm(self, v, keep_dims=False):
-        import tensorflow as tf
 
         red_ind = tf.range(1, tf.rank(v))
 
@@ -504,8 +489,5 @@ class UnconstrainedDistributionallyRobustMethod(Attack):
         # Check if order of the norm is acceptable given current implementation
         if self.point_ord not in [np.inf, int(1), int(2)]:
             raise ValueError("Norm order must be either np.inf, 1, or 2.")
-        if self.back == 'th':
-            error_string = "UnconstrainedDistributionallyRobustMethod is not implemented in Theano"
-            raise NotImplementedError(error_string)
 
         return True

@@ -220,7 +220,6 @@ class FrankWolfeDistributionallyRobustMethod(Attack):
 
         for i in range(self.nb_iter):
             FDRM = FastDistributionallyRobustMethod(self.model,
-                                                    back=self.back,
                                                     sess=self.sess)
 
             # Compute this step's perturbation

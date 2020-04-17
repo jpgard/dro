@@ -6,15 +6,23 @@ from cleverhans.utils_keras import KerasModelWrapper
 from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise, \
     Attack, BasicIterativeMethod, MadryEtAl
 from dro.utils.attacks import IterativeFastGradientMethod, RandomizedFastGradientMethod
+from dro.staib.attacks import FastDistributionallyRobustMethod, \
+    FrankWolfeDistributionallyRobustMethod
 from cleverhans.utils_keras import KerasModelWrapper
 
 
 def generate_attack(attack: Attack, x: tf.Tensor, attack_params):
     """Helper function to generate an attack."""
     if attack_params is not None:
-        return attack.generate(x, **attack_params)
+        x_adv = attack.generate(x, **attack_params)
+        if isinstance(x_adv, tuple):
+            # Some of the attacks, notably those from Staib et al, return a tuple where
+            # the first element is adv_x and the second element is the set of epsilons.
+            # In this case, we discard the epsilons.
+            x_adv = x_adv[0]
     else:
-        return attack.generate(x)
+        x_adv = attack.generate(x)
+    return x_adv
 
 
 def get_attack(flags, model: keras.Model, sess: tf.Session):

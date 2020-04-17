@@ -12,7 +12,8 @@ export LABEL="Mouth_Open"
 export DIR="/projects/grail/jpgard/vggface2"
 export SS=0.025
 export EPOCHS=40
-export MODEL_TYPE="facenet"
+export ADV_MULTIPLIER=0.2
+export MODEL_TYPE="vggface2"
 
 # Usage with FGSM
 python3 scripts/train_cleverhans.py \
@@ -22,7 +23,7 @@ python3 scripts/train_cleverhans.py \
     --epochs $EPOCHS \
     --attack FastGradientMethod \
     --attack_params "{\"eps\": $SS, \"clip_min\": null, \"clip_max\": null}" \
-    --adv_multiplier 0.2 \
+    --adv_multiplier $ADV_MULTIPLIER \
     --anno_dir ${DIR}/anno \
     --model_type $MODEL_TYPE
 
@@ -35,11 +36,11 @@ python3 scripts/train_cleverhans.py \
     --attack IterativeFastGradientMethod \
     --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\":
     null, \"clip_max\": null}" \
-    --adv_multiplier 0.2 \
+    --adv_multiplier $ADV_MULTIPLIER \
     --anno_dir ${DIR}/anno \
-    -model_type $MODEL_TYPE
+    --model_type $MODEL_TYPE
 
-# Usage with Randomized FGSM
+# Usage with Randomized FGSM (truncated normal)
 python3 scripts/train_cleverhans.py \
     --label_name $LABEL \
     --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
@@ -47,9 +48,33 @@ python3 scripts/train_cleverhans.py \
     --epochs $EPOCHS \
     --attack RandomizedFastGradientMethod \
     --attack_params "{\"eps_stddev\": 0.03125, \"clip_min\": null, \"clip_max\": null}" \
-    --adv_multiplier 0.2 \
+    --adv_multiplier $ADV_MULTIPLIER \
     --anno_dir ${DIR}/anno \
-    -model_type $MODEL_TYPE
+    --model_type $MODEL_TYPE
+
+# Usage with Randomized FGSM (beta)
+python3 scripts/train_cleverhans.py \
+    --label_name $LABEL \
+    --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
+    --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
+    --epochs $EPOCHS \
+    --attack RandomizedFastGradientMethodBeta \
+    --attack_params "{\"alpha\": 1, \"beta\": 100, \"clip_min\": null, \"clip_max\": null}" \
+    --adv_multiplier $ADV_MULTIPLIER \
+    --anno_dir ${DIR}/anno \
+    --model_type $MODEL_TYPE
+
+# Usage with Staib et al Fast Distributionally-Robust Method
+python3 scripts/train_cleverhans.py \
+    --label_name $LABEL \
+    --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
+    --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
+    --epochs $EPOCHS \
+    --attack FrankWolfeDistributionallyRobustMethod \
+    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\": null, \"clip_max\": null}" \
+    --adv_multiplier $ADV_MULTIPLIER \
+    --anno_dir ${DIR}/anno \
+    --model_type $MODEL_TYPE
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -59,8 +84,9 @@ from __future__ import unicode_literals
 import tensorflow as tf
 from tensorflow import keras
 import tensorflow.keras.backend as K
+from absl import flags
 
-from cleverhans.compat import flags
+# from cleverhans.compat import flags
 
 from dro.utils.reports import Report
 from dro.utils.training_utils import make_callbacks, get_n_from_file_pattern, \

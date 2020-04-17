@@ -143,6 +143,7 @@ def make_model_uid(flags, is_adversarial=False):
             attack_params = json.loads(flags.attack_params)
             for k, v in sorted(attack_params.items()):
                 model_uid += "-{}{}".format(k[0], str(v))
+            model_uid += "-m{}".format(flags.adv_multiplier)
     if flags.use_dbs:
         model_uid += "dbs"
     if flags.experiment_uid:

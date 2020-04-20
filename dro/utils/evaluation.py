@@ -7,12 +7,32 @@ from dro.utils.training_utils import pred_to_binary, get_model_img_shape_from_fl
 from dro.utils.viz import show_batch
 
 
-def make_pos_and_neg_attr_datasets(flags, write_samples=True):
+def extract_dataset_making_parameters(flags, write_samples: bool):
+    """A helper function to extract a dict of parameters from flags, which can then be 
+    unpacked to make_pos_and_neg_attr_datasets."""
+    make_datasets_parameters = {
+        "anno_fp": flags.anno_fp,
+        "test_dir": flags.test_dir,
+        "label_name": flags.label_name,
+        "slice_attribute_name": flags.slice_attribute_name,
+        "confidence_threshold": flags.confidence_threshold,
+        "img_shape": get_model_img_shape_from_flags(flags),
+        "batch_size": flags.batch_size,
+        "write_samples": write_samples
+    }
+    return make_datasets_parameters
+
+
+def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name, 
+                                   slice_attribute_name,
+                                   confidence_threshold, img_shape, batch_size, 
+                                   write_samples=True
+                                   ):
     """Create a dict of datasets where the keys correspond to the binary attribute,
     and the values are tf.data.Datasets of the (image, label) tuples."""
     # build a labeled dataset from the files
-    annotated_files = get_annotated_data_df(anno_fp=flags.anno_fp,
-                                            test_dir=flags.test_dir)
+    annotated_files = get_annotated_data_df(anno_fp=anno_fp,
+                                            test_dir=test_dir)
     assert len(annotated_files) > 0, "no files detected"
 
     # Create a DataFrame with columns for (filename, label, slice_attribute); the columns
@@ -21,16 +41,16 @@ def make_pos_and_neg_attr_datasets(flags, write_samples=True):
     # prediction by 'Male' attribute).
 
     dset_df = annotated_files.reset_index()[
-        [FILENAME_COLNAME, flags.label_name, flags.slice_attribute_name]]
+        [FILENAME_COLNAME, label_name, slice_attribute_name]]
     dset_df.columns = [FILENAME_COLNAME, LABEL_COLNAME, ATTR_COLNAME]
 
     # Apply thresholding. We want observations which have absolute value greater than some
     # threshold (predictions close to zero have low confidence).
 
     dset_df = apply_thresh(dset_df, LABEL_COLNAME,
-                           flags.confidence_threshold)
+                           confidence_threshold)
     dset_df = apply_thresh(dset_df, ATTR_COLNAME,
-                           flags.confidence_threshold)
+                           confidence_threshold)
 
     dset_df[LABEL_COLNAME] = dset_df[LABEL_COLNAME].apply(pred_to_binary)
     dset_df[ATTR_COLNAME] = dset_df[ATTR_COLNAME].apply(
@@ -41,10 +61,7 @@ def make_pos_and_neg_attr_datasets(flags, write_samples=True):
 
     # Create and preprocess the dataset of examples where ATTR_COLNAME == 1
     preprocessing_kwargs = {"shuffle": False, "repeat_forever": False, "batch_size":
-        flags.batch_size}
-
-    # Fetch the desired shape of the images
-    img_shape = get_model_img_shape_from_flags(flags)
+        batch_size}
 
     dset_attr_pos = ImageDataset(img_shape)
     dset_attr_pos.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 1],
@@ -63,12 +80,12 @@ def make_pos_and_neg_attr_datasets(flags, write_samples=True):
         image_batch, label_batch = next(iter(dset_attr_pos.dataset))
         show_batch(image_batch.numpy(), label_batch.numpy(),
                    fp="./debug/sample_batch_attr{}1-label{}-{}.png".format(
-                       flags.slice_attribute_name, flags.label_name, int(time.time()))
+                       slice_attribute_name, label_name, int(time.time()))
                    )
         image_batch, label_batch = next(iter(dset_attr_neg.dataset))
         show_batch(image_batch.numpy(), label_batch.numpy(),
                    fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
-                       flags.slice_attribute_name, flags.label_name, int(time.time()))
+                       slice_attribute_name, label_name, int(time.time()))
                    )
     return {"1": dset_attr_pos, "0": dset_attr_neg}
 

@@ -26,10 +26,10 @@ def generate_attack(attack: Attack, x: tf.Tensor, attack_params):
     return x_adv
 
 
-def get_attack(flags, model: keras.Model, sess: tf.Session, eval=False):
+def get_attack(attack_name, model: keras.Model, sess: tf.Session, eval=False):
     """Load and instantiate the cleverhans object for the specified attack.
 
-    :param flags: the absl flags.
+    :param attack_name: the name of the attack; from flags.attack_name.
     :param model: the model to wrap for the attack.
     :param sess: the tf.Session to use for the attack.
     :eval: whether the model is being evaluated (instead of trained). If this is the
@@ -37,12 +37,11 @@ def get_attack(flags, model: keras.Model, sess: tf.Session, eval=False):
     fixed epsilon can be used instead of a randomly-distributed epsilon).
     """
     wrap = KerasModelWrapper(model)
-    attack = flags.attack
-    if eval and ("RandomizedFastGradientMethod" in attack):
+    if eval and ("RandomizedFastGradientMethod" in attack_name):
         print("[INFO] using determininstic FGSM to evaluate randomized attack method {}"
-              .format(attack))
-        attack = "FastGradientMethod"
-    return globals()[attack](wrap, sess=sess)
+              .format(attack_name))
+        attack_name = "FastGradientMethod"
+    return globals()[attack_name](wrap, sess=sess)
 
 
 def attack_params_from_flags(flags, override_eps_value: float = None):

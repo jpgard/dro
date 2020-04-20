@@ -135,7 +135,7 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
     # deterministic version of that attack instead.
 
     attack_params = attack_params_from_flags(FLAGS, override_eps_value=epsilon)
-    attack = get_attack(FLAGS, model_base, sess, eval=True)
+    attack = get_attack(FLAGS.attack, model_base, sess, eval=True)
 
     # Define the ops to run for evaluation
     imshape = get_model_img_shape_from_flags(FLAGS)

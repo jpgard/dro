@@ -210,7 +210,7 @@ def mnist_tutorial(label_smoothing=0.1):
         model_base = get_model_from_flags(FLAGS)
 
         # Initialize the attack object
-        attack = get_attack(FLAGS, model_base, sess)
+        attack = get_attack(FLAGS.attack, model_base, sess)
         print("[INFO] using attack {} with params {}".format(FLAGS.attack, attack_params))
         adv_acc_metric = get_adversarial_acc_metric(model_base, attack, attack_params)
 
@@ -257,7 +257,7 @@ def mnist_tutorial(label_smoothing=0.1):
 
         model_adv = get_model_from_flags(FLAGS)
         model_adv(model_adv.input)
-        attack = get_attack(FLAGS, model_adv, sess=sess)
+        attack = get_attack(FLAGS.attack, model_adv, sess=sess)
 
         # Use a loss function based on legitimate and adversarial examples
         adv_loss_adv = get_adversarial_loss(model_adv, attack, attack_params,

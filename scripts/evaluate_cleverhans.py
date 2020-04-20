@@ -41,7 +41,7 @@ do
     echo ""
 done
 
-for LABEL in "Mouth_Open" "Sunglasses" "Male"
+for LABEL in "Mouth_Open" "Sunglasses" "Male" "Eyeglasses"
 do
     for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
     do
@@ -52,27 +52,15 @@ do
         --test_dir ${DIR}/lfw-deepfunneled \
         --label_name $LABEL \
         --slice_attribute_name $SLICE_ATTR \
-        --attack FastGradientMethod \
-        --attack_params "{\"clip_min\": null, \"clip_max\": null}" \
-        --base_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8/${LABEL}bs16e40lr0.01dropout0.8.h5" \
-        --adv_model_ckpt "./training-logs/${LABEL}bs16e40lr0.01dropout0.8-RandomizedFastGradientMethod-cNone-cNone-e0.03125/${LABEL}bs16e40lr0.01dropout0.8-RandomizedFastGradientMethod-cNone-cNone-e0.03125.h5" \
-        --adv_multiplier 0.2 \
+        --attack RandomizedFastGradientMethodBeta \
+        --attack_params "{\"alpha\": 1, \"beta\": 100, \"clip_min\": null, \"clip_max\": null}" \
+        --adv_multiplier $ADV_MULTIPLIER \
         --epochs $EPOCHS \
         --metrics_dir ./metrics \
-        --experiment_uid RandomizedFastGradientMethodEval
+        --model_type $MODEL_TYPE
     done
     echo ""
 done
-
-python3 scripts/evaluate_cleverhans.py \
---anno_fp ${DIR}/lfw_attributes_cleaned.txt \
-    --test_dir ${DIR}/lfw-deepfunneled \
-    --label_name $LABEL \
-    --slice_attribute_name $SLICE_ATTR \
-    --attack RandomizedFastGradientMethodBeta \
-    --epochs $EPOCHS \
-    --attack_params "{\"alpha\": 1, \"beta\": 100, \"clip_min\": null, \"clip_max\": null}" \
-    --adv_multiplier $ADV_MULTIPLIER
 
 """
 
@@ -96,7 +84,8 @@ from dro.utils.flags import define_training_flags, define_eval_flags, \
 from dro.utils.reports import Report
 from dro.utils.cleverhans import get_attack, attack_params_from_flags, \
     get_model_compile_args, generate_attack
-from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID
+from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID, \
+    extract_dataset_making_parameters
 from dro.utils.training_utils import make_model_uid, get_model_img_shape_from_flags
 from dro import keys
 from dro.utils.viz import show_adversarial_resuts
@@ -270,6 +259,10 @@ def main(argv):
         K.set_learning_phase(False)
         return sess
 
+    # A dict of parameters for passing to make_pos_and_neg_attr_datasets
+    make_datasets_parameters = extract_dataset_making_parameters(FLAGS,
+                                                                 write_samples=False)
+
     for attr_val in ("0", "1"):
 
         # Do the evalaution with no epsilon; this only evaluates on the clean data.
@@ -277,12 +270,11 @@ def main(argv):
 
         # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
         # arrays.
-        eval_dset = make_pos_and_neg_attr_datasets(FLAGS, write_samples=False)[
-            attr_val].dataset
-        eval_dset_numpy = tfds.as_numpy(eval_dset)
+        eval_dsets = make_pos_and_neg_attr_datasets(**make_datasets_parameters)
+        eval_dset_numpy = tfds.as_numpy(eval_dsets[attr_val].dataset)
 
         res, _ = evaluate_cleverhans_models_on_dataset(sess, eval_dset_numpy,
-                                                                  epsilon=0.)
+                                                       epsilon=0.)
         for k, v in res.items():
             metric, model, data = k.split("_")
             # Sanity check to ensure only metrics on clean data are returned at this step
@@ -303,9 +295,8 @@ def main(argv):
 
             # Create an iterator which generates (batch_of_x, batch_of_y) tuples of numpy
             # arrays.
-            eval_dset = make_pos_and_neg_attr_datasets(FLAGS, write_samples=False)[
-                attr_val].dataset
-            eval_dset_numpy = tfds.as_numpy(eval_dset)
+            eval_dsets = make_pos_and_neg_attr_datasets(**make_datasets_parameters)
+            eval_dset_numpy = tfds.as_numpy(eval_dsets[attr_val].dataset)
 
             res, sample_batch = evaluate_cleverhans_models_on_dataset(
                 sess, eval_dset_numpy, epsilon=adv_step_size_to_eval)

@@ -64,14 +64,15 @@ python3 scripts/train_cleverhans.py \
     --anno_dir ${DIR}/anno \
     --model_type $MODEL_TYPE
 
-# Usage with Staib et al Fast Distributionally-Robust Method
+# Usage with Staib et al Fast Distributionally-Robust Method. We use 15 iterations and
+set eps_iter to eps / nb_iter*1.5 as in staib et al persistent_epsilons_experiment.py.
 python3 scripts/train_cleverhans.py \
     --label_name $LABEL \
     --test_dir ${DIR}/annotated_partitioned_by_label/test/${LABEL} \
     --train_dir ${DIR}/annotated_partitioned_by_label/train/${LABEL} \
     --epochs $EPOCHS \
     --attack FrankWolfeDistributionallyRobustMethod \
-    --attack_params "{\"eps\": $SS, \"nb_iter\": 8, \"eps_iter\": 0.004, \"clip_min\": null, \"clip_max\": null}" \
+    --attack_params "{\"eps\": 0.025, \"nb_iter\": 15, \"eps_iter\": 0.0025, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier $ADV_MULTIPLIER \
     --anno_dir ${DIR}/anno \
     --model_type $MODEL_TYPE

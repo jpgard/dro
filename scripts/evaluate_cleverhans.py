@@ -63,6 +63,17 @@ do
     done
     echo ""
 done
+
+python3 scripts/evaluate_cleverhans.py \
+--anno_fp ${DIR}/lfw_attributes_cleaned.txt \
+    --test_dir ${DIR}/lfw-deepfunneled \
+    --label_name $LABEL \
+    --slice_attribute_name $SLICE_ATTR \
+    --attack RandomizedFastGradientMethodBeta \
+    --epochs $EPOCHS \
+    --attack_params "{\"alpha\": 1, \"beta\": 100, \"clip_min\": null, \"clip_max\": null}" \
+    --adv_multiplier $ADV_MULTIPLIER
+
 """
 
 from collections import defaultdict, OrderedDict
@@ -131,8 +142,11 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
     load_model_weights_from_flags(model_adv, FLAGS, is_adversarial=True)
 
     # Initialize the attack. The attack is always computed relative to the base model.
+    # If the attack is a randomized method, get_attack(eval=True) will use the
+    # deterministic version of that attack instead.
+
     attack_params = attack_params_from_flags(FLAGS, override_eps_value=epsilon)
-    attack = get_attack(FLAGS, model_base, sess)
+    attack = get_attack(FLAGS, model_base, sess, eval=True)
 
     # Define the ops to run for evaluation
     imshape = get_model_img_shape_from_flags(FLAGS)
@@ -214,6 +228,9 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         y_true.append(batch_y)
 
         batch_index += 1
+        if FLAGS.debug:
+            print("[INFO] running in debug mode")
+            break
 
     print("[INFO] completed inference for {} batches".format(batch_index))
     # Compute the accuracies; this is the mean of a binary "correct/incorrect" vector

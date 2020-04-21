@@ -15,18 +15,18 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 export MODEL_TYPE="facenet"
 
 python3 scripts/verification_analysis.py \
-    --label_name "Mouth_Open" \
-    --epochs 1 \
+    --label_name "" \
     --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
     --test_dir ${DIR}/lfw-deepfunneled \
-    --label_name "Mouth_Open" \
-    --slice_attribute_name "Asian" \
+    --slice_attribute_name "" \
     --attack FastGradientMethod \
     --attack_params "{\"eps\": 0.025, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
     --epochs 1 \
     --metrics_dir ./metrics \
-    --model_type "vggface2"
+    --model_type "vggface2" \
+    --label_names "Mouth_Open" "Sunglasses" "Male" "Eyeglasses" \
+    --slice_attribute_names "Asian" "Black" "Male" "Senior"
 
 """
 import os
@@ -45,12 +45,12 @@ from dro.utils.evaluation import make_pos_and_neg_attr_datasets, \
     extract_dataset_making_parameters
 from keras_vggface.vggface import VGGFace
 from dro.utils.flags import define_training_flags, define_eval_flags, \
-    define_adv_training_flags
-from dro.utils.training_utils import load_model_weights_from_flags, \
-    get_model_from_flags, get_model_img_shape_from_flags
+    define_adv_training_flags, define_verification_analysis_flags
+from dro.utils.training_utils import get_model_from_flags, get_model_img_shape_from_flags
 from dro.utils.cleverhans import get_model_compile_args, get_attack, \
     attack_params_from_flags
 from dro.utils.reports import Report
+from dro.utils.training_utils import make_ckpt_filepath, make_model_uid, make_logdir
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -60,13 +60,7 @@ FLAGS = flags.FLAGS
 define_training_flags()
 define_eval_flags()
 define_adv_training_flags(cleverhans=True)
-
-# LABEL_NAMES = ("Mouth_Open", "Sunglasses", "Male", "Eyeglasses")
-# SLICE_ATTRIBUTE_NAMES = ("Asian", "Black", "Male", "Senior")
-
-
-LABEL_NAMES = ("Mouth_Open", "Sunglasses")
-SLICE_ATTRIBUTE_NAMES = ("Black", "Male")
+define_verification_analysis_flags()
 
 
 def embedding_analysis(dset_generator, model, sess, attack):
@@ -78,6 +72,7 @@ def embedding_analysis(dset_generator, model, sess, attack):
 
     x = tf.compat.v1.placeholder(tf.float32, shape=(None, 224, 224, 3))
     attack_params = attack_params_from_flags(FLAGS)
+    # TODO(jpgard): handle the case of randomized attacks!
     generate_attack_op = attack.generate(x, **attack_params)
 
     for batch_x, _ in dset_generator:
@@ -164,20 +159,27 @@ def main(argv):
         tf.keras.losses.CategoricalCrossentropy(from_logits=False),
         metrics_to_add=None)
 
-    for label_name in LABEL_NAMES:
-        # TODO(jpgard): clear the session here by calling the function used in
-        #  evaluate_cleverhans.py
+    for label_name in FLAGS.label_names:
 
         # Load the trained base classification model and its weights;
         # we need this model in order to compute the adversarial inputs
-
         model_base = get_model_from_flags(FLAGS)
         model_base.compile(**model_compile_args)
-        load_model_weights_from_flags(model_base, FLAGS, is_adversarial=False)
-
+        uid = make_model_uid(label_name=label_name, model_type=FLAGS.model_type,
+                             batch_size=FLAGS.batch_size, epochs=FLAGS.epochs,
+                             learning_rate=FLAGS.learning_rate,
+                             dropout_rate=FLAGS.dropout_rate, attack=FLAGS.attack,
+                             attack_params=FLAGS.attack_params,
+                             adv_multiplier=FLAGS.adv_multiplier,
+                             experiment_uid=FLAGS.experiment_uid,
+                             use_dbs=FLAGS.use_dbs, is_adversarial=False)
+        ckpt_filepath = make_ckpt_filepath(".h5", uid, make_logdir(FLAGS, uid))
+        print("[INFO] loading weights from {}".format(ckpt_filepath))
+        model_base.load_weights(ckpt_filepath)
+        # Get the attack.
         attack = get_attack(FLAGS.attack, model_base, sess)
 
-        for slice_attribute_name in SLICE_ATTRIBUTE_NAMES:
+        for slice_attribute_name in FLAGS.slice_attribute_names:
 
             # Make the datasets for both values of the binary attribute
             dataset_params = extract_dataset_making_parameters(
@@ -264,6 +266,7 @@ def main(argv):
         del model_base
 
     report.to_csv(FLAGS.metrics_dir)
+
 
 if __name__ == "__main__":
     app.run(main)

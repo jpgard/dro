@@ -29,6 +29,7 @@ python3 scripts/verification_analysis.py \
     --model_type "vggface2"
 
 """
+import os
 from absl import flags, app
 
 import tensorflow as tf
@@ -60,8 +61,15 @@ define_training_flags()
 define_eval_flags()
 define_adv_training_flags(cleverhans=True)
 
+# LABEL_NAMES = ("Mouth_Open", "Sunglasses", "Male", "Eyeglasses")
+# SLICE_ATTRIBUTE_NAMES = ("Asian", "Black", "Male", "Senior")
 
-def embedding_analysis(dset_generator, model, sess, attack, n_batches=1):
+
+LABEL_NAMES = ("Mouth_Open", "Sunglasses")
+SLICE_ATTRIBUTE_NAMES = ("Black", "Male")
+
+
+def embedding_analysis(dset_generator, model, sess, attack):
     """Utility function to get the embeddings on clean and perturbed inputs,
     using generate_attack_op."""
     embeddings_clean = list()
@@ -82,8 +90,11 @@ def embedding_analysis(dset_generator, model, sess, attack, n_batches=1):
         embeddings_clean.append(x_embed)
         embeddings_adv.append(x_adv_embed_base)
         batch_index += 1
-        if batch_index == n_batches:
-            return np.concatenate(embeddings_clean), np.concatenate(embeddings_adv)
+        if FLAGS.debug:
+            print("[INFO] running in debug mode")
+            break
+    print("processed {} batches".format(batch_index))
+    return np.concatenate(embeddings_clean), np.concatenate(embeddings_adv)
 
 
 def compute_perturbation_l2_distance(embeddings_clean, embeddings_adv):
@@ -104,12 +115,31 @@ def compute_perturbation_cosine_distance(embeddings_clean, embeddings_adv):
     return np.array(cosine_distances)
 
 
-# LABEL_NAMES = ("Mouth_Open", "Sunglasses", "Male", "Eyeglasses")
-# SLICE_ATTRIBUTE_NAMES = ("Asian", "Black", "Male", "Senior")
-
-
-LABEL_NAMES = ("Mouth_Open",)
-SLICE_ATTRIBUTE_NAMES = ("Black", "Male")
+def plot_histograms(data_group_0: np.array, data_group_1: np.array,
+                    slice_attribute_name, attack_name, label_name, filename,
+                    metric_name, nbins=50):
+    test_result = ks_2samp(data_group_0, data_group_1)
+    fig, axs = plt.subplots(nrows=2, ncols=1, sharex=True)
+    axs[0].hist(data_group_0, nbins)
+    axs[0].axvline(np.median(data_group_0), color="red", linestyle="--")
+    axs[0].set_title("%s == 0" % slice_attribute_name)
+    axs[1].hist(data_group_1, nbins)
+    axs[1].axvline(np.median(data_group_1), color="red", linestyle="--")
+    axs[1].set_title("%s == 1" % slice_attribute_name)
+    fig.suptitle(
+        "{metric} Embedding Shifts Under Adversarial Perturbation\n"
+        "Attack {attack} With Model for {label}\nK-S Test Statistic {ks} (p={p})".format(
+            metric=metric_name,
+            attack=attack_name,
+            label=label_name,
+            ks=round(test_result.statistic, 1),
+            p=round(test_result.pvalue, 4)))
+    fig.tight_layout(rect=[0, 0.03, 1, 0.8])  # [left, bottom, right, top]
+    fig.set_size_inches(6, 4)
+    print("[INFO] saving figure to {}".format(filename))
+    fig.savefig(filename, dpi=100)
+    plt.cla()
+    return
 
 
 def main(argv):
@@ -178,11 +208,6 @@ def main(argv):
                     embeddings_clean, embeddings_adv)
                 cosine_distances[attr_val] = perturbation_cosine_dist
                 median_cosine_perturbation_dist = np.median(perturbation_cosine_dist)
-                print(
-                    "mean cosine distance for attribute group {slice}=={val}: {c}".format(
-                        slice=slice_attribute_name, val=attr_val,
-                        c=median_cosine_perturbation_dist
-                    ))
 
                 report.add_result(
                     {"label_name": label_name,
@@ -221,10 +246,24 @@ def main(argv):
                  "value": ks_2samp(l2_distances["0"], l2_distances["1"]).pvalue,
                  }
             )
+            l2_filename = "-".join([label_name, slice_attribute_name, "l2"]) + ".png"
+            plot_histograms(l2_distances["0"], l2_distances["1"],
+                            slice_attribute_name=slice_attribute_name,
+                            attack_name=FLAGS.attack, label_name=label_name,
+                            metric_name="L2 Distance",
+                            filename=os.path.join("./img", l2_filename))
 
+            cosine_filename = "-".join([label_name, slice_attribute_name, "cos"]) + ".png"
+            plot_histograms(cosine_distances["0"], cosine_distances["1"],
+                            slice_attribute_name=slice_attribute_name,
+                            attack_name=FLAGS.attack, label_name=label_name,
+                            metric_name="Cosine Distance",
+                            filename=os.path.join("./img", cosine_filename))
+        # Delete the model before proceeding to the next one, to ensure the weights do
+        # not carry over.
         del model_base
-    report.to_csv(FLAGS.metrics_dir)
 
+    report.to_csv(FLAGS.metrics_dir)
 
 if __name__ == "__main__":
     app.run(main)

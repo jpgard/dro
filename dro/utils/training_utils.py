@@ -102,12 +102,18 @@ def make_ckpt_filepath():
     pass
 
 
-def make_ckpt_filepath_from_flags(flags, is_adversarial: bool, ext: str = ".h5"):
-    """A utility function to make the checkpoint filepath frmo a set of flags."""
+def make_ckpt_filepath(ext, uid, logdir):
+    """Make the checkpoint filepath for a model."""
     assert ext.startswith("."), "provide a valid extension"
+    return os.path.join(logdir, uid + ext)
+
+
+def make_ckpt_filepath_from_flags(flags, is_adversarial: bool, ext: str = ".h5"):
+    """A utility function to make the checkpoint filepath from a set of flags."""
     uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
     logdir = make_logdir(flags, uid)
-    return os.path.join(logdir, uid + ext)
+    ckpt_filepath = make_ckpt_filepath(ext=ext, uid=uid, logdir=logdir)
+    return ckpt_filepath
 
 
 def make_callbacks(flags, is_adversarial: bool):

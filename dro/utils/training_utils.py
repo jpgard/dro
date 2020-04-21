@@ -132,28 +132,44 @@ def make_callbacks(flags, is_adversarial: bool):
     return [tensorboard_callback, csv_callback, ckpt_callback]
 
 
-def make_model_uid_from_flags(flags, is_adversarial=False):
-    """Create a unique identifier for the model."""
+def make_model_uid(label_name: str, model_type: str, batch_size: int, epochs: int,
+                   learning_rate: float, dropout_rate: float, attack: str,
+                   attack_params: str, adv_multiplier: float, experiment_uid: str,
+                   use_dbs: bool, is_adversarial: bool):
+    """Create a unique identifier for the model specified by the attributes."""
     model_uid = """{label}-{model}-bs{bs}e{epochs}lr{lr}dropout{dr}""".format(
-        label=flags.label_name,
-        model=flags.model_type,
-        bs=flags.batch_size,
-        epochs=flags.epochs,
-        lr=flags.learning_rate,
-        dr=flags.dropout_rate
+        label=label_name,
+        model=model_type,
+        bs=batch_size,
+        epochs=epochs,
+        lr=learning_rate,
+        dr=dropout_rate
     )
     if is_adversarial:
-        model_uid += "-" + flags.attack
-        if flags.attack_params is not None:
-            attack_params = json.loads(flags.attack_params)
+        model_uid += "-" + attack
+        if attack_params is not None:
+            attack_params = json.loads(attack_params)
             for k, v in sorted(attack_params.items()):
                 model_uid += "-{}{}".format(k[0], str(v))
-            model_uid += "-m{}".format(flags.adv_multiplier)
-    if flags.use_dbs:
+            model_uid += "-m{}".format(adv_multiplier)
+    if use_dbs:
         model_uid += "dbs"
-    if flags.experiment_uid:
-        model_uid += flags.experiment_uid
+    if experiment_uid:
+        model_uid += experiment_uid
     return model_uid
+
+
+def make_model_uid_from_flags(flags, is_adversarial=False):
+    """Utility function to create the unique model identifier from a set of flags."""
+    uid = make_model_uid(label_name=flags.label_name, model_type=flags.model_type,
+                         batch_size=flags.batch_size, epochs=flags.epochs,
+                         learning_rate=flags.learning_rate,
+                         dropout_rate=flags.dropout_rate, attack=flags.attack,
+                         attack_params=flags.attack_params,
+                         adv_multiplier=flags.adv_multiplier,
+                         experiment_uid=flags.experiment_uid, use_dbs=flags.use_dbs,
+                         is_adversarial=is_adversarial)
+    return uid
 
 
 def metrics_to_dict(metrics):

@@ -33,7 +33,6 @@ def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name,
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df(anno_fp=anno_fp,
                                             test_dir=test_dir)
-    assert len(annotated_files) > 0, "no files detected"
 
     # Create a DataFrame with columns for (filename, label, slice_attribute); the columns
     # need to be renamed to generic LABEL_COLNAME and ATTR_COLNAME in order to allow

@@ -55,4 +55,6 @@ def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):
     files_df.dropna(inplace=True)
     files_df.set_index(['person', 'imagenum_str'], inplace=True)
     annotated_files = anno_df.join(files_df, how='inner')
+    assert len(annotated_files) > 0, "no files detected using {} at {}".format(anno_fp,
+                                                                               test_dir)
     return annotated_files

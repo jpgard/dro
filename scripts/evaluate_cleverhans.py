@@ -41,29 +41,25 @@ do
     echo ""
 done
 
-for ADV_MULTIPLIER in 0.2 1.0
+for LABEL in "Mouth_Open" "Sunglasses" "Male" "Eyeglasses"
 do
-    for LABEL in "Mouth_Open" "Sunglasses" "Male" "Eyeglasses"
+    for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
     do
-        for SLICE_ATTR in "Asian" "Senior" "Male" "Black"
-        do
-            echo $LABEL;
-            echo $SLICE_ATTR;
-            echo $ADV_MULTIPLIER;
-            python3 scripts/evaluate_cleverhans.py \
-            --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
-            --test_dir ${DIR}/lfw-deepfunneled \
-            --label_name $LABEL \
-            --slice_attribute_name $SLICE_ATTR \
-            --attack RandomizedFastGradientMethod \
-            --attack_params "{\"eps_stddev\": 0.03125, \"clip_min\": null, \"clip_max\": null}" \
-            --adv_multiplier $ADV_MULTIPLIER \
-            --epochs $EPOCHS \
-            --metrics_dir ./metrics \
-            --model_type $MODEL_TYPE
-        done
-        echo ""
+        echo $LABEL;
+        echo $SLICE_ATTR;
+        python3 scripts/evaluate_cleverhans.py \
+        --anno_fp ${DIR}/lfw_attributes_cleaned.txt \
+        --test_dir ${DIR}/lfw-deepfunneled \
+        --label_name $LABEL \
+        --slice_attribute_name $SLICE_ATTR \
+        --attack FrankWolfeDistributionallyRobustMethod \
+        --attack_params "{\"eps\": 0.025, \"nb_iter\": 15, \"eps_iter\": 0.0025, \"clip_min\": null, \"clip_max\": null}" \
+        --adv_multiplier $ADV_MULTIPLIER \
+        --epochs $EPOCHS \
+        --metrics_dir ./metrics \
+        --model_type $MODEL_TYPE
     done
+    echo ""
 done
 
 """

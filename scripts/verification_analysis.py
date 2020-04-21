@@ -25,8 +25,8 @@ python3 scripts/verification_analysis.py \
     --epochs 40 \
     --metrics_dir ./metrics \
     --model_type "vggface2" \
-    --label_names "Mouth_Open" "Sunglasses" "Male" "Eyeglasses" \
-    --slice_attribute_names "Asian" "Black" "Male" "Senior"
+    --label_names "Mouth_Open Sunglasses Male Eyeglasses" \
+    --slice_attribute_names "Asian Black Male Senior"
 
 """
 import os

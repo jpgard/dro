@@ -38,7 +38,7 @@ import tensorflow as tf
 import pandas as pd
 
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID, \
-    extract_dataset_making_parameters
+    extract_dataset_making_parameters_from_flags
 from dro.utils.training_utils import add_keys_to_dict
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
@@ -121,8 +121,8 @@ def main(argv):
 
         print("[INFO] evaluating base model on clean data")
         # A dict of parameters for passing to make_pos_and_neg_attr_datasets
-        make_datasets_parameters = extract_dataset_making_parameters(FLAGS,
-                                                                     write_samples=True)
+        make_datasets_parameters = extract_dataset_making_parameters_from_flags(FLAGS,
+                                                                                write_samples=True)
         dset = make_pos_and_neg_attr_datasets(**make_datasets_parameters)[attr_val].dataset
         clean_input_metrics_base = get_model_metrics(
             vgg_model_base,

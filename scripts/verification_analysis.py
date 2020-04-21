@@ -38,6 +38,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow_datasets as tfds
 from scipy.spatial.distance import cosine
+from scipy.stats import ks_2samp
 
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, \
     extract_dataset_making_parameters
@@ -48,6 +49,7 @@ from dro.utils.training_utils import load_model_weights_from_flags, \
     get_model_from_flags, get_model_img_shape_from_flags
 from dro.utils.cleverhans import get_model_compile_args, get_attack, \
     attack_params_from_flags
+from dro.utils.reports import Report
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -94,21 +96,20 @@ def compute_perturbation_l2_distance(embeddings_clean, embeddings_adv):
 
 
 def compute_perturbation_cosine_distance(embeddings_clean, embeddings_adv):
-    assert embeddings_clean.shape == embeddings_adv.shape, "embeddings arrays must have " \
-                                                           "" \
-                                                           "" \
-                                                           "same shape"
+    assert embeddings_clean.shape == embeddings_adv.shape, \
+        "embeddings arrays must have same shape"
     n = embeddings_clean.shape[0]
     cosine_distances = [cosine(embeddings_clean[i, :], embeddings_adv[i, :]) for i in
                         range(n)]
     return np.array(cosine_distances)
+
 
 # LABEL_NAMES = ("Mouth_Open", "Sunglasses", "Male", "Eyeglasses")
 # SLICE_ATTRIBUTE_NAMES = ("Asian", "Black", "Male", "Senior")
 
 
 LABEL_NAMES = ("Mouth_Open",)
-SLICE_ATTRIBUTE_NAMES = ("Black",)
+SLICE_ATTRIBUTE_NAMES = ("Black", "Male")
 
 
 def main(argv):
@@ -118,6 +119,8 @@ def main(argv):
     # Set the learning phase to False, following the issue here:
     # https://github.com/tensorflow/cleverhans/issues/1052
     K.set_learning_phase(False)
+
+    report = Report(FLAGS)
 
     img_shape = get_model_img_shape_from_flags(FLAGS)
 
@@ -155,6 +158,9 @@ def main(argv):
             )
             eval_dsets = make_pos_and_neg_attr_datasets(**dataset_params)
 
+            cosine_distances = {}
+            l2_distances = {}
+
             for attr_val in ("0", "1"):
                 eval_dset_numpy = tfds.as_numpy(eval_dsets[attr_val].dataset)
 
@@ -162,24 +168,63 @@ def main(argv):
                     eval_dset_numpy, model, sess, attack)
 
                 # Compare the L2 distances.
-
                 perturbation_l2_dist = compute_perturbation_l2_distance(
                     embeddings_clean, embeddings_adv)
+                l2_distances[attr_val] = perturbation_l2_dist
+                median_l2_perturbation_dist = np.median(perturbation_l2_dist)
 
-                print("mean perturbation distance for attribute group {slice}=={val}: {d}".format(
-                    slice=FLAGS.slice_attribute_name, val=attr_val,
-                    d=perturbation_l2_dist.mean()
-                ))
+                # Compare the cosine distances.
+                perturbation_cosine_dist = compute_perturbation_cosine_distance(
+                    embeddings_clean, embeddings_adv)
+                cosine_distances[attr_val] = perturbation_cosine_dist
+                median_cosine_perturbation_dist = np.median(perturbation_cosine_dist)
+                print(
+                    "mean cosine distance for attribute group {slice}=={val}: {c}".format(
+                        slice=slice_attribute_name, val=attr_val,
+                        c=median_cosine_perturbation_dist
+                    ))
 
-                # Compare the cosine distances
-                perturbation_cosine_dist = compute_perturbation_cosine_distance(embeddings_clean,
-                                                                                embeddings_adv)
-                print("mean cosine distance for attribute group {slice}=={val}: {c}".format(
-                    slice=FLAGS.slice_attribute_name, val=attr_val,
-                    c=perturbation_cosine_dist.mean()
-                ))
+                report.add_result(
+                    {"label_name": label_name,
+                     "slice_attribute_name": slice_attribute_name,
+                     "attr_val": attr_val,
+                     "metric": "median_l2_distance_after_perturbation",
+                     "value": median_l2_perturbation_dist,
+                     }
+                )
+
+                report.add_result(
+                    {"label_name": label_name,
+                     "slice_attribute_name": slice_attribute_name,
+                     "attr_val": attr_val,
+                     "metric": "median_cosine_distance_after_perturbation",
+                     "value": median_cosine_perturbation_dist,
+                     }
+                )
+            # Run a KS test for the cosine distance and the L2 distances
+
+            # Add results for the KS test p-values
+            report.add_result(
+                {"label_name": label_name,
+                 "slice_attribute_name": slice_attribute_name,
+                 "attr_val": np.nan,
+                 "metric": "ks_test_pval_cosine_dist",
+                 "value": ks_2samp(cosine_distances["0"], cosine_distances["1"]).pvalue,
+                 }
+            )
+
+            report.add_result(
+                {"label_name": label_name,
+                 "slice_attribute_name": slice_attribute_name,
+                 "attr_val": np.nan,
+                 "metric": "ks_test_pval_l2_dist",
+                 "value": ks_2samp(l2_distances["0"], l2_distances["1"]).pvalue,
+                 }
+            )
 
         del model_base
+    report.to_csv(FLAGS.metrics_dir)
+
 
 if __name__ == "__main__":
     app.run(main)

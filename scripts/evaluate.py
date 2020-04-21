@@ -46,10 +46,10 @@ from dro.keys import LABEL_INPUT_NAME, ADV_MODEL, BASE_MODEL, \
     ADV_DATA, CLEAN_DATA
 from dro.utils.training_utils import get_train_metrics, \
     add_adversarial_metric_names_to_list
-from dro.utils.training_utils import make_ckpt_filepath
+from dro.utils.training_utils import make_ckpt_filepath_from_flags
 from dro.utils.training_utils import perturb_and_evaluate, \
     make_compiled_reference_model, load_model_weights_from_flags
-from dro.utils.training_utils import make_model_uid
+from dro.utils.training_utils import make_model_uid_from_flags
 from dro.utils.viz import show_adversarial_resuts
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags, get_attack_params
@@ -115,7 +115,7 @@ def main(argv):
             metrics_dict = add_keys_to_dict(
                 metrics_dict, attr_val=attr_val,
                 attr_name=FLAGS.slice_attribute_name,
-                uid=make_model_uid(FLAGS, is_adversarial),
+                uid=make_model_uid_from_flags(FLAGS, is_adversarial),
                 data=data_type)
             return metrics_dict
 
@@ -172,14 +172,14 @@ def main(argv):
             adv_input_metrics_adv = add_keys_to_dict(
                 adv_input_metrics_dict[ADV_MODEL], attr_val=attr_val,
                 attr_name=FLAGS.slice_attribute_name,
-                uid=make_model_uid(FLAGS, is_adversarial=True),
+                uid=make_model_uid_from_flags(FLAGS, is_adversarial=True),
                 adv_step_size=adv_step_size_to_eval,
                 data=ADV_DATA)
 
             adv_input_metrics_base = add_keys_to_dict(
                 adv_input_metrics_dict[BASE_MODEL], attr_val=attr_val,
                 attr_name=FLAGS.slice_attribute_name,
-                uid=make_model_uid(FLAGS, is_adversarial=False),
+                uid=make_model_uid_from_flags(FLAGS, is_adversarial=False),
                 adv_step_size=adv_step_size_to_eval,
                 data=ADV_DATA)
 
@@ -187,7 +187,7 @@ def main(argv):
             # Write the results for 3 batches to a file for inspection.
             adv_image_basename = \
                 "./debug/adv-examples-{uid}-{attr}-{val}-step{ss}".format(
-                    uid=make_model_uid(FLAGS, is_adversarial=True),
+                    uid=make_model_uid_from_flags(FLAGS, is_adversarial=True),
                     attr=FLAGS.slice_attribute_name,
                     val=attr_val,
                     ss=adv_step_size_to_eval
@@ -201,7 +201,7 @@ def main(argv):
                                     batch_size=FLAGS.batch_size)
 
     metrics_csv = "{}-{}-adversarial-analysis.csv".format(
-        make_model_uid(FLAGS, is_adversarial=True), FLAGS.slice_attribute_name)
+        make_model_uid_from_flags(FLAGS, is_adversarial=True), FLAGS.slice_attribute_name)
     metrics_fp = os.path.join(FLAGS.metrics_dir, metrics_csv)
     print("[INFO] writing results to {}".format(metrics_fp))
     pd.DataFrame(metrics_list).to_csv(metrics_fp)

@@ -82,14 +82,14 @@ def get_train_metrics():
 
 def write_test_metrics_to_csv(metrics, flags, is_adversarial):
     """Write a dict of {metric_name: metric_value} pairs to CSV."""
-    uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
     csv_fp = make_csv_name(uid, TEST_MODE)
     print("[INFO] writing test metrics to {}".format(csv_fp))
     pd.DataFrame.from_dict(metrics, orient='index').T.to_csv(csv_fp, index=False)
 
 
 def make_csv_callback(flags, is_adversarial: bool):
-    callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    callback_uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
     csv_fp = make_csv_name(callback_uid, mode=TRAIN_MODE)
     return CSVLogger(csv_fp)
 
@@ -98,16 +98,21 @@ def make_logdir(flags, uid):
     return os.path.join(flags.ckpt_dir, uid)
 
 
-def make_ckpt_filepath(flags, is_adversarial: bool, ext: str = ".h5"):
+def make_ckpt_filepath():
+    pass
+
+
+def make_ckpt_filepath_from_flags(flags, is_adversarial: bool, ext: str = ".h5"):
+    """A utility function to make the checkpoint filepath frmo a set of flags."""
     assert ext.startswith("."), "provide a valid extension"
-    uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
     logdir = make_logdir(flags, uid)
     return os.path.join(logdir, uid + ext)
 
 
 def make_callbacks(flags, is_adversarial: bool):
     """Create the callbacks for training, including properly naming files."""
-    callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    callback_uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
     logdir = make_logdir(flags, callback_uid)
     tensorboard_callback = TensorBoard(
         log_dir=logdir,
@@ -116,7 +121,7 @@ def make_callbacks(flags, is_adversarial: bool):
         write_grads=True,
         update_freq='epoch')
     csv_callback = make_csv_callback(flags, is_adversarial)
-    ckpt_fp = make_ckpt_filepath(flags, is_adversarial=is_adversarial)
+    ckpt_fp = make_ckpt_filepath_from_flags(flags, is_adversarial=is_adversarial)
     ckpt_callback = ModelCheckpoint(ckpt_fp,
                                     monitor='val_loss',
                                     save_best_only=True,
@@ -127,7 +132,7 @@ def make_callbacks(flags, is_adversarial: bool):
     return [tensorboard_callback, csv_callback, ckpt_callback]
 
 
-def make_model_uid(flags, is_adversarial=False):
+def make_model_uid_from_flags(flags, is_adversarial=False):
     """Create a unique identifier for the model."""
     model_uid = """{label}-{model}-bs{bs}e{epochs}lr{lr}dropout{dr}""".format(
         label=flags.label_name,
@@ -259,7 +264,7 @@ def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: boo
         ))
         model.load_weights(filepath=model_ckpt)
     else:  # Load from the default checkpoint path
-        filepath = make_ckpt_filepath(flags, is_adversarial=is_adversarial)
+        filepath = make_ckpt_filepath_from_flags(flags, is_adversarial=is_adversarial)
         print("[INFO] loading weights from{}".format(filepath))
         model.load_weights(filepath=filepath)
     return
@@ -267,7 +272,8 @@ def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: boo
 
 def get_model_from_flags(flags):
     """Parse the flags to construct a model of the appropriate type with the specified
-    architecture and hyperparamters."""
+    architecture and hyperparameters. Note that the results of this function call do
+    not depend on the label type; this only returns a Model object without weights."""
     if flags.model_type == keys.VGGFACE_2_MODEL:
         model = vggface2_model(dropout_rate=flags.dropout_rate,
                                activation=flags.model_activation)

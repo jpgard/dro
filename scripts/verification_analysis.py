@@ -37,11 +37,13 @@ import tensorflow.keras.backend as K
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow_datasets as tfds
+from scipy.spatial.distance import cosine
 
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, \
     extract_dataset_making_parameters
 from keras_vggface.vggface import VGGFace
-from dro.utils.flags import define_training_flags, define_eval_flags, define_adv_training_flags
+from dro.utils.flags import define_training_flags, define_eval_flags, \
+    define_adv_training_flags
 from dro.utils.training_utils import load_model_weights_from_flags, get_model_from_flags
 from dro.utils.cleverhans import get_model_compile_args, get_attack, \
     attack_params_from_flags
@@ -77,7 +79,7 @@ def embedding_analysis(dset_generator, model, sess, attack, n_batches=1):
         embeddings_clean.append(x_embed)
         embeddings_adv.append(x_adv_embed_base)
         batch_index += 1
-        if batch_index >= n_batches:
+        if batch_index - 1 >= n_batches:
             return np.concatenate(embeddings_clean), np.concatenate(embeddings_adv)
 
 
@@ -90,11 +92,10 @@ def compute_perturbation_l2_distance(embeddings_clean, embeddings_adv):
     return perturbation_distance
 
 
-from scipy.spatial.distance import cosine
-
-
 def compute_perturbation_cosine_distance(embeddings_clean, embeddings_adv):
     assert embeddings_clean.shape == embeddings_adv.shape, "embeddings arrays must have " \
+                                                           "" \
+                                                           "" \
                                                            "same shape"
     n = embeddings_clean.shape[0]
     cosine_distances = [cosine(embeddings_clean[i, :], embeddings_adv[i, :]) for i in
@@ -103,10 +104,8 @@ def compute_perturbation_cosine_distance(embeddings_clean, embeddings_adv):
 
 
 def main(argv):
-    # Set up the session, currently just use CPU
-    print("[INFO] setting up CPU-only session; if you want GPU, make sure to configure "
-          "the tf.GPUOptions.")
-    sess = tf.compat.v1.Session()
+    config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
+    sess = tf.compat.v1.Session(config=config)
     keras.backend.set_session(sess)
     # Set the learning phase to False, following the issue here:
     # https://github.com/tensorflow/cleverhans/issues/1052
@@ -115,9 +114,6 @@ def main(argv):
     # Make the datasets for both values of the binary attribute
     dataset_params = extract_dataset_making_parameters(FLAGS, write_samples=False)
     eval_dsets = make_pos_and_neg_attr_datasets(**dataset_params)
-
-    eval_dset_numpy_neg = tfds.as_numpy(eval_dsets["0"].dataset)
-    eval_dset_numpy_pos = tfds.as_numpy(eval_dsets["1"].dataset)
 
     # Load the embedding model; this is used to extract the
     # face embeddings and compute the representation disparities.
@@ -136,38 +132,31 @@ def main(argv):
 
     attack = get_attack(FLAGS.attack, model_base, sess)
 
+    # Do the analysis for both values of the slicing attribute
 
-    embeddings_clean_neg, embeddings_adv_neg = embedding_analysis(
-        eval_dset_numpy_neg, model, sess, attack)
-    embeddings_clean_pos, embeddings_adv_pos = embedding_analysis(
-        eval_dset_numpy_pos, model, sess, attack)
+    for attr_val in ("0", "1"):
+        eval_dset_numpy = tfds.as_numpy(eval_dsets[attr_val].dataset)
 
-    # Compare the L2 distances.
+        embeddings_clean, embeddings_adv = embedding_analysis(
+            eval_dset_numpy, model, sess, attack)
 
-    perturbation_l2_dist_neg = compute_perturbation_l2_distance(
-        embeddings_clean_neg, embeddings_adv_neg)
-    perturbation_l2_dist_pos = compute_perturbation_l2_distance(
-        embeddings_clean_pos, embeddings_adv_pos)
+        # Compare the L2 distances.
 
-    print("mean perturbation distance for negative attribute group: {}".format(
-        perturbation_l2_dist_neg.mean()))
+        perturbation_l2_dist = compute_perturbation_l2_distance(
+            embeddings_clean, embeddings_adv)
 
-    print("mean perturbation distance for positive attribute group: {}".format(
-        perturbation_l2_dist_pos.mean()))
+        print("mean perturbation distance for attribute group {slice}=={val}: {d}".format(
+            slice=FLAGS.slice_attribute_name, val=attr_val,
+            d=perturbation_l2_dist.mean()
+        ))
 
-    # Compare the cosine distances
-    print("mean cosine distance for negative attribute group: {}".format(
-        compute_perturbation_cosine_distance(embeddings_clean_neg,
-                                             embeddings_adv_neg
-                                             ).mean()
-    ))
+        # Compare the cosine distances
+        perturbation_cosine_dist = compute_perturbation_cosine_distance(embeddings_clean,
+                                                                        embeddings_adv)
+        print("mean cosine distance for attribute group {slice}=={val}: {c}".format(
+            slice=FLAGS.slice_attribute_name, val=attr_val,
+            c=perturbation_cosine_dist.mean()
+        ))
 
-    print("mean cosine distance for positive attribute group: {}".format(
-        compute_perturbation_cosine_distance(embeddings_clean_pos,
-                                             embeddings_adv_pos
-                                             ).mean()
-    ))
-
-
-if __name__ == "__main__":
-    app.run(main)
+    if __name__ == "__main__":
+        app.run(main)

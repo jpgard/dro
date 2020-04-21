@@ -38,7 +38,7 @@ import tensorflow as tf
 from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
 from dro.utils.training_utils import make_callbacks, \
-    write_test_metrics_to_csv, get_train_metrics, make_model_uid, \
+    write_test_metrics_to_csv, get_train_metrics, make_model_uid_from_flags, \
     add_adversarial_metric_names_to_list, get_n_from_file_pattern, \
     compute_n_train_n_val, \
     steps_per_epoch, load_model_weights_from_flags
@@ -47,7 +47,7 @@ from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_fr
     make_vgg_file_pattern
 from dro.utils.testing import assert_shape_equal, assert_file_exists
 from dro.datasets.dbs import LabeledBatchGenerator
-from dro.utils.training_utils import make_ckpt_filepath
+from dro.utils.training_utils import make_ckpt_filepath_from_flags
 from dro.utils.flags import define_training_flags, define_adv_training_flags, \
     get_attack_params
 
@@ -176,9 +176,9 @@ def main(argv):
         steps_per_val_epoch = 1
 
     train_ds.write_sample_batch("./debug/sample-batch-train-{}.png".format(
-        make_model_uid(FLAGS)))
+        make_model_uid_from_flags(FLAGS)))
     test_ds.write_sample_batch("./debug/sample-batch-test-label{}.png".format(
-        make_model_uid(FLAGS)))
+        make_model_uid_from_flags(FLAGS)))
 
     # The metrics to optimize during training
     train_metrics_dict = get_train_metrics()

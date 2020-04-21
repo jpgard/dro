@@ -52,8 +52,8 @@ do
         --test_dir ${DIR}/lfw-deepfunneled \
         --label_name $LABEL \
         --slice_attribute_name $SLICE_ATTR \
-        --attack RandomizedFastGradientMethodBeta \
-        --attack_params "{\"alpha\": 1, \"beta\": 100, \"clip_min\": null, \"clip_max\": null}" \
+        --attack FrankWolfeDistributionallyRobustMethod \
+        --attack_params "{\"eps\": 0.025, \"nb_iter\": 15, \"eps_iter\": 0.0025, \"clip_min\": null, \"clip_max\": null}" \
         --adv_multiplier $ADV_MULTIPLIER \
         --epochs $EPOCHS \
         --metrics_dir ./metrics \
@@ -85,8 +85,8 @@ from dro.utils.reports import Report
 from dro.utils.cleverhans import get_attack, attack_params_from_flags, \
     get_model_compile_args, generate_attack
 from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID, \
-    extract_dataset_making_parameters
-from dro.utils.training_utils import make_model_uid, get_model_img_shape_from_flags
+    extract_dataset_making_parameters_from_flags
+from dro.utils.training_utils import make_model_uid_from_flags, get_model_img_shape_from_flags
 from dro import keys
 from dro.utils.viz import show_adversarial_resuts
 
@@ -260,8 +260,8 @@ def main(argv):
         return sess
 
     # A dict of parameters for passing to make_pos_and_neg_attr_datasets
-    make_datasets_parameters = extract_dataset_making_parameters(FLAGS,
-                                                                 write_samples=False)
+    make_datasets_parameters = extract_dataset_making_parameters_from_flags(FLAGS,
+                                                                            write_samples=False)
 
     for attr_val in ("0", "1"):
 
@@ -316,7 +316,7 @@ def main(argv):
                                     })
             adv_image_basename = \
                 "./debug/adv-examples-{uid}-{attr}-{val}-{attack}step{ss}".format(
-                    uid=make_model_uid(FLAGS, is_adversarial=True),
+                    uid=make_model_uid_from_flags(FLAGS, is_adversarial=True),
                     attr=FLAGS.slice_attribute_name,
                     val=attr_val,
                     attack=FLAGS.attack,

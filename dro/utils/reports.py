@@ -2,7 +2,7 @@ import os.path as osp
 import pandas as pd
 
 from dro import keys
-from dro.utils.training_utils import make_model_uid
+from dro.utils.training_utils import make_model_uid_from_flags
 
 
 def _dict_to_row(d):
@@ -14,14 +14,12 @@ class Report:
         self.results_list = list()
         # Set is_adversarial=True when generating the model_uid so that the adversarial
         # parameters (attack type, epsilon, etc) will be recorded in the uid.
-        self.uid = make_model_uid(flags, is_adversarial=True)
+        self.uid = make_model_uid_from_flags(flags, is_adversarial=True)
         self.metric = keys.ACC  # the name of the metric being recorded
         self.results = None
 
     def add_result(self, result: dict):
         """Record the results of an experiment."""
-        # Check for duplicates; while this is not strictly a problem, it is almost
-        # definitely a mistake if duplicate results are being added.
         result_row = _dict_to_row(result)
         if self.results is None:  # case: this is first entry; initialize the dataframe
             self.results = result_row

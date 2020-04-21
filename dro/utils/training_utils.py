@@ -82,14 +82,14 @@ def get_train_metrics():
 
 def write_test_metrics_to_csv(metrics, flags, is_adversarial):
     """Write a dict of {metric_name: metric_value} pairs to CSV."""
-    uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
     csv_fp = make_csv_name(uid, TEST_MODE)
     print("[INFO] writing test metrics to {}".format(csv_fp))
     pd.DataFrame.from_dict(metrics, orient='index').T.to_csv(csv_fp, index=False)
 
 
 def make_csv_callback(flags, is_adversarial: bool):
-    callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    callback_uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
     csv_fp = make_csv_name(callback_uid, mode=TRAIN_MODE)
     return CSVLogger(csv_fp)
 
@@ -98,16 +98,27 @@ def make_logdir(flags, uid):
     return os.path.join(flags.ckpt_dir, uid)
 
 
-def make_ckpt_filepath(flags, is_adversarial: bool, ext: str = ".h5"):
+def make_ckpt_filepath():
+    pass
+
+
+def make_ckpt_filepath(ext, uid, logdir):
+    """Make the checkpoint filepath for a model."""
     assert ext.startswith("."), "provide a valid extension"
-    uid = make_model_uid(flags, is_adversarial=is_adversarial)
-    logdir = make_logdir(flags, uid)
     return os.path.join(logdir, uid + ext)
+
+
+def make_ckpt_filepath_from_flags(flags, is_adversarial: bool, ext: str = ".h5"):
+    """A utility function to make the checkpoint filepath from a set of flags."""
+    uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
+    logdir = make_logdir(flags, uid)
+    ckpt_filepath = make_ckpt_filepath(ext=ext, uid=uid, logdir=logdir)
+    return ckpt_filepath
 
 
 def make_callbacks(flags, is_adversarial: bool):
     """Create the callbacks for training, including properly naming files."""
-    callback_uid = make_model_uid(flags, is_adversarial=is_adversarial)
+    callback_uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
     logdir = make_logdir(flags, callback_uid)
     tensorboard_callback = TensorBoard(
         log_dir=logdir,
@@ -116,7 +127,7 @@ def make_callbacks(flags, is_adversarial: bool):
         write_grads=True,
         update_freq='epoch')
     csv_callback = make_csv_callback(flags, is_adversarial)
-    ckpt_fp = make_ckpt_filepath(flags, is_adversarial=is_adversarial)
+    ckpt_fp = make_ckpt_filepath_from_flags(flags, is_adversarial=is_adversarial)
     ckpt_callback = ModelCheckpoint(ckpt_fp,
                                     monitor='val_loss',
                                     save_best_only=True,
@@ -127,28 +138,44 @@ def make_callbacks(flags, is_adversarial: bool):
     return [tensorboard_callback, csv_callback, ckpt_callback]
 
 
-def make_model_uid(flags, is_adversarial=False):
-    """Create a unique identifier for the model."""
+def make_model_uid(label_name: str, model_type: str, batch_size: int, epochs: int,
+                   learning_rate: float, dropout_rate: float, attack: str,
+                   attack_params: str, adv_multiplier: float, experiment_uid: str,
+                   use_dbs: bool, is_adversarial: bool):
+    """Create a unique identifier for the model specified by the attributes."""
     model_uid = """{label}-{model}-bs{bs}e{epochs}lr{lr}dropout{dr}""".format(
-        label=flags.label_name,
-        model=flags.model_type,
-        bs=flags.batch_size,
-        epochs=flags.epochs,
-        lr=flags.learning_rate,
-        dr=flags.dropout_rate
+        label=label_name,
+        model=model_type,
+        bs=batch_size,
+        epochs=epochs,
+        lr=learning_rate,
+        dr=dropout_rate
     )
     if is_adversarial:
-        model_uid += "-" + flags.attack
-        if flags.attack_params is not None:
-            attack_params = json.loads(flags.attack_params)
+        model_uid += "-" + attack
+        if attack_params is not None:
+            attack_params = json.loads(attack_params)
             for k, v in sorted(attack_params.items()):
                 model_uid += "-{}{}".format(k[0], str(v))
-            model_uid += "-m{}".format(flags.adv_multiplier)
-    if flags.use_dbs:
+            model_uid += "-m{}".format(adv_multiplier)
+    if use_dbs:
         model_uid += "dbs"
-    if flags.experiment_uid:
-        model_uid += flags.experiment_uid
+    if experiment_uid:
+        model_uid += experiment_uid
     return model_uid
+
+
+def make_model_uid_from_flags(flags, is_adversarial=False):
+    """Utility function to create the unique model identifier from a set of flags."""
+    uid = make_model_uid(label_name=flags.label_name, model_type=flags.model_type,
+                         batch_size=flags.batch_size, epochs=flags.epochs,
+                         learning_rate=flags.learning_rate,
+                         dropout_rate=flags.dropout_rate, attack=flags.attack,
+                         attack_params=flags.attack_params,
+                         adv_multiplier=flags.adv_multiplier,
+                         experiment_uid=flags.experiment_uid, use_dbs=flags.use_dbs,
+                         is_adversarial=is_adversarial)
+    return uid
 
 
 def metrics_to_dict(metrics):
@@ -259,7 +286,7 @@ def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: boo
         ))
         model.load_weights(filepath=model_ckpt)
     else:  # Load from the default checkpoint path
-        filepath = make_ckpt_filepath(flags, is_adversarial=is_adversarial)
+        filepath = make_ckpt_filepath_from_flags(flags, is_adversarial=is_adversarial)
         print("[INFO] loading weights from{}".format(filepath))
         model.load_weights(filepath=filepath)
     return
@@ -267,7 +294,8 @@ def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: boo
 
 def get_model_from_flags(flags):
     """Parse the flags to construct a model of the appropriate type with the specified
-    architecture and hyperparamters."""
+    architecture and hyperparameters. Note that the results of this function call do
+    not depend on the label type; this only returns a Model object without weights."""
     if flags.model_type == keys.VGGFACE_2_MODEL:
         model = vggface2_model(dropout_rate=flags.dropout_rate,
                                activation=flags.model_activation)

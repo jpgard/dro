@@ -7,25 +7,39 @@ from dro.utils.training_utils import pred_to_binary, get_model_img_shape_from_fl
 from dro.utils.viz import show_batch
 
 
-def extract_dataset_making_parameters(flags, write_samples: bool):
-    """A helper function to extract a dict of parameters from flags, which can then be 
-    unpacked to make_pos_and_neg_attr_datasets."""
+def extract_dataset_making_parameters(
+        anno_fp: str, test_dir: str, label_name: str,
+        slice_attribute_name: str, confidence_threshold: float, img_shape: tuple,
+        batch_size: int, write_samples: bool):
     make_datasets_parameters = {
-        "anno_fp": flags.anno_fp,
-        "test_dir": flags.test_dir,
-        "label_name": flags.label_name,
-        "slice_attribute_name": flags.slice_attribute_name,
-        "confidence_threshold": flags.confidence_threshold,
-        "img_shape": get_model_img_shape_from_flags(flags),
-        "batch_size": flags.batch_size,
+        "anno_fp": anno_fp,
+        "test_dir": test_dir,
+        "label_name": label_name,
+        "slice_attribute_name": slice_attribute_name,
+        "confidence_threshold": confidence_threshold,
+        "img_shape": img_shape,
+        "batch_size": batch_size,
         "write_samples": write_samples
     }
     return make_datasets_parameters
 
 
-def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name, 
+def extract_dataset_making_parameters_from_flags(flags, write_samples: bool):
+    """A helper function to extract a dict of parameters from flags, which can then be 
+    unpacked to make_pos_and_neg_attr_datasets."""
+    make_datasets_parameters = extract_dataset_making_parameters(
+        anno_fp=flags.anno_fp, test_dir=flags.test_dir, label_name=flags.label_name,
+        slice_attribute_name=flags.slice_attribute_name,
+        confidence_threshold=flags.confidence_threshold,
+        img_shape=get_model_img_shape_from_flags(flags),
+        batch_size=flags.batch_size, write_samples=flags.write_samples
+    )
+    return make_datasets_parameters
+
+
+def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name,
                                    slice_attribute_name,
-                                   confidence_threshold, img_shape, batch_size, 
+                                   confidence_threshold, img_shape, batch_size,
                                    write_samples=True
                                    ):
     """Create a dict of datasets where the keys correspond to the binary attribute,
@@ -33,7 +47,6 @@ def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name,
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df(anno_fp=anno_fp,
                                             test_dir=test_dir)
-    assert len(annotated_files) > 0, "no files detected"
 
     # Create a DataFrame with columns for (filename, label, slice_attribute); the columns
     # need to be renamed to generic LABEL_COLNAME and ATTR_COLNAME in order to allow

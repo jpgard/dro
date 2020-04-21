@@ -138,3 +138,11 @@ def define_dbs_flags():
     flags.DEFINE_integer("batch_size", 16, "Size of batches to generate")
     flags.mark_flags_as_required(["embeddings_fp", "eigen_vals_fp", "eigen_vecs_fp"])
     return
+
+
+def define_verification_analysis_flags():
+    """Define flags for use with the adversarial transfer attack experiments."""
+    flags.DEFINE_spaceseplist("label_names", None, "the list of labels to evaluate")
+    flags.DEFINE_spaceseplist("slice_attribute_names", None, "the list of slice "
+                                                             "attributes to evaluate")
+    return

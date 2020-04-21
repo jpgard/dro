@@ -44,7 +44,8 @@ from dro.utils.evaluation import make_pos_and_neg_attr_datasets, \
 from keras_vggface.vggface import VGGFace
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags
-from dro.utils.training_utils import load_model_weights_from_flags, get_model_from_flags
+from dro.utils.training_utils import load_model_weights_from_flags, \
+    get_model_from_flags, get_model_img_shape_from_flags
 from dro.utils.cleverhans import get_model_compile_args, get_attack, \
     attack_params_from_flags
 
@@ -79,7 +80,7 @@ def embedding_analysis(dset_generator, model, sess, attack, n_batches=1):
         embeddings_clean.append(x_embed)
         embeddings_adv.append(x_adv_embed_base)
         batch_index += 1
-        if batch_index - 1 >= n_batches:
+        if batch_index == n_batches:
             return np.concatenate(embeddings_clean), np.concatenate(embeddings_adv)
 
 
@@ -102,6 +103,13 @@ def compute_perturbation_cosine_distance(embeddings_clean, embeddings_adv):
                         range(n)]
     return np.array(cosine_distances)
 
+# LABEL_NAMES = ("Mouth_Open", "Sunglasses", "Male", "Eyeglasses")
+# SLICE_ATTRIBUTE_NAMES = ("Asian", "Black", "Male", "Senior")
+
+
+LABEL_NAMES = ("Mouth_Open",)
+SLICE_ATTRIBUTE_NAMES = ("Black",)
+
 
 def main(argv):
     config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
@@ -111,52 +119,67 @@ def main(argv):
     # https://github.com/tensorflow/cleverhans/issues/1052
     K.set_learning_phase(False)
 
-    # Make the datasets for both values of the binary attribute
-    dataset_params = extract_dataset_making_parameters(FLAGS, write_samples=False)
-    eval_dsets = make_pos_and_neg_attr_datasets(**dataset_params)
+    img_shape = get_model_img_shape_from_flags(FLAGS)
 
-    # Load the embedding model; this is used to extract the
+    # Load the pretrained embedding model; this is used to extract the
     # face embeddings and compute the representation disparities.
-    model = VGGFace(include_top=False, input_shape=(224, 224, 3), pooling='avg')
+    model = VGGFace(include_top=False, input_shape=(img_shape[0], img_shape[1], 3),
+                    pooling='avg')
 
-    # Load the trained base model and its weights;
-    # we need the full model with classification layers
-    # in order to compute the adversarial inputs
     model_compile_args = get_model_compile_args(
         FLAGS,
         tf.keras.losses.CategoricalCrossentropy(from_logits=False),
         metrics_to_add=None)
-    model_base = get_model_from_flags(FLAGS)
-    model_base.compile(**model_compile_args)
-    load_model_weights_from_flags(model_base, FLAGS, is_adversarial=False)
 
-    attack = get_attack(FLAGS.attack, model_base, sess)
+    for label_name in LABEL_NAMES:
+        # TODO(jpgard): clear the session here by calling the function used in
+        #  evaluate_cleverhans.py
 
-    # Do the analysis for both values of the slicing attribute
+        # Load the trained base classification model and its weights;
+        # we need this model in order to compute the adversarial inputs
 
-    for attr_val in ("0", "1"):
-        eval_dset_numpy = tfds.as_numpy(eval_dsets[attr_val].dataset)
+        model_base = get_model_from_flags(FLAGS)
+        model_base.compile(**model_compile_args)
+        load_model_weights_from_flags(model_base, FLAGS, is_adversarial=False)
 
-        embeddings_clean, embeddings_adv = embedding_analysis(
-            eval_dset_numpy, model, sess, attack)
+        attack = get_attack(FLAGS.attack, model_base, sess)
 
-        # Compare the L2 distances.
+        for slice_attribute_name in SLICE_ATTRIBUTE_NAMES:
 
-        perturbation_l2_dist = compute_perturbation_l2_distance(
-            embeddings_clean, embeddings_adv)
+            # Make the datasets for both values of the binary attribute
+            dataset_params = extract_dataset_making_parameters(
+                anno_fp=FLAGS.anno_fp, test_dir=FLAGS.test_dir, label_name=label_name,
+                slice_attribute_name=slice_attribute_name,
+                confidence_threshold=FLAGS.confidence_threshold, img_shape=img_shape,
+                batch_size=FLAGS.batch_size, write_samples=False
+            )
+            eval_dsets = make_pos_and_neg_attr_datasets(**dataset_params)
 
-        print("mean perturbation distance for attribute group {slice}=={val}: {d}".format(
-            slice=FLAGS.slice_attribute_name, val=attr_val,
-            d=perturbation_l2_dist.mean()
-        ))
+            for attr_val in ("0", "1"):
+                eval_dset_numpy = tfds.as_numpy(eval_dsets[attr_val].dataset)
 
-        # Compare the cosine distances
-        perturbation_cosine_dist = compute_perturbation_cosine_distance(embeddings_clean,
-                                                                        embeddings_adv)
-        print("mean cosine distance for attribute group {slice}=={val}: {c}".format(
-            slice=FLAGS.slice_attribute_name, val=attr_val,
-            c=perturbation_cosine_dist.mean()
-        ))
+                embeddings_clean, embeddings_adv = embedding_analysis(
+                    eval_dset_numpy, model, sess, attack)
 
-    if __name__ == "__main__":
-        app.run(main)
+                # Compare the L2 distances.
+
+                perturbation_l2_dist = compute_perturbation_l2_distance(
+                    embeddings_clean, embeddings_adv)
+
+                print("mean perturbation distance for attribute group {slice}=={val}: {d}".format(
+                    slice=FLAGS.slice_attribute_name, val=attr_val,
+                    d=perturbation_l2_dist.mean()
+                ))
+
+                # Compare the cosine distances
+                perturbation_cosine_dist = compute_perturbation_cosine_distance(embeddings_clean,
+                                                                                embeddings_adv)
+                print("mean cosine distance for attribute group {slice}=={val}: {c}".format(
+                    slice=FLAGS.slice_attribute_name, val=attr_val,
+                    c=perturbation_cosine_dist.mean()
+                ))
+
+        del model_base
+
+if __name__ == "__main__":
+    app.run(main)

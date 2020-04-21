@@ -22,7 +22,7 @@ python3 scripts/verification_analysis.py \
     --attack FastGradientMethod \
     --attack_params "{\"eps\": 0.025, \"clip_min\": null, \"clip_max\": null}" \
     --adv_multiplier 0.2 \
-    --epochs 1 \
+    --epochs 40 \
     --metrics_dir ./metrics \
     --model_type "vggface2" \
     --label_names "Mouth_Open" "Sunglasses" "Male" "Eyeglasses" \
@@ -76,7 +76,6 @@ def embedding_analysis(dset_generator, model, sess, attack):
     generate_attack_op = attack.generate(x, **attack_params)
 
     for batch_x, _ in dset_generator:
-        print("batch %3s" % batch_index)
         # Get the adversarial x
         x_adv = sess.run(generate_attack_op, feed_dict={x: batch_x})
         # Get the embeddings

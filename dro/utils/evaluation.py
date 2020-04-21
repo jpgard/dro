@@ -32,7 +32,7 @@ def extract_dataset_making_parameters_from_flags(flags, write_samples: bool):
         slice_attribute_name=flags.slice_attribute_name,
         confidence_threshold=flags.confidence_threshold,
         img_shape=get_model_img_shape_from_flags(flags),
-        batch_size=flags.batch_size, write_samples=flags.write_samples
+        batch_size=flags.batch_size, write_samples=write_samples
     )
     return make_datasets_parameters
 

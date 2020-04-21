@@ -20,8 +20,6 @@ class Report:
 
     def add_result(self, result: dict):
         """Record the results of an experiment."""
-        # Check for duplicates; while this is not strictly a problem, it is almost
-        # definitely a mistake if duplicate results are being added.
         result_row = _dict_to_row(result)
         if self.results is None:  # case: this is first entry; initialize the dataframe
             self.results = result_row

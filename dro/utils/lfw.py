@@ -5,7 +5,7 @@ from os import path as osp
 import pandas as pd
 
 # Regex used to parse the LFW filenames
-LFW_FILENAME_REGEX = re.compile("(\w+_\w+)_(\d{4})\.jpg")
+LFW_FILENAME_REGEX = re.compile("(\D+)_(\d{4})\.jpg")
 
 LABEL_COLNAME = "label"
 ATTR_COLNAME = "attr"
@@ -58,3 +58,6 @@ def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):
     assert len(annotated_files) > 0, "no files detected using {} at {}".format(anno_fp,
                                                                                test_dir)
     return annotated_files
+
+def make_lfw_file_pattern(dirname):
+    return osp.join(dirname, "*/*.jpg")

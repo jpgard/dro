@@ -115,10 +115,6 @@ def evaluate_cleverhans_models_on_dataset(sess: tf.Session, eval_dset_numpy, eps
         metrics, and sample_batch is a dict of elements corresponding to a sample batch
         (by default, the first batch is used).
     """
-    # TODO(jpgard): this function should either evaluate on clean data, or on perturbed
-    #  data. There is never a need to run on both. That needlessly duplicates
-    #  computation. Especially for the facenet models, this also incurs the huge cost
-    #  of loading the model into memory over and over.
 
     model_compile_args = get_model_compile_args(
         FLAGS, tf.keras.losses.CategoricalCrossentropy(from_logits=False),

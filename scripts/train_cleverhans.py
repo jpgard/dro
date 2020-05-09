@@ -185,13 +185,8 @@ def mnist_tutorial(label_smoothing=0.1):
                                                  n_test=n_test,
                                                  ))
 
-    if not FLAGS.debug:
-        steps_per_train_epoch = steps_per_epoch(n_train, FLAGS.batch_size)
-        steps_per_val_epoch = steps_per_epoch(n_val, FLAGS.batch_size)
-    else:
-        print("[INFO] running in debug mode")
-        steps_per_train_epoch = 1
-        steps_per_val_epoch = 1
+    steps_per_train_epoch = steps_per_epoch(n_train, FLAGS.batch_size, FLAGS.debug)
+    steps_per_val_epoch = steps_per_epoch(n_val, FLAGS.batch_size, FLAGS.debug)
 
     attack_params = attack_params_from_flags(FLAGS)
 

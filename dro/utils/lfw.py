@@ -72,10 +72,24 @@ def make_lfw_file_pattern(dirname):
 def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name,
                                    slice_attribute_name,
                                    confidence_threshold, img_shape, batch_size,
-                                   write_samples=True
+                                   write_samples=True, include_union=False
                                    ):
     """Create a dict of datasets where the keys correspond to the binary attribute,
-    and the values are tf.data.Datasets of the (image, label) tuples."""
+    and the values are tf.data.Datasets of the (image, label) tuples.
+
+    :param anno_fp: TODO
+    :param test_dir: TODO
+    :param label_name: TODO
+    :param slice_attribute_name: TODO
+    :param confidence_threshold: TODO
+    :param img_shape: TODO
+    :param batch_size: TODO
+    :param write_samples: TODO
+    :param include_union: if True, the results dict includes a third key, "union",
+    corresponding to all of the data in both the positive and negative class. This
+    allows for evaluation on the same high-confidence subset of minority + majority
+    inputs instead of using the entire dataset.
+    """
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df(anno_fp=anno_fp,
                                             test_dir=test_dir)
@@ -119,6 +133,15 @@ def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name,
                                  label_name=LABEL_COLNAME)
     dset_attr_neg.preprocess(**preprocessing_kwargs)
 
+    results_dict = {"1": dset_attr_pos, "0": dset_attr_neg}
+
+    if include_union:
+        # Add an entry for the union
+        dset_union = ImageDataset(img_shape)
+        dset_union.from_dataframe(dset_df, label_name=LABEL_COLNAME)
+        dset_union.preprocess(**preprocessing_kwargs)
+        results_dict["01"] = dset_union
+
     if write_samples:
         print("[INFO] writing sample batches; this will fail if eager execution is "
               "disabled")
@@ -132,4 +155,4 @@ def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name,
                    fp="./debug/sample_batch_attr{}0-label{}-{}.png".format(
                        slice_attribute_name, label_name, int(time.time()))
                    )
-    return {"1": dset_attr_pos, "0": dset_attr_neg}
+    return results_dict

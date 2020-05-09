@@ -166,13 +166,9 @@ def main(argv):
                                                  n_val=n_val,
                                                  n_test=n_test,
                                                  ))
-    if not FLAGS.debug:
-        steps_per_train_epoch = steps_per_epoch(n_train, FLAGS.batch_size)
-        steps_per_val_epoch = steps_per_epoch(n_val, FLAGS.batch_size)
-    else:
-        print("[INFO] running in debug mode")
-        steps_per_train_epoch = 1
-        steps_per_val_epoch = 1
+
+    steps_per_train_epoch = steps_per_epoch(n_train, FLAGS.batch_size, FLAGS.debug)
+    steps_per_val_epoch = steps_per_epoch(n_val, FLAGS.batch_size, FLAGS.debug)
 
     train_ds.write_sample_batch("./debug/sample-batch-train-{}.png".format(
         make_model_uid_from_flags(FLAGS)))

@@ -268,8 +268,12 @@ def compute_n_train_n_val(n_train_val, val_frac):
     return n_train, n_val
 
 
-def steps_per_epoch(n, batch_size):
-    return n // batch_size
+def steps_per_epoch(n, batch_size, debug=False):
+    if debug:
+        print("[INFO] running in debug mode")
+        return 1
+    else:
+        return n // batch_size
 
 
 def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: bool):

@@ -33,8 +33,8 @@ from dro.datasets import ImageDataset
 from dro.utils.lfw import make_lfw_file_pattern
 from dro.utils.testing import assert_shape_equal, assert_file_exists
 from dro.datasets.dbs import LabeledBatchGenerator
-from dro.utils.flags import define_training_flags, define_adv_training_flags, \
-    get_attack_params
+from dro.utils.flags import define_training_flags
+from dro.
 
 tf.compat.v1.enable_eager_execution()
 
@@ -55,6 +55,13 @@ def main(argv):
 
     train_ds = ImageDataset()
     test_ds = ImageDataset()
+
+    model_compile_args = get_model_compile_args(
+        FLAGS, tf.keras.losses.CategoricalCrossentropy(from_logits=False),
+        metrics_to_add=None)
+    model_base = get_model_from_flags(FLAGS)
+    model_base.compile(**model_compile_args)
+
     return
 
 if __name__ == "__main__":

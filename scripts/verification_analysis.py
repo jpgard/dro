@@ -46,8 +46,9 @@ from dro.utils.lfw import make_pos_and_neg_attr_datasets
 from keras_vggface.vggface import VGGFace
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags, define_verification_analysis_flags
-from dro.utils.training_utils import get_model_from_flags, get_model_img_shape_from_flags
-from dro.utils.cleverhans import get_model_compile_args, get_attack, \
+from dro.utils.training_utils import get_model_from_flags, get_model_img_shape_from_flags, \
+    get_model_compile_args
+from dro.utils.cleverhans import get_attack, \
     attack_params_from_flags
 from dro.utils.reports import Report
 from dro.utils.training_utils import make_ckpt_filepath, make_model_uid, make_logdir

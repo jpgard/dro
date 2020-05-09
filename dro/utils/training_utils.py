@@ -317,3 +317,17 @@ def get_model_img_shape_from_flags(flags):
     else:
         raise NotImplementedError("The model type {} has not been implemented".format(
             flags.model_type))
+
+
+def get_model_compile_args(flags, loss, metrics_to_add: list = None):
+    """Builds a dict of the args for compilation containing callables for loss and
+    metrics. Accuracy is added by default; other metrics can also be added."""
+    metrics = ['accuracy']
+    if metrics_to_add:
+        metrics.extend(metrics_to_add)
+    compile_args = {
+        "optimizer": tf.keras.optimizers.SGD(learning_rate=flags.learning_rate),
+        "loss": loss,
+        "metrics": metrics
+    }
+    return compile_args

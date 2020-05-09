@@ -2,13 +2,7 @@ import json
 import tensorflow as tf
 from tensorflow import keras
 
-from cleverhans.utils_keras import KerasModelWrapper
-from cleverhans.attacks import FastGradientMethod, ProjectedGradientDescent, Noise, \
-    Attack, BasicIterativeMethod, MadryEtAl
-from dro.utils.attacks import IterativeFastGradientMethod, \
-    RandomizedFastGradientMethod, RandomizedFastGradientMethodBeta
-from dro.staib.attacks import FastDistributionallyRobustMethod, \
-    FrankWolfeDistributionallyRobustMethod
+from cleverhans.attacks import Attack
 from cleverhans.utils_keras import KerasModelWrapper
 
 
@@ -60,20 +54,6 @@ def attack_params_from_flags(flags, override_eps_value: float = None):
     if override_eps_value is not None:
         attack_params["eps"] = override_eps_value
     return attack_params
-
-
-def get_model_compile_args(flags, loss, metrics_to_add: list = None):
-    """Builds a dict of the args for compilation containing callables for loss and
-    metrics. Accuracy is added by default; other metrics can also be added."""
-    metrics = ['accuracy']
-    if metrics_to_add:
-        metrics.extend(metrics_to_add)
-    compile_args = {
-        "optimizer": tf.keras.optimizers.SGD(learning_rate=flags.learning_rate),
-        "loss": loss,
-        "metrics": metrics
-    }
-    return compile_args
 
 
 def get_adversarial_acc_metric(model: keras.Model, attack: Attack, attack_params: dict):

@@ -47,7 +47,6 @@ from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_fr
     make_vgg_file_pattern
 from dro.utils.testing import assert_shape_equal, assert_file_exists
 from dro.datasets.dbs import LabeledBatchGenerator
-from dro.utils.training_utils import make_ckpt_filepath_from_flags
 from dro.utils.flags import define_training_flags, define_adv_training_flags, \
     get_attack_params
 
@@ -227,7 +226,6 @@ def main(argv):
         label_keys=[LABEL_INPUT_NAME],
         adv_config=adv_config
     )
-    import ipdb;ipdb.set_trace()
 
     adv_model.compile(**model_compile_args)
 

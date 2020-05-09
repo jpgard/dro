@@ -1,10 +1,10 @@
 def extract_dataset_making_parameters(
-        anno_fp: str, test_dir: str, label_name: str,
+        anno_fp: str, data_dir: str, label_name: str,
         slice_attribute_name: str, confidence_threshold: float, img_shape: tuple,
         batch_size: int, write_samples: bool):
     make_datasets_parameters = {
         "anno_fp": anno_fp,
-        "test_dir": test_dir,
+        "data_dir": data_dir,
         "label_name": label_name,
         "slice_attribute_name": slice_attribute_name,
         "confidence_threshold": confidence_threshold,

@@ -151,11 +151,15 @@ def define_verification_analysis_flags():
     return
 
 
-def extract_dataset_making_parameters_from_flags(flags, write_samples: bool):
+def extract_dataset_making_parameters_from_flags(flags, write_samples: bool, test=True):
     """A helper function to extract a dict of parameters from flags, which can then be
     unpacked to make_pos_and_neg_attr_datasets."""
+    if test:
+        data_dir = flags.test_dir
+    else:
+        data_dir = flags.train_dir
     make_datasets_parameters = extract_dataset_making_parameters(
-        anno_fp=flags.anno_fp, test_dir=flags.test_dir, label_name=flags.label_name,
+        anno_fp=flags.anno_fp, data_dir=data_dir, label_name=flags.label_name,
         slice_attribute_name=flags.slice_attribute_name,
         confidence_threshold=flags.confidence_threshold,
         img_shape=get_model_img_shape_from_flags(flags),

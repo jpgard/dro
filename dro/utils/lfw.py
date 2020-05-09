@@ -69,30 +69,38 @@ def make_lfw_file_pattern(dirname):
     return osp.join(dirname, "*/*.jpg")
 
 
-def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name,
+def make_pos_and_neg_attr_datasets(anno_fp, data_dir, label_name,
                                    slice_attribute_name,
                                    confidence_threshold, img_shape, batch_size,
-                                   write_samples=True, include_union=False
+                                   write_samples=True, include_union=False,
+                                   preprocessing_kwargs=None
                                    ):
     """Create a dict of datasets where the keys correspond to the binary attribute,
     and the values are tf.data.Datasets of the (image, label) tuples.
 
-    :param anno_fp: TODO
-    :param test_dir: TODO
-    :param label_name: TODO
-    :param slice_attribute_name: TODO
-    :param confidence_threshold: TODO
-    :param img_shape: TODO
-    :param batch_size: TODO
-    :param write_samples: TODO
+    :param anno_fp: Path to the lfw annotations file.
+    :param data_dir: Path to the directory containing the data.
+    :param label_name: The target label for prediction. Should match a column name in
+    the annotated data at anno_fp.
+    :param slice_attribute_name: The sensitive attribute label for partitioning the
+    data. Should match a column name in the annotated data at anno_fp.
+    :param confidence_threshold: The confidence threshold to use; observations with
+    confidence lower than this will be discarded and not included in the dataset.
+    :param img_shape: Desired shape of the images; if necessary they will be resized
+    during preprocessing.
+    :param batch_size: Batch size.
+    :param write_samples: If true, write a sample batch.
     :param include_union: if True, the results dict includes a third key, "union",
     corresponding to all of the data in both the positive and negative class. This
     allows for evaluation on the same high-confidence subset of minority + majority
     inputs instead of using the entire dataset.
     """
+    if preprocessing_kwargs is None:
+        preprocessing_kwargs = {"shuffle": False, "repeat_forever": False, "batch_size":
+            batch_size}
     # build a labeled dataset from the files
     annotated_files = get_annotated_data_df(anno_fp=anno_fp,
-                                            test_dir=test_dir)
+                                            test_dir=data_dir)
 
     # Create a DataFrame with columns for (filename, label, slice_attribute); the columns
     # need to be renamed to generic LABEL_COLNAME and ATTR_COLNAME in order to allow
@@ -119,9 +127,6 @@ def make_pos_and_neg_attr_datasets(anno_fp, test_dir, label_name,
     # attribute.
 
     # Create and preprocess the dataset of examples where ATTR_COLNAME == 1
-    preprocessing_kwargs = {"shuffle": False, "repeat_forever": False, "batch_size":
-        batch_size}
-
     dset_attr_pos = ImageDataset(img_shape)
     dset_attr_pos.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 1],
                                  label_name=LABEL_COLNAME)

@@ -145,7 +145,7 @@ def make_pos_and_neg_attr_datasets(anno_fp, data_dir, label_name,
         dset_union = ImageDataset(img_shape)
         dset_union.from_dataframe(dset_df, label_name=LABEL_COLNAME)
         dset_union.preprocess(**preprocessing_kwargs)
-        results_dict["01"] = dset_union
+        results_dict["0U1"] = dset_union
 
     if write_samples:
         print("[INFO] writing sample batches; this will fail if eager execution is "

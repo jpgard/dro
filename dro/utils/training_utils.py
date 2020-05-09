@@ -14,13 +14,11 @@ from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, Model
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
 
-from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME, ACC, CE
+from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME, ACC, CE, TEST_MODE, TRAIN_MODE
 from dro import keys
 from dro.training.models import vggface2_model, facenet_model
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
-TEST_MODE = "test"
-TRAIN_MODE = "train"
 
 
 def get_batch(dataset_iterator, batch_size):

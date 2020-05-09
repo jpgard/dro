@@ -37,8 +37,8 @@ import os
 import tensorflow as tf
 import pandas as pd
 
-from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID, \
-    extract_dataset_making_parameters_from_flags
+from dro.utils.evaluation import ADV_STEP_SIZE_GRID
+from dro.utils.lfw import make_pos_and_neg_attr_datasets
 from dro.utils.training_utils import add_keys_to_dict
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
@@ -52,7 +52,8 @@ from dro.utils.training_utils import perturb_and_evaluate, \
 from dro.utils.training_utils import make_model_uid_from_flags
 from dro.utils.viz import show_adversarial_resuts
 from dro.utils.flags import define_training_flags, define_eval_flags, \
-    define_adv_training_flags, get_attack_params
+    define_adv_training_flags, get_attack_params, \
+    extract_dataset_making_parameters_from_flags
 
 tf.compat.v1.enable_eager_execution()
 

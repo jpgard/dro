@@ -41,8 +41,8 @@ import tensorflow_datasets as tfds
 from scipy.spatial.distance import cosine
 from scipy.stats import ks_2samp
 
-from dro.utils.evaluation import make_pos_and_neg_attr_datasets, \
-    extract_dataset_making_parameters
+from dro.utils.evaluation import extract_dataset_making_parameters
+from dro.utils.lfw import make_pos_and_neg_attr_datasets
 from keras_vggface.vggface import VGGFace
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags, define_verification_analysis_flags

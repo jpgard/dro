@@ -80,12 +80,12 @@ from cleverhans.compat import flags
 from dro.utils.training_utils import load_model_weights_from_flags, \
     get_model_from_flags
 from dro.utils.flags import define_training_flags, define_eval_flags, \
-    define_adv_training_flags
+    define_adv_training_flags, extract_dataset_making_parameters_from_flags
 from dro.utils.reports import Report
 from dro.utils.cleverhans import get_attack, attack_params_from_flags, \
     get_model_compile_args, generate_attack
-from dro.utils.evaluation import make_pos_and_neg_attr_datasets, ADV_STEP_SIZE_GRID, \
-    extract_dataset_making_parameters_from_flags
+from dro.utils.evaluation import ADV_STEP_SIZE_GRID
+from dro.utils.lfw import make_pos_and_neg_attr_datasets
 from dro.utils.training_utils import make_model_uid_from_flags, get_model_img_shape_from_flags
 from dro import keys
 from dro.utils.viz import show_adversarial_resuts

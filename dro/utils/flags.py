@@ -1,6 +1,9 @@
 from absl import flags
 import json
 
+from dro.utils.evaluation import extract_dataset_making_parameters
+from dro.utils.training_utils import get_model_img_shape_from_flags
+
 FLAGS = flags.FLAGS
 
 
@@ -146,3 +149,16 @@ def define_verification_analysis_flags():
     flags.DEFINE_spaceseplist("slice_attribute_names", None, "the list of slice "
                                                              "attributes to evaluate")
     return
+
+
+def extract_dataset_making_parameters_from_flags(flags, write_samples: bool):
+    """A helper function to extract a dict of parameters from flags, which can then be
+    unpacked to make_pos_and_neg_attr_datasets."""
+    make_datasets_parameters = extract_dataset_making_parameters(
+        anno_fp=flags.anno_fp, test_dir=flags.test_dir, label_name=flags.label_name,
+        slice_attribute_name=flags.slice_attribute_name,
+        confidence_threshold=flags.confidence_threshold,
+        img_shape=get_model_img_shape_from_flags(flags),
+        batch_size=flags.batch_size, write_samples=write_samples
+    )
+    return make_datasets_parameters

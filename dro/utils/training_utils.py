@@ -167,12 +167,21 @@ def make_model_uid(label_name: str, model_type: str, batch_size: int, epochs: in
 
 def make_model_uid_from_flags(flags, is_adversarial=False):
     """Utility function to create the unique model identifier from a set of flags."""
+
+    if is_adversarial:
+        attack = flags.attack
+        attack_params = flags.attack_params
+        adv_multiplier = flags.adv_multiplier
+    else:
+        attack = None
+        attack_params = None
+        adv_multiplier = None
     uid = make_model_uid(label_name=flags.label_name, model_type=flags.model_type,
                          batch_size=flags.batch_size, epochs=flags.epochs,
                          learning_rate=flags.learning_rate,
-                         dropout_rate=flags.dropout_rate, attack=flags.attack,
-                         attack_params=flags.attack_params,
-                         adv_multiplier=flags.adv_multiplier,
+                         dropout_rate=flags.dropout_rate, attack=attack,
+                         attack_params=attack_params,
+                         adv_multiplier=adv_multiplier,
                          experiment_uid=flags.experiment_uid, use_dbs=flags.use_dbs,
                          is_adversarial=is_adversarial)
     return uid

@@ -1,7 +1,7 @@
 from absl import flags
 import json
 
-from dro.utils.evaluation import extract_dataset_making_parameters
+from dro.utils.lfw import extract_dataset_making_parameters
 from dro.utils.training_utils import get_model_img_shape_from_flags
 
 FLAGS = flags.FLAGS

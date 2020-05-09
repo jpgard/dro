@@ -161,3 +161,20 @@ def make_pos_and_neg_attr_datasets(anno_fp, data_dir, label_name,
                        slice_attribute_name, label_name, int(time.time()))
                    )
     return results_dict
+
+
+def extract_dataset_making_parameters(
+        anno_fp: str, data_dir: str, label_name: str,
+        slice_attribute_name: str, confidence_threshold: float, img_shape: tuple,
+        batch_size: int, write_samples: bool):
+    make_datasets_parameters = {
+        "anno_fp": anno_fp,
+        "data_dir": data_dir,
+        "label_name": label_name,
+        "slice_attribute_name": slice_attribute_name,
+        "confidence_threshold": confidence_threshold,
+        "img_shape": img_shape,
+        "batch_size": batch_size,
+        "write_samples": write_samples
+    }
+    return make_datasets_parameters

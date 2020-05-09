@@ -41,8 +41,8 @@ import tensorflow_datasets as tfds
 from scipy.spatial.distance import cosine
 from scipy.stats import ks_2samp
 
-from dro.utils.evaluation import extract_dataset_making_parameters
-from dro.utils.lfw import make_pos_and_neg_attr_datasets
+from dro.utils.lfw import make_pos_and_neg_attr_datasets, \
+    extract_dataset_making_parameters
 from keras_vggface.vggface import VGGFace
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags, define_verification_analysis_flags
@@ -183,7 +183,7 @@ def main(argv):
 
             # Make the datasets for both values of the binary attribute
             dataset_params = extract_dataset_making_parameters(
-                anno_fp=FLAGS.anno_fp, test_dir=FLAGS.test_dir, label_name=label_name,
+                anno_fp=FLAGS.anno_fp, data_dir=FLAGS.test_dir, label_name=label_name,
                 slice_attribute_name=slice_attribute_name,
                 confidence_threshold=FLAGS.confidence_threshold, img_shape=img_shape,
                 batch_size=FLAGS.batch_size, write_samples=False

@@ -7,13 +7,19 @@ This script uses the basic keras interface for VGGFace/OpenFace, instead of clev
 due to its simplicity and because cleverhans is not being used.
 
 Usage:
+export DIR="/projects/grail/jpgard/lfw/lfw-deepfunneled-traintest"
+export ANNO_FP="/projects/grail/jpgard/lfw/lfw_attributes_cleaned.txt"
+
+export LABEL="Smiling"
+export SLICE="Male"
+
 python3 scripts/train_and_evaluate_lfw_by_attribute.py \
     --train_dir $DIR/train/ \
     --test_dir $DIR/test/ \
     --model_type vggface2 \
-    --label_name Male \
-    --slice_attribute_name Black \
-    --anno_fp /Users/jpgard/Documents/research/lfw/lfw_attributes_cleaned.txt \
+    --label_name $LABEL \
+    --slice_attribute_name $SLICE \
+    --anno_fp $ANNO_FP \
     --epochs 40 \
     --train_base \
     --experiment_uid dset_union
@@ -22,9 +28,9 @@ python3 scripts/train_and_evaluate_lfw_by_attribute.py \
     --train_dir $DIR/train/ \
     --test_dir $DIR/test/ \
     --model_type vggface2 \
-    --label_name Male \
-    --slice_attribute_name Black \
-    --anno_fp /Users/jpgard/Documents/research/lfw/lfw_attributes_cleaned.txt \
+    --label_name $LABEL \
+    --slice_attribute_name $SLICE \
+    --anno_fp $ANNO_FP \
     --epochs 40 \
     --train_minority \
     --experiment_uid dset_minority
@@ -33,9 +39,9 @@ python3 scripts/train_and_evaluate_lfw_by_attribute.py \
     --train_dir $DIR/train/ \
     --test_dir $DIR/test/ \
     --model_type vggface2 \
-    --label_name Male \
-    --slice_attribute_name Black \
-    --anno_fp /Users/jpgard/Documents/research/lfw/lfw_attributes_cleaned.txt \
+    --label_name $LABEL \
+    --slice_attribute_name $SLICE \
+    --anno_fp $ANNO_FP \
     --epochs 40 \
     --train_majority \
     --experiment_uid dset_majority
@@ -145,7 +151,8 @@ def main(argv):
     # Write the results to csv.
     uid = make_model_uid_from_flags(FLAGS, is_adversarial=False)
     uid += "train_subset{}".format(train_subset_key)
-    csv_fp = os.path.join(FLAGS.metrics_dir, uid + "-lfw-subsets.csv")
+    csv_fp = os.path.join(FLAGS.metrics_dir, uid + "-lfw-{}-subsets.csv".format(
+        FLAGS.slice_attribute_name))
     print("[INFO] writing results to %s" % csv_fp)
     # Coerce dtype to object; otherwise string format of "01" is changed to numeric "1"
     pd.DataFrame(all_test_metrics, dtype=object).to_csv(csv_fp, index=False)

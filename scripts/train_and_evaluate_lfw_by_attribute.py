@@ -12,6 +12,7 @@ export ANNO_FP="/projects/grail/jpgard/lfw/lfw_attributes_cleaned.txt"
 
 export LABEL="Smiling"
 export SLICE="Male"
+export TRAIN_SUBSET="0U1"
 
 python3 scripts/train_and_evaluate_lfw_by_attribute.py \
     --train_dir $DIR/train/ \
@@ -20,36 +21,14 @@ python3 scripts/train_and_evaluate_lfw_by_attribute.py \
     --label_name $LABEL \
     --slice_attribute_name $SLICE \
     --anno_fp $ANNO_FP \
-    --epochs 40 \
-    --train_base \
-    --experiment_uid dset_union
+    --epochs 25 \
+    --train_subset $TRAIN_SUBSET \
+    --experiment_uid $TRAIN_SUBSET
 
-python3 scripts/train_and_evaluate_lfw_by_attribute.py \
-    --train_dir $DIR/train/ \
-    --test_dir $DIR/test/ \
-    --model_type vggface2 \
-    --label_name $LABEL \
-    --slice_attribute_name $SLICE \
-    --anno_fp $ANNO_FP \
-    --epochs 40 \
-    --train_minority \
-    --experiment_uid dset_minority
-
-python3 scripts/train_and_evaluate_lfw_by_attribute.py \
-    --train_dir $DIR/train/ \
-    --test_dir $DIR/test/ \
-    --model_type vggface2 \
-    --label_name $LABEL \
-    --slice_attribute_name $SLICE \
-    --anno_fp $ANNO_FP \
-    --epochs 40 \
-    --train_majority \
-    --experiment_uid dset_majority
 """
 
 from collections import OrderedDict
 import os
-import numpy as np
 
 from absl import app
 from absl import flags
@@ -58,7 +37,7 @@ import tensorflow as tf
 
 from dro import keys
 from dro.utils.training_utils import make_callbacks, get_train_metrics, \
-    make_model_uid_from_flags, make_csv_name
+    make_model_uid_from_flags
 
 from dro.utils.lfw import make_pos_and_neg_attr_datasets
 from dro.utils.flags import define_training_flags, define_eval_flags, \
@@ -73,10 +52,10 @@ FLAGS = flags.FLAGS
 define_training_flags()
 define_eval_flags()
 
-flags.DEFINE_bool("train_majority", False, "whether to train the model on the majority "
-                                           "dataset only")
-flags.DEFINE_bool("train_minority", False, "whether to train the model on the minority "
-                                           "dataset only")
+flags.DEFINE_enum("train_subset", None, ["0U1", "0", "1"], 
+                  "The values of the sensitive attribute to use for training; 0U1 "
+                  "indicates the union of groups 0 and 1.")
+
 
 # Suppress the annoying tensorflow 1.x deprecation warnings
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -123,17 +102,7 @@ def main(argv):
     model = get_model_from_flags(FLAGS)
     model.compile(**model_compile_args)
     model.summary()
-
-    if FLAGS.train_base:
-        train_subset_key = "0U1"
-    elif FLAGS.train_minority:
-        train_subset_key = "1"
-    elif FLAGS.train_majority:
-        train_subset_key = "0"
-    else:
-        raise ValueError("Must specify either train_base, train_minority, "
-                         "or train_majority flags.")
-    train_dset = dsets_train[train_subset_key].dataset
+    train_dset = dsets_train[FLAGS.train_subset].dataset
     model.fit_generator(train_dset, callbacks=callbacks, **train_args)
     # After training completes, do the evaluation
     all_test_metrics = list()
@@ -142,7 +111,7 @@ def main(argv):
         assert len(train_metrics_names) == len(test_metrics)
         test_metrics_dict = OrderedDict(zip(train_metrics_names, test_metrics))
         test_metrics_dict["test_subset"] = test_subset_key
-        test_metrics_dict["train_subset"] = train_subset_key
+        test_metrics_dict["train_subset"] = FLAGS.train_subset
         test_metrics_dict["sensitive_attribute"] = FLAGS.slice_attribute_name
         test_metrics_dict["label"] = FLAGS.label_name
         print("test metrics for subset {}:".format(test_subset_key))
@@ -150,7 +119,7 @@ def main(argv):
         all_test_metrics.append(test_metrics_dict)
     # Write the results to csv.
     uid = make_model_uid_from_flags(FLAGS, is_adversarial=False)
-    uid += "train_subset{}".format(train_subset_key)
+    uid += "train_subset{}".format(FLAGS.train_subset)
     csv_fp = os.path.join(FLAGS.metrics_dir, uid + "-lfw-{}-subsets.csv".format(
         FLAGS.slice_attribute_name))
     print("[INFO] writing results to %s" % csv_fp)

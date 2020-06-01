@@ -57,7 +57,8 @@ def get_label(file_path):
     return tf.strings.to_number(label, out_type=tf.int32)
 
 
-def process_path(file_path, output_shape=DEFAULT_IMG_OUTPUT_SHAPE, random_crop=True, labels=True):
+def process_path(file_path, output_shape=DEFAULT_IMG_OUTPUT_SHAPE, random_crop=True,
+                 labels=True):
     """Load the data from file_path. Returns either an (x,y) tuplesif
     labels=True, or just x if label=False."""
     # load the raw data from the file as a string
@@ -101,9 +102,9 @@ def decode_img(img, output_shape, random_crop=True):
     return img
 
 
-def preprocess_path_label_tuple(x, y, output_shape):
+def preprocess_path_label_tuple(x, y, output_shape, random_crop):
     """Create an (image, one_hot_label) tuple from a (path, label) tuple."""
-    x = process_path(x, labels=False, output_shape=output_shape)
+    x = process_path(x, labels=False, output_shape=output_shape, random_crop=random_crop)
     y = tf.one_hot(y, 2)
     return x, y
 
@@ -118,7 +119,7 @@ class ImageDataset(ABC):
 
     def from_files(self, file_pattern: str, shuffle: bool,
                    random_seed=SHUFFLE_RANDOM_SEED, labels: bool = True,
-                   random_crop: bool =True):
+                   random_crop: bool = True):
         """Create a dataset from the filepattern and preprocess into (x,y) tuples,
         or just x if labels==False."""
         self.dataset = tf.data.Dataset.list_files(file_pattern, shuffle=shuffle,
@@ -128,7 +129,7 @@ class ImageDataset(ABC):
         self.dataset = self.dataset.map(_process_path, num_parallel_calls=AUTOTUNE)
         return
 
-    def from_dataframe(self, df: pd.DataFrame, label_name: str):
+    def from_dataframe(self, df: pd.DataFrame, label_name: str, random_crop: bool = True):
         """Create a dataset from a pd.DataFrame."""
         # dset starts as tuples of (filename, label_as_float)
         dset = tf.data.Dataset.from_tensor_slices(
@@ -136,20 +137,23 @@ class ImageDataset(ABC):
              df[label_name].values.astype(np.int))
         )
         _preprocess_path_label_tuple = partial(preprocess_path_label_tuple,
-                                               output_shape=self.img_shape)
+                                               output_shape=self.img_shape,
+                                               random_crop=random_crop)
         self.dataset = dset.map(_preprocess_path_label_tuple)
         return
 
-    def from_filename_and_label_generator(self, generator):
+    def from_filename_and_label_generator(self, generator, random_crop: bool = True,
+                                          x_dtype=tf.string, y_dtype=tf.int32):
         """
         Create a dataset from a generator which produces (filename, y) tuples.
 
         :param generator: callable which yields (filename, y) tuples.
         """
         dset = tf.data.Dataset.from_generator(generator,
-                                              output_types=(tf.string, tf.int32))
+                                              output_types=(x_dtype, y_dtype))
         _preprocess_path_label_tuple = partial(preprocess_path_label_tuple,
-                                               output_shape=self.img_shape)
+                                               output_shape=self.img_shape,
+                                               random_crop=random_crop)
         self.dataset = dset.map(_preprocess_path_label_tuple)
         return
 

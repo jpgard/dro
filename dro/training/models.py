@@ -66,15 +66,21 @@ def vggface2_model(dropout_rate, input_shape=(224, 224, 3), activation='sigmoid'
     return custom_vgg_model
 
 
-def facenet_model(dropout_rate, activation='sigmoid'):
+def facenet_model(dropout_rate, activation='sigmoid', fc_sizes=FC_SIZES):
+    """
+    Instantiate a facenet model. If fc_sizes is provided, new, trainable layers with
+    the specified number of nodes are added. Otherwise, the facenet model is returned
+    as-is.
+    """
     cwd, _ = osp.split(__file__)
-    facenet_base = load_model(osp.join(cwd, "facenet", "facenet_keras.h5"),
+    facenet = load_model(osp.join(cwd, "facenet", "facenet_keras.h5"),
                               compile=False)
-    for layer in facenet_base.layers:
+    for layer in facenet.layers:
         layer.trainable = False
-    last_layer_name = facenet_base.layers[-1].name
-    custom_facenet_model = add_classification_block(facenet_base, fc_sizes=FC_SIZES,
-                                                    activation=activation,
-                                                    dropout_rate=dropout_rate,
-                                                    last_layer_name=last_layer_name)
-    return custom_facenet_model
+    last_layer_name = facenet.layers[-1].name
+    if fc_sizes:
+        facenet = add_classification_block(facenet, fc_sizes=fc_sizes,
+                                                        activation=activation,
+                                                        dropout_rate=dropout_rate,
+                                                        last_layer_name=last_layer_name)
+    return facenet

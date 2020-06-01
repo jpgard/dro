@@ -10,20 +10,38 @@ Usage:
 export DIR="/projects/grail/jpgard/lfw/lfw-deepfunneled-traintest"
 export ANNO_FP="/projects/grail/jpgard/lfw/lfw_attributes_cleaned.txt"
 
-export LABEL="Smiling"
-export SLICE="Male"
+export GPU_ID="5"
+export CUDA_DEVICE_ORDER="PCI_BUS_ID"
+export CUDA_VISIBLE_DEVICES=$GPU_ID
+
+export TRAIN_SUBSET="0"
+export TRAIN_SUBSET="1"
 export TRAIN_SUBSET="0U1"
 
-python3 scripts/train_and_evaluate_lfw_by_attribute.py \
-    --train_dir $DIR/train/ \
-    --test_dir $DIR/test/ \
-    --model_type vggface2 \
-    --label_name $LABEL \
-    --slice_attribute_name $SLICE \
-    --anno_fp $ANNO_FP \
-    --epochs 25 \
-    --train_subset $TRAIN_SUBSET \
-    --experiment_uid $TRAIN_SUBSET
+# Here we do not iterate over train_subset; jobs are run in parallel over different
+#   train_subsets.
+
+for LABEL in "Male" "No Eyewear" "Smiling" "Heavy Makeup" "Shiny Skin" "Wearing Earrings"
+do
+    for SLICE in "Asian" "Senior" "Male" "Black" "Youth"
+    do
+        echo $SLICE;
+        echo $LABEL;
+        echo $TRAIN_SUBSET;
+        python3 scripts/train_and_evaluate_lfw_by_attribute.py \
+            --train_dir $DIR/train/ \
+            --test_dir $DIR/test/ \
+            --model_type vggface2 \
+            --label_name $LABEL \
+            --slice_attribute_name $SLICE \
+            --anno_fp $ANNO_FP \
+            --epochs 40 \
+            --train_subset $TRAIN_SUBSET \
+            --experiment_uid $TRAIN_SUBSET
+    done
+    echo ""
+done
+
 
 """
 

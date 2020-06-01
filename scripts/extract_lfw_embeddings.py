@@ -3,7 +3,7 @@
 usage:
 python3 scripts/extract_lfw_embeddings.py \
     --label_name None \
-    --train_dir /Users/jpgard/Documents/research/lfw/lfw-deepfunneled-sm-cropped \
+    --train_dir /projects/grail/jpgard/lfw/lfw-deepfunneled-cropped \
     --model_type facenet
 """
 

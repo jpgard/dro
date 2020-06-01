@@ -8,7 +8,7 @@ export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
 # On Labeled Faces in the Wild
-scripts/detect_faces.py \
+python3 scripts/detect_faces.py \
     --img_dir /projects/grail/jpgard/lfw/lfw-deepfunneled \
     --out_dir /projects/grail/jpgard/lfw/lfw-deepfunneled-cropped \
     --filepattern **/*/*.jpg
@@ -69,8 +69,6 @@ def extract_face(filename, required_size=(224, 224)):
         print("exception: {}; skipping {}".format(e, filename))
 
 def main(argv):
-    out_dir = FLAGS.out_dir
-    assert not out_dir.endswith("/"), "specify out_dir without a trailing /"
     filepattern = str(FLAGS.img_dir + FLAGS.filepattern)
     image_ids = glob.glob(filepattern, recursive=True)
     assert len(image_ids) > 0, "no images detected; try checking img_dir and filepattern."

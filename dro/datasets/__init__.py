@@ -57,12 +57,12 @@ def get_label(file_path):
     return tf.strings.to_number(label, out_type=tf.int32)
 
 
-def process_path(file_path, output_shape=DEFAULT_IMG_OUTPUT_SHAPE,  crop=True, labels=True):
+def process_path(file_path, output_shape=DEFAULT_IMG_OUTPUT_SHAPE, random_crop=True, labels=True):
     """Load the data from file_path. Returns either an (x,y) tuplesif
     labels=True, or just x if label=False."""
     # load the raw data from the file as a string
     img = tf.io.read_file(file_path)
-    img = decode_img(img, output_shape, crop=crop)
+    img = decode_img(img, output_shape, random_crop=random_crop)
     if not labels:
         return img
     else:
@@ -82,7 +82,7 @@ def random_crop_and_resize(img):
     return img
 
 
-def decode_img(img, output_shape, crop=True):
+def decode_img(img, output_shape, random_crop=True):
     """
 
     :param img: the encoded image to decode.
@@ -94,7 +94,7 @@ def decode_img(img, output_shape, crop=True):
     img = tf.image.decode_jpeg(img, channels=3)
     # Use `convert_image_dtype` to convert to floats in the [0,1] range.
     img = tf.image.convert_image_dtype(img, tf.float32)
-    if crop:
+    if random_crop:
         img = random_crop_and_resize(img)
     if output_shape != DEFAULT_IMG_OUTPUT_SHAPE:
         img = tf.image.resize_images(img, size=output_shape)
@@ -117,12 +117,14 @@ class ImageDataset(ABC):
         self.img_shape = img_shape
 
     def from_files(self, file_pattern: str, shuffle: bool,
-                   random_seed=SHUFFLE_RANDOM_SEED, labels: bool = True):
+                   random_seed=SHUFFLE_RANDOM_SEED, labels: bool = True,
+                   random_crop: bool =True):
         """Create a dataset from the filepattern and preprocess into (x,y) tuples,
         or just x if labels==False."""
         self.dataset = tf.data.Dataset.list_files(file_pattern, shuffle=shuffle,
                                                   seed=random_seed)
-        _process_path = partial(process_path, labels=labels, output_shape=self.img_shape)
+        _process_path = partial(process_path, labels=labels, output_shape=self.img_shape,
+                                random_crop=random_crop)
         self.dataset = self.dataset.map(_process_path, num_parallel_calls=AUTOTUNE)
         return
 

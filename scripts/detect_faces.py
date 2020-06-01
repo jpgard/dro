@@ -7,15 +7,12 @@ export GPU_ID="4"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
-python3 scripts/detect_faces.py \
---img_dir /projects/grail/jpgard/vggface2/annotated_partitioned_by_label/train/Sunglasses/ \
---out_dir /projects/grail/jpgard/vggface2/annotated_cropped/train \
+# On Labeled Faces in the Wild
+scripts/detect_faces.py \
+    --img_dir /projects/grail/jpgard/lfw/lfw-deepfunneled \
+    --out_dir /projects/grail/jpgard/lfw/lfw-deepfunneled-cropped \
+    --filepattern **/*/*.jpg
 
-
-python3 scripts/detect_faces.py \
---img_dir /projects/grail/jpgard/vggface2/train/ \
---out_dir /projects/grail/jpgard/vggface2/train_cropped \
---filepattern "**[7-9]/*.jpg"
 """
 from absl import app
 from absl import flags
@@ -45,7 +42,6 @@ tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 from PIL import Image
 import re
 
-from dro.utils.vggface import image_uid_from_fp
 
 face_detector = MTCNN()  # the detector to use below, using default weights
 
@@ -79,18 +75,23 @@ def main(argv):
     image_ids = glob.glob(filepattern, recursive=True)
     assert len(image_ids) > 0, "no images detected; try checking img_dir and filepattern."
     N = len(image_ids)
+    exception_count = 0
     for f in image_ids:
         try:
             face_im = extract_face(f)
             if face_im:
-                image_id = image_uid_from_fp(f)
-                out_fp = out_dir + image_id
+                relpath = os.path.relpath(f, FLAGS.img_dir)
+                out_fp = os.path.join(FLAGS.out_dir, relpath)
                 os.makedirs(os.path.dirname(out_fp), exist_ok=True)
                 print("writing to %s" % out_fp)
                 face_im.save(out_fp)
         except ValueError as e:
             print("[WARNING] crop error for {}; skipping".format(f))
             print(e)
+            exception_count += 1
+    print("[INFO] processed {} images to {}; {} exceptions.".format(
+        N, FLAGS.out_dir, exception_count
+    ))
 
 
 

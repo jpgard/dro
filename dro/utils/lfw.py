@@ -35,8 +35,12 @@ def extract_imagenum_from_filename(x):
         return None
 
 
-def apply_thresh(df, colname, thresh: float):
-    return df[abs(df[colname]) >= thresh]
+def apply_thresh(df, colname, thresh: float, use_abs=True):
+    """Apply thresh to df[colname] to filter rows, optionally applying abs() first."""
+    if use_abs:
+        return df[abs(df[colname]) >= thresh]
+    else:
+        return df[df[colname] >= thresh]
 
 
 def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):

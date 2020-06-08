@@ -14,6 +14,10 @@ export GPU_ID="5"
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
+export CUDA_HOME=/usr/local/cuda-10.0
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-10.0/extras/CUPTI/lib64
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-10.0/lib64/
 
 for TRAIN_SUBSET in "0" "1" "0U1"
 do

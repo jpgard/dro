@@ -76,7 +76,7 @@ def random_crop_and_resize(img):
     """Resize to a square image of 256 x 256, then crop to random 224 x 224 x 3 image."""
     if len(img.shape) < 4:  # add a batch dimension if one does not exist
         img = tf.expand_dims(img, axis=0)
-    img = tf.image.resize(img, size=(256, 256), preserve_aspect_ratio=True)
+    img = tf.image.resize_images(img, size=(256, 256), preserve_aspect_ratio=True)
     img = tf.image.resize_with_crop_or_pad(img, target_height=256, target_width=256)
     img = tf.squeeze(img, axis=0)
     img = tf.image.random_crop(img, (224, 224, 3))

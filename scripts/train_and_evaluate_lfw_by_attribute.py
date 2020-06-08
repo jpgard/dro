@@ -37,7 +37,8 @@ do
             --anno_fp $ANNO_FP \
             --epochs 40 \
             --train_subset $TRAIN_SUBSET \
-            --experiment_uid $TRAIN_SUBSET
+            --experiment_uid ${TRAIN_SUBSET}_EQUAL_SUBGROUP_N
+            --equalize_subgroup_n
     done
     echo ""
 done

@@ -116,6 +116,10 @@ def define_eval_flags():
                        ">= this threshold are used ("
                        "predictions are centered around zero) "
                        "in order to ensure high-quality labels.")
+    flags.DEFINE_bool("equalize_subgroup_n", False,
+                      "If true, make the subsamples for the majority and minority "
+                      "groups the same size by downsampling to the smaller subsample "
+                      "size.")
     return
 
 
@@ -163,6 +167,7 @@ def extract_dataset_making_parameters_from_flags(flags, write_samples: bool, tes
         slice_attribute_name=flags.slice_attribute_name,
         confidence_threshold=flags.confidence_threshold,
         img_shape=get_model_img_shape_from_flags(flags),
-        batch_size=flags.batch_size, write_samples=write_samples
+        batch_size=flags.batch_size, write_samples=write_samples,
+        equalize_subgroup_n=flags.equalize_subgroup_n
     )
     return make_datasets_parameters

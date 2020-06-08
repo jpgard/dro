@@ -58,7 +58,8 @@ def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):
     anno_df["Mouth_Open"] = 1 - anno_df["Mouth Closed"]
     # Read the files, dropping any images which cannot be parsed
     files = glob.glob(test_dir + filepattern, recursive=True)
-    assert len(files) > 0, "no files detected with pattern {}".format(test_dir + filepattern)
+    assert len(files) > 0, "no files detected with pattern {}".format(
+        test_dir + filepattern)
     files_df = pd.DataFrame(files, columns=['filename'])
     files_df['person'] = files_df['filename'].apply(extract_person_from_filename)
     files_df['imagenum_str'] = files_df['filename'].apply(extract_imagenum_from_filename)
@@ -69,6 +70,7 @@ def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):
                                                                                test_dir)
     return annotated_files
 
+
 def make_lfw_file_pattern(dirname):
     return osp.join(dirname, "*/*.jpg")
 
@@ -76,6 +78,7 @@ def make_lfw_file_pattern(dirname):
 def make_pos_and_neg_attr_datasets(anno_fp, data_dir, label_name,
                                    slice_attribute_name,
                                    confidence_threshold, img_shape, batch_size,
+                                   equalize_subgroup_n,
                                    write_samples=True, include_union=False,
                                    preprocessing_kwargs=None
                                    ):
@@ -130,15 +133,23 @@ def make_pos_and_neg_attr_datasets(anno_fp, data_dir, label_name,
     # Break the input dataset into separate tf.Datasets based on the value of the slice
     # attribute.
 
+    pos_attr_df = dset_df[dset_df[ATTR_COLNAME] == 1]
+    neg_attr_df = dset_df[dset_df[ATTR_COLNAME] == 0]
+
+    if equalize_subgroup_n: # Downsample to the size of the smaller subset data
+        n = min(len(pos_attr_df), len(neg_attr_df))
+        pos_attr_df = pos_attr_df.sample(n=n, replace=False)
+        neg_attr_df = neg_attr_df.sample(n=n, replace=False)
+
     # Create and preprocess the dataset of examples where ATTR_COLNAME == 1
     dset_attr_pos = ImageDataset(img_shape)
-    dset_attr_pos.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 1],
+    dset_attr_pos.from_dataframe(pos_attr_df,
                                  label_name=LABEL_COLNAME)
     dset_attr_pos.preprocess(**preprocessing_kwargs)
 
     # Create and process the dataset of examples where ATTR_COLNAME == 1
     dset_attr_neg = ImageDataset(img_shape)
-    dset_attr_neg.from_dataframe(dset_df[dset_df[ATTR_COLNAME] == 0],
+    dset_attr_neg.from_dataframe(neg_attr_df,
                                  label_name=LABEL_COLNAME)
     dset_attr_neg.preprocess(**preprocessing_kwargs)
 
@@ -170,7 +181,7 @@ def make_pos_and_neg_attr_datasets(anno_fp, data_dir, label_name,
 def extract_dataset_making_parameters(
         anno_fp: str, data_dir: str, label_name: str,
         slice_attribute_name: str, confidence_threshold: float, img_shape: tuple,
-        batch_size: int, write_samples: bool):
+        batch_size: int, write_samples: bool, equalize_subgroup_n: bool):
     make_datasets_parameters = {
         "anno_fp": anno_fp,
         "data_dir": data_dir,
@@ -179,6 +190,7 @@ def extract_dataset_making_parameters(
         "confidence_threshold": confidence_threshold,
         "img_shape": img_shape,
         "batch_size": batch_size,
-        "write_samples": write_samples
+        "write_samples": write_samples,
+        "equalize_subgroup_n": equalize_subgroup_n
     }
     return make_datasets_parameters

@@ -10,7 +10,7 @@ import tensorflow as tf
 import neural_structured_learning as nsl
 from tensorflow import keras
 
-from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
+from tensorflow.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
 from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
     FalsePositives, FalseNegatives
 

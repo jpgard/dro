@@ -55,7 +55,7 @@ def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):
     anno_df['imagenum_str'] = anno_df['imagenum'].apply(lambda x: f'{x:04}')
     anno_df['person'] = anno_df['person'].apply(lambda x: x.replace(" ", "_"))
     anno_df.set_index(['person', 'imagenum_str'], inplace=True)
-    anno_df["Mouth_Open"] = 1 - anno_df["Mouth Closed"]
+    anno_df["Mouth_Open"] = 1 - anno_df["Mouth_Closed"]
     # Read the files, dropping any images which cannot be parsed
     files = glob.glob(test_dir + filepattern, recursive=True)
     assert len(files) > 0, "no files detected with pattern {}".format(

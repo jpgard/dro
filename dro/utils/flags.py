@@ -1,8 +1,9 @@
+import tensorflow as tf
 from absl import flags
 import json
 
 from dro.utils.lfw import extract_dataset_making_parameters
-from dro.utils.training_utils import get_model_img_shape_from_flags
+from dro.training.training_utils import get_model_img_shape_from_flags
 
 FLAGS = flags.FLAGS
 
@@ -171,3 +172,17 @@ def extract_dataset_making_parameters_from_flags(flags, write_samples: bool, tes
         equalize_subgroup_n=flags.equalize_subgroup_n
     )
     return make_datasets_parameters
+
+
+def get_model_compile_args(flags, loss, metrics_to_add: list = None):
+    """Builds a dict of the args for compilation containing callables for loss and
+    metrics. Accuracy is added by default; other metrics can also be added."""
+    metrics = ['accuracy']
+    if metrics_to_add:
+        metrics.extend(metrics_to_add)
+    compile_args = {
+        "optimizer": tf.keras.optimizers.SGD(learning_rate=flags.learning_rate),
+        "loss": loss,
+        "metrics": metrics
+    }
+    return compile_args

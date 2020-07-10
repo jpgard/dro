@@ -1,5 +1,5 @@
-from collections import defaultdict
 import glob
+from collections import defaultdict
 from itertools import islice
 import json
 import os
@@ -7,14 +7,8 @@ import os
 import pandas as pd
 import numpy as np
 import tensorflow as tf
-import neural_structured_learning as nsl
-from tensorflow import keras
 
-from tensorflow_core.python.keras.callbacks import TensorBoard, CSVLogger, ModelCheckpoint
-from tensorflow.keras.metrics import AUC, TruePositives, TrueNegatives, \
-    FalsePositives, FalseNegatives
-
-from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME, ACC, CE, TEST_MODE, TRAIN_MODE
+from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME, TEST_MODE, TRAIN_MODE
 from dro import keys
 from dro.training.models import vggface2_model, facenet_model
 
@@ -48,48 +42,12 @@ def make_csv_name(uid, mode):
     return "./metrics/{}-vggface2-{}.log".format(uid, mode)
 
 
-def cross_entropy_sigma(y_true, y_pred):
-    """Custom metric to compute the standard deviation of the loss."""
-    loss_object = tf.keras.losses.CategoricalCrossentropy()
-    element_wise_loss = loss_object(y_true=y_true, y_pred=y_pred)
-    loss_std = tf.math.reduce_std(element_wise_loss)
-    return loss_std
-
-
-def cross_entropy_max(y_true, y_pred):
-    loss_object = tf.keras.losses.CategoricalCrossentropy()
-    element_wise_loss = loss_object(y_true=y_true, y_pred=y_pred)
-    loss_max = tf.math.reduce_max(element_wise_loss)
-    return loss_max
-
-
-def get_train_metrics():
-    """Fetch an OrderedDict of train metrics."""
-    train_metrics_dict = {ACC: ACC,
-                          'auc': AUC(name='auc'),
-                          'tp': TruePositives(name='tp'),
-                          'fp': FalsePositives(name='fp'),
-                          'tn': TrueNegatives(name='tn'),
-                          'fn': FalseNegatives(name='fn'),
-                          CE: tf.keras.losses.CategoricalCrossentropy(),
-                          'sigma_ce': cross_entropy_sigma,
-                          'max_ce': cross_entropy_max
-                          }
-    return train_metrics_dict
-
-
 def write_test_metrics_to_csv(metrics, flags, is_adversarial):
     """Write a dict of {metric_name: metric_value} pairs to CSV."""
     uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
     csv_fp = make_csv_name(uid, TEST_MODE)
     print("[INFO] writing test metrics to {}".format(csv_fp))
     pd.DataFrame.from_dict(metrics, orient='index').T.to_csv(csv_fp, index=False)
-
-
-def make_csv_callback(flags, is_adversarial: bool):
-    callback_uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
-    csv_fp = make_csv_name(callback_uid, mode=TRAIN_MODE)
-    return CSVLogger(csv_fp)
 
 
 def make_logdir(flags, uid):
@@ -112,28 +70,6 @@ def make_ckpt_filepath_from_flags(flags, is_adversarial: bool, ext: str = ".h5")
     logdir = make_logdir(flags, uid)
     ckpt_filepath = make_ckpt_filepath(ext=ext, uid=uid, logdir=logdir)
     return ckpt_filepath
-
-
-def make_callbacks(flags, is_adversarial: bool):
-    """Create the callbacks for training, including properly naming files."""
-    callback_uid = make_model_uid_from_flags(flags, is_adversarial=is_adversarial)
-    logdir = make_logdir(flags, callback_uid)
-    tensorboard_callback = TensorBoard(
-        log_dir=logdir,
-        batch_size=flags.batch_size,
-        write_graph=True,
-        write_grads=True,
-        update_freq='epoch')
-    csv_callback = make_csv_callback(flags, is_adversarial)
-    ckpt_fp = make_ckpt_filepath_from_flags(flags, is_adversarial=is_adversarial)
-    ckpt_callback = ModelCheckpoint(ckpt_fp,
-                                    monitor='val_loss',
-                                    save_best_only=True,
-                                    save_weights_only=False,
-                                    save_freq='epoch',
-                                    verbose=1,
-                                    mode='auto')
-    return [tensorboard_callback, csv_callback, ckpt_callback]
 
 
 def make_model_uid(label_name: str, model_type: str, batch_size: int, epochs: int,
@@ -185,63 +121,6 @@ def make_model_uid_from_flags(flags, is_adversarial=False):
     return uid
 
 
-def metrics_to_dict(metrics):
-    """Convert metrics to a dictionary of key:float pairs."""
-    results = defaultdict(dict)
-    for model_name, metrics_list in metrics.items():
-        for metric in metrics_list:
-            res = metric.result().numpy()
-            results[model_name][metric.name] = res
-    return results
-
-
-def perturb_and_evaluate(test_ds_adv, models_to_eval, reference_model):
-    """Perturbs the entire test set using adversarial training and computes metrics
-    over that set.
-
-    :returns: A tuple for four elements: a Tensor of the perturbed images; a List of
-    the labels; a List of the predictions for the models; and a nested dict of
-    per-model metrics.
-    """
-    print("[INFO] perturbing images and evaluating models on perturbed data...")
-    perturbed_images, labels, predictions = [], [], []
-
-    # TODO(jpgard): implement additional metrics as tf.keras.Metric subclasses; see
-    #  https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/keras/metrics/Metric
-
-    metrics = {model_name: [tf.keras.metrics.SparseCategoricalAccuracy(name=ACC),
-                            tf.keras.metrics.SparseCategoricalCrossentropy(name=CE),
-                            ]
-               for model_name in models_to_eval.keys()
-               }
-    for batch in test_ds_adv:
-        perturbed_batch = reference_model.perturb_on_batch(batch)
-        # Clipping makes perturbed examples have the same range as regular ones.
-        perturbed_batch[IMAGE_INPUT_NAME] = tf.clip_by_value(
-            perturbed_batch[IMAGE_INPUT_NAME], 0.0, 1.0)
-        y_true = tf.argmax(perturbed_batch.pop(LABEL_INPUT_NAME), axis=-1)
-        perturbed_images.append(perturbed_batch[IMAGE_INPUT_NAME].numpy())
-        labels.append(y_true.numpy())
-        predictions.append({})
-        for model_name, model in models_to_eval.items():
-            y_pred = model(perturbed_batch)
-            predictions[-1][model_name] = tf.argmax(y_pred, axis=-1).numpy()
-            for i in range(len(metrics[model_name])):
-                metrics[model_name][i](y_true, y_pred)
-    print("[INFO] perturbation evaluation complete.")
-    metrics = metrics_to_dict(metrics)
-    return perturbed_images, labels, predictions, metrics
-
-
-def make_compiled_reference_model(model_base, adv_config, model_compile_args):
-    reference_model = nsl.keras.AdversarialRegularization(
-        model_base,
-        label_keys=[LABEL_INPUT_NAME],
-        adv_config=adv_config)
-    reference_model.compile(**model_compile_args)
-    return reference_model
-
-
 def convert_to_dictionaries(image, label):
     """Convert a set of x,y tuples to a dict for use in adversarial training."""
     return {IMAGE_INPUT_NAME: image, LABEL_INPUT_NAME: label}
@@ -258,11 +137,6 @@ def add_keys_to_dict(input_dict, **kwargs):
     for k, v in kwargs.items():
         input_dict[k] = v
     return input_dict
-
-
-def add_adversarial_metric_names_to_list(metrics_list):
-    """The adversarial training has different metrics -- add these to metrics_list."""
-    return ["total_combined_loss", ] + metrics_list + ["adversarial_loss", ]
 
 
 def get_n_from_file_pattern(file_pattern):
@@ -283,7 +157,7 @@ def steps_per_epoch(n, batch_size, debug=False):
         return n // batch_size
 
 
-def load_model_weights_from_flags(model: keras.Model, flags, is_adversarial: bool):
+def load_model_weights_from_flags(model, flags, is_adversarial: bool):
     """Load weights for a pretrained model, either from a manually-specified checkpoint 
     or from the default path."""
     if is_adversarial:
@@ -330,15 +204,11 @@ def get_model_img_shape_from_flags(flags):
             flags.model_type))
 
 
-def get_model_compile_args(flags, loss, metrics_to_add: list = None):
-    """Builds a dict of the args for compilation containing callables for loss and
-    metrics. Accuracy is added by default; other metrics can also be added."""
-    metrics = ['accuracy']
-    if metrics_to_add:
-        metrics.extend(metrics_to_add)
-    compile_args = {
-        "optimizer": tf.keras.optimizers.SGD(learning_rate=flags.learning_rate),
-        "loss": loss,
-        "metrics": metrics
-    }
-    return compile_args
+def metrics_to_dict(metrics):
+    """Convert metrics to a dictionary of key:float pairs."""
+    results = defaultdict(dict)
+    for model_name, metrics_list in metrics.items():
+        for metric in metrics_list:
+            res = metric.result().numpy()
+            results[model_name][metric.name] = res
+    return results

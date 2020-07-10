@@ -1,8 +1,7 @@
 """
 Classes for working with datasets.
 """
-from abc import ABC, abstractmethod
-import os
+from abc import ABC
 from functools import partial
 
 import tensorflow as tf
@@ -11,7 +10,7 @@ import numpy as np
 
 from dro.keys import SHUFFLE_RANDOM_SEED
 from dro.utils.viz import show_batch
-from dro.utils.training_utils import convert_to_dictionaries
+from dro.training.training_utils import convert_to_dictionaries
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 DEFAULT_IMG_OUTPUT_SHAPE = (224, 224)  # Default (height, width) of the images, in pixels.

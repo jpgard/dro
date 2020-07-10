@@ -6,7 +6,7 @@ from os import path as osp
 import pandas as pd
 
 from dro.keys import FILENAME_COLNAME
-from dro.utils.training_utils import pred_to_binary
+from dro.training.training_utils import pred_to_binary
 from dro.utils.viz import show_batch
 
 LFW_FILENAME_REGEX = re.compile("(\D+)_(\d{4})\.jpg")

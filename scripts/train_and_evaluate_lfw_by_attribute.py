@@ -55,14 +55,14 @@ from absl import flags
 import pandas as pd
 import tensorflow as tf
 
-from dro import keys
-from dro.utils.training_utils import make_callbacks, get_train_metrics, \
-    make_model_uid_from_flags
+from dro.training.training_utils import make_model_uid_from_flags
+from dro.training.metrics import get_train_metrics
+from dro.training.callbacks import make_callbacks
 
 from dro.utils.lfw import make_pos_and_neg_attr_datasets
 from dro.utils.flags import define_training_flags, define_eval_flags, \
-    extract_dataset_making_parameters_from_flags
-from dro.utils.training_utils import get_model_compile_args, get_model_from_flags
+    extract_dataset_making_parameters_from_flags, get_model_compile_args
+from dro.training.training_utils import get_model_from_flags
 
 tf.compat.v1.enable_eager_execution()
 

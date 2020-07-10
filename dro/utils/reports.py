@@ -2,7 +2,7 @@ import os.path as osp
 import pandas as pd
 
 from dro import keys
-from dro.utils.training_utils import make_model_uid_from_flags
+from dro.training.training_utils import make_model_uid_from_flags
 
 
 def _dict_to_row(d):

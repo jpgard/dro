@@ -37,11 +37,13 @@ import tensorflow as tf
 
 from dro.keys import LABEL_INPUT_NAME
 from dro.training.models import vggface2_model
-from dro.utils.training_utils import make_callbacks, \
-    write_test_metrics_to_csv, get_train_metrics, make_model_uid_from_flags, \
-    add_adversarial_metric_names_to_list, get_n_from_file_pattern, \
+from dro.training.training_utils import write_test_metrics_to_csv, \
+    make_model_uid_from_flags, \
+    get_n_from_file_pattern, \
     compute_n_train_n_val, \
     steps_per_epoch, load_model_weights_from_flags
+from dro.training.metrics import get_train_metrics, add_adversarial_metric_names_to_list
+from dro.training.callbacks import make_callbacks
 from dro.datasets import ImageDataset
 from dro.utils.vggface import get_key_from_fp, make_annotations_df, image_uid_from_fp, \
     make_vgg_file_pattern

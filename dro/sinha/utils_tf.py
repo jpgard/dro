@@ -7,7 +7,6 @@ from __future__ import unicode_literals
 
 import keras
 import math
-import numpy as np
 import os
 import six
 import tensorflow as tf
@@ -15,8 +14,7 @@ import time
 import warnings
 
 from dro.sinha.utils import _ArgsWrapper, batch_indices
-from dro.utils.training_utils import get_batch
-from dro import keys
+from dro.training.training_utils import get_batch
 
 from tensorflow.python.platform import flags
 

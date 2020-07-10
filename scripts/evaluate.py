@@ -31,7 +31,6 @@ done
 
 from absl import app, flags
 from collections import OrderedDict
-import json
 import os
 
 import tensorflow as tf
@@ -39,17 +38,15 @@ import pandas as pd
 
 from dro.utils.evaluation import ADV_STEP_SIZE_GRID
 from dro.utils.lfw import make_pos_and_neg_attr_datasets
-from dro.utils.training_utils import add_keys_to_dict
+from dro.training.training_utils import add_keys_to_dict
 from dro.training.models import vggface2_model
 import neural_structured_learning as nsl
 from dro.keys import LABEL_INPUT_NAME, ADV_MODEL, BASE_MODEL, \
     ADV_DATA, CLEAN_DATA
-from dro.utils.training_utils import get_train_metrics, \
-    add_adversarial_metric_names_to_list
-from dro.utils.training_utils import make_ckpt_filepath_from_flags
-from dro.utils.training_utils import perturb_and_evaluate, \
-    make_compiled_reference_model, load_model_weights_from_flags
-from dro.utils.training_utils import make_model_uid_from_flags
+from dro.training.metrics import get_train_metrics, add_adversarial_metric_names_to_list
+from dro.training.training_utils import load_model_weights_from_flags
+from dro.training.adversarial import perturb_and_evaluate, make_compiled_reference_model
+from dro.training.training_utils import make_model_uid_from_flags
 from dro.utils.viz import show_adversarial_resuts
 from dro.utils.flags import define_training_flags, define_eval_flags, \
     define_adv_training_flags, get_attack_params, \

@@ -5,8 +5,6 @@ from os import path as osp
 
 import pandas as pd
 
-# Regex used to parse the LFW filenames
-from dro.datasets import ImageDataset
 from dro.keys import FILENAME_COLNAME
 from dro.utils.training_utils import pred_to_binary
 from dro.utils.viz import show_batch
@@ -107,6 +105,7 @@ def make_pos_and_neg_attr_datasets(anno_fp, data_dir, label_name,
     allows for evaluation on the same high-confidence subset of minority + majority
     inputs instead of using the entire dataset.
     """
+    from dro.datasets import ImageDataset
     if preprocessing_kwargs is None:
         preprocessing_kwargs = {"shuffle": False, "repeat_forever": False, "batch_size":
             batch_size}

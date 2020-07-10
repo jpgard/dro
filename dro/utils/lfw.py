@@ -42,6 +42,15 @@ def apply_thresh(df, colname, thresh: float, use_abs=True):
     else:
         return df[df[colname] >= thresh]
 
+def get_anno_df(anno_fp):
+    """Fetch the dataframe of annotations and apply some preprocessing."""
+    anno_df = pd.read_csv(anno_fp, delimiter="\t")
+    anno_df['imagenum_str'] = anno_df['imagenum'].apply(lambda x: f'{x:04}')
+    anno_df['person'] = anno_df['person'].apply(lambda x: x.replace(" ", "_"))
+    anno_df.set_index(['person', 'imagenum_str'], inplace=True)
+    anno_df["Mouth_Open"] = 1 - anno_df["Mouth_Closed"]
+    return anno_df
+
 
 def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):
     """Fetch and preprocess the dataframe of LFW annotations and their corresponding
@@ -50,12 +59,7 @@ def get_annotated_data_df(anno_fp, test_dir, filepattern="/*/*.jpg"):
     Returns: A pd.DataFrame indexed by person_id and image_num, with columns for each
     attribute.
     """
-    # get the annotated files
-    anno_df = pd.read_csv(anno_fp, delimiter="\t")
-    anno_df['imagenum_str'] = anno_df['imagenum'].apply(lambda x: f'{x:04}')
-    anno_df['person'] = anno_df['person'].apply(lambda x: x.replace(" ", "_"))
-    anno_df.set_index(['person', 'imagenum_str'], inplace=True)
-    anno_df["Mouth_Open"] = 1 - anno_df["Mouth_Closed"]
+    anno_df = get_anno_df(anno_fp)
     # Read the files, dropping any images which cannot be parsed
     files = glob.glob(test_dir + filepattern, recursive=True)
     assert len(files) > 0, "no files detected with pattern {}".format(

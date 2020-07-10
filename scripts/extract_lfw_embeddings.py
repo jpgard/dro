@@ -18,8 +18,7 @@ import pandas as pd
 import numpy as np
 
 from dro.datasets import process_path, preprocess_dataset
-from dro.training.training_utils import get_model_img_shape_from_flags
-from dro.utils.flags import define_training_flags
+from dro.utils.flags import define_training_flags, get_model_img_shape_from_flags
 from dro.utils.lfw import make_lfw_file_pattern
 from dro.training.models import facenet_model
 

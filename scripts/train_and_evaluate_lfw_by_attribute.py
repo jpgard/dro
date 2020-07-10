@@ -61,8 +61,8 @@ from dro.training.callbacks import make_callbacks
 
 from dro.utils.lfw import make_pos_and_neg_attr_datasets
 from dro.utils.flags import define_training_flags, define_eval_flags, \
-    extract_dataset_making_parameters_from_flags, get_model_compile_args
-from dro.training.training_utils import get_model_from_flags
+    extract_dataset_making_parameters_from_flags, get_model_compile_args, \
+    get_model_from_flags
 
 tf.compat.v1.enable_eager_execution()
 

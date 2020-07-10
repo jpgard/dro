@@ -9,8 +9,6 @@ import numpy as np
 import tensorflow as tf
 
 from dro.keys import IMAGE_INPUT_NAME, LABEL_INPUT_NAME, TEST_MODE, TRAIN_MODE
-from dro import keys
-from dro.training.models import vggface2_model, facenet_model
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
@@ -175,33 +173,6 @@ def load_model_weights_from_flags(model, flags, is_adversarial: bool):
         print("[INFO] loading weights from{}".format(filepath))
         model.load_weights(filepath=filepath)
     return
-
-
-def get_model_from_flags(flags):
-    """Parse the flags to construct a model of the appropriate type with the specified
-    architecture and hyperparameters. Note that the results of this function call do
-    not depend on the label type; this only returns a Model object without weights."""
-    if flags.model_type == keys.VGGFACE_2_MODEL:
-        model = vggface2_model(dropout_rate=flags.dropout_rate,
-                               activation=flags.model_activation)
-    elif flags.model_type == keys.FACENET_MODEL:
-        model = facenet_model(dropout_rate=flags.dropout_rate,
-                              activation=flags.model_activation)
-    else:
-        raise NotImplementedError("The model type {} has not been implemented".format(
-            flags.model_type))
-    return model
-
-
-def get_model_img_shape_from_flags(flags):
-    """Fetch the (height, width) of the default model image shape."""
-    if flags.model_type == keys.VGGFACE_2_MODEL:
-        return keys.VGGFACE_2_IMG_SHAPE
-    elif flags.model_type == keys.FACENET_MODEL:
-        return keys.FACENET_IMG_SHAPE
-    else:
-        raise NotImplementedError("The model type {} has not been implemented".format(
-            flags.model_type))
 
 
 def metrics_to_dict(metrics):

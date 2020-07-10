@@ -91,12 +91,11 @@ from absl import flags
 
 from dro.utils.reports import Report
 from dro.training.training_utils import get_n_from_file_pattern, \
-    compute_n_train_n_val, steps_per_epoch, get_model_from_flags, \
-    get_model_img_shape_from_flags
+    compute_n_train_n_val, steps_per_epoch
 from dro.training.callbacks import make_callbacks
 from dro.datasets import ImageDataset
 from dro.utils.flags import define_training_flags, define_adv_training_flags, \
-    get_model_compile_args
+    get_model_compile_args, get_model_from_flags, get_model_img_shape_from_flags
 from dro.utils.cleverhans import get_attack, get_adversarial_acc_metric, \
     get_adversarial_loss, attack_params_from_flags
 from dro import keys

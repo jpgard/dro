@@ -10,6 +10,5 @@ from tensorflow.python.keras.saving.save import load_model
 
 def load_facenet_model():
     cwd, _ = osp.split(__file__)
-    facenet = load_model(osp.join(cwd, "facenet", "facenet_keras.h5"),
-                         compile=False)
+    facenet = load_model("facenet_keras.h5", compile=False)
     return facenet

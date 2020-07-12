@@ -1,12 +1,9 @@
-import os.path as osp
-
-import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Flatten, Dense, MaxPool2D, Dropout
 from tensorflow.keras import Sequential
-from tensorflow.keras.models import load_model
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Flatten, Dense, Input, Activation, Dropout
+from tensorflow.keras.layers import Flatten, Dense, Activation, Dropout
 from keras_vggface.vggface import VGGFace
+
+from dro.training.facenet import load_facenet_model
 
 FC_SIZES = [4096, 256, 2]
 
@@ -72,9 +69,7 @@ def facenet_model(dropout_rate, activation='sigmoid', fc_sizes=FC_SIZES):
     the specified number of nodes are added. Otherwise, the facenet model is returned
     as-is.
     """
-    cwd, _ = osp.split(__file__)
-    facenet = load_model(osp.join(cwd, "facenet", "facenet_keras.h5"),
-                              compile=False)
+    facenet = load_facenet_model()
     for layer in facenet.layers:
         layer.trainable = False
     last_layer_name = facenet.layers[-1].name
